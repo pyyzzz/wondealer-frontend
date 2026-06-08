@@ -1,70 +1,122 @@
-# Getting Started with Create React App
+# 원딜러 (WonDealer) 프론트엔드
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+게임 아이템 거래 + 실시간 경매 플랫폼
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## 시작하기
 
-### `yarn start`
+### 1. 클론 및 패키지 설치
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```bash
+git clone https://github.com/pyyzzz/wondealer-frontend.git
+cd wondealer-frontend
+yarn install
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### 2. 환경 변수 설정
 
-### `yarn test`
+팀장에게 `.env` 파일을 받아서 프로젝트 루트에 추가
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```
+wondealer-frontend/
+  .env  ← 여기에 위치
+```
 
-### `yarn build`
+### 3. 백엔드 서버 실행 확인
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+프론트 실행 전 백엔드 서버가 `http://localhost:8111` 에서 실행 중인지 확인
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### 4. 개발 서버 실행
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```bash
+yarn start
+```
 
-### `yarn eject`
+브라우저에서 `http://localhost:3000`
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+---
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## 폴더 구조
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```
+src/
+  api/            ← API 호출 함수 (도메인별 분리)
+  context/        ← 전역 상태 (Auth, Theme)
+  utils/          ← 공통 유틸 (Common.js)
+  styles/         ← 전역 스타일 (GlobalStyle, theme)
+  components/     ← 공통 컴포넌트 (Navbar, Footer, PrivateRoute)
+  hooks/          ← 커스텀 훅 (useWebSocket)
+  pages/          ← 페이지 컴포넌트 (도메인별 폴더)
+    auth/
+    main/
+    item/
+    auction/
+    mypage/
+    payment/
+    chat/
+    admin/
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+---
 
-## Learn More
+## 브랜치 전략
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```
+main  ← 배포용 (직접 커밋 금지)
+  └── dev  ← 개발 기준점
+        └── feature/이름-기능명  ← 개인 작업 브랜치
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### 작업 순서
 
-### Code Splitting
+```bash
+# 1. dev 브랜치에서 내 브랜치 생성
+git checkout dev
+git pull origin dev
+git checkout -b feature/홍길동-auction
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+# 2. 작업 후 커밋
+git add .
+git commit -m "feat: 경매 목록 페이지 구현"
 
-### Analyzing the Bundle Size
+# 3. GitHub에 push 후 dev로 PR 요청
+git push origin feature/홍길동-auction
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+---
 
-### Making a Progressive Web App
+## 기술 스택
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+| 기술              | 용도                       |
+| ----------------- | -------------------------- |
+| React             | UI 라이브러리              |
+| styled-components | CSS-in-JS 스타일링         |
+| axios             | HTTP 요청                  |
+| react-router-dom  | 라우팅                     |
+| @stomp/stompjs    | WebSocket STOMP 클라이언트 |
+| sockjs-client     | SockJS fallback            |
 
-### Advanced Configuration
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## 백엔드 API 주소
 
-### Deployment
+`src/utils/Common.js` 의 `API_URL` 참고
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+```js
+API_URL: "http://localhost:8111";
+```
 
-### `yarn build` fails to minify
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## WebSocket (STOMP) 사용법
+
+경매 실시간 입찰, 채팅에서 사용.  
+`src/hooks/useWebSocket.js` 참고.
+
+```
+연결 엔드포인트: ws://localhost:8111/ws
+경매 구독: /topic/auction/{auctionId}
+채팅 구독: /topic/chat/{chatRoomId}
+메시지 전송: /app/auction/{auctionId}/bid
+```
