@@ -4,11 +4,17 @@ import styled from "styled-components";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 
+import walletIcon from "../img/walletIcon.svg";
+import chatIcon from "../img/chatIcon.svg";
+import logo from "../img/logo.svg";
+import sun from "../img/sun.svg";
+import moon from "../img/moon.svg";
+
 const Navbar = () => {
   const { isLoggedIn, user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const { theme, toggleTheme } = useTheme(); // ThemeContext에서 테마 가져옴
+  const { theme, setTheme } = useTheme(); // ThemeContext에서 테마 가져옴
 
   const [searchKeyword, setSearchKeyword] = useState(""); // 네비바 검색어 입력
 
@@ -34,7 +40,9 @@ const Navbar = () => {
     <Nav>
       <LeftGroup>
         {/* 로고 */}
-        <Logo onClick={() => navigate("/")}>WONDEALER</Logo>
+        <Logo onClick={() => navigate("/")}>
+          <LogoImg src={logo} alt="WONDEALER" />
+        </Logo>
         {/* 판매/경매 등록 버튼 */}
         <MenuButton onClick={() => navigate("/items/new")}>판매등록</MenuButton>
         <MenuButton onClick={() => navigate("/auctions/new")}>
@@ -58,13 +66,25 @@ const Navbar = () => {
         </SearchBar>
 
         {/* 아이콘 메뉴 */}
-        <IconButton onClick={() => navigate("/mypage/wallet")}>💰</IconButton>
-        <IconButton onClick={() => navigate("/chat")}>💬</IconButton>
-        <IconButton onClick={toggleTheme}>
-          {" "}
-          {theme === "dark" ? "☀️" : "🌙"}
+        <IconButton onClick={() => navigate("/mypage/wallet")}>
+          <IconImg src={walletIcon} alt="지갑" />
         </IconButton>
 
+        <IconButton onClick={() => navigate("/chat")}>
+          <IconImg src={chatIcon} alt="채팅" />
+        </IconButton>
+
+        <ThemeSwitcher>
+          {/* 왼쪽: 달 아이콘 (클릭 시 다크 모드로 변경) */}
+          <IconButton onClick={() => setTheme("dark")}>
+            <IconImg src={moon} alt="다크 모드" />
+          </IconButton>
+          <Separator>|</Separator>
+          {/* 오른쪽: 해 아이콘 (클릭 시 라이트 모드로 변경) */}
+          <IconButton onClick={() => setTheme("light")}>
+            <IconImg src={sun} alt="라이트 모드" />
+          </IconButton>
+        </ThemeSwitcher>
         {isLoggedIn ? (
           <UserMenuContainer>
             <NicknameButton onClick={() => setIsMenuOpen(!isMenuOpen)}>
@@ -143,16 +163,41 @@ const RightGroup = styled.div`
 `;
 
 const Logo = styled.div`
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--color-primary);
   cursor: pointer;
-  letter-spacing: -0.02em;
-  margin-right: 8px;
+  margin-right: -15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  @media (max-width: 768px) {
+    margin-right: -25px;
+  }
 
   @media (max-width: 580px) {
-    font-size: 16px;
     margin-right: 0;
+  }
+`;
+
+const LogoImg = styled.img`
+  height: 90px;
+  width: 220px;
+  flex-shrink: 0;
+  object-fit: contain;
+
+  filter: none !important;
+
+  margin-left: -25px;
+
+  @media (max-width: 768px) {
+    width: 180px;
+    height: 80px;
+    margin-left: -20px;
+  }
+
+  @media (max-width: 580px) {
+    width: 140px;
+    height: 60px;
+    margin-left: -15px;
   }
 `;
 
@@ -197,59 +242,52 @@ const SearchBar = styled.div`
   display: flex;
   align-items: center;
   background-color: #ffffff;
-  border: 1px solid #dcdcdc;
-  border-radius: 8px;
-  padding: 0 12px;
-  width: 240px;
-  height: 36px;
-  margin-right: 12px;
+  border-radius: 30px;
+  padding: 4px 4px 4px 20px;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 260px;
+  height: 38px;
 
   @media (max-width: 768px) {
-    width: 180px;
-    margin-right: 4px;
-    padding: 0 8px;
+    width: 200px;
   }
   @media (max-width: 580px) {
-    width: 110px;
+    display: none;
   }
 `;
 
 const SearchInput = styled.input`
   flex: 1;
-  background: none;
   border: none;
-  color: #333333;
+  background: none;
   font-size: 14px;
+  color: #121317;
   outline: none;
+  padding: 0;
+
   &::placeholder {
-    color: #999999;
-  }
-  @media (max-width: 768px) {
-    font-size: 13px;
+    color: #9aa0a6;
   }
 `;
 
 const SearchButton = styled.button`
-  background-color: #512bd4;
-  color: #ffffff;
-  font-size: 14px;
+  width: 30px;
+  height: 30px;
+  background-color: #6339f9;
   border: none;
-  border-radius: 6px;
-  width: 28px;
-  height: 28px;
+  border-radius: 50%;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  color: white;
+  font-size: 13px;
   cursor: pointer;
+  transition: transform 0.2s;
+  margin-left: 8px;
 
   &:hover {
-    background-color: #512bd4;
-  }
-
-  @media (max-width: 768px) {
-    width: 24px;
-    height: 24px;
-    font-size: 12px;
+    transform: scale(1.05);
   }
 `;
 
@@ -270,6 +308,28 @@ const NavButton = styled.button`
     font-size: 12px;
     padding: 6px 8px;
   }
+`;
+
+const IconImg = styled.img`
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  object-fit: contain;
+  display: block;
+`;
+
+const ThemeSwitcher = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const Separator = styled.span`
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 200;
+  margin: 0 2px; // 아이콘과의 좌우 여백
+  user-select: none;
 `;
 
 const SignUpButton = styled(NavButton)`

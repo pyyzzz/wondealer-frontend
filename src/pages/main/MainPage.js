@@ -150,6 +150,7 @@ const SearchButton = styled.button`
   &:hover {
     transform: scale(1.05);
   }
+
   // 반응형
   @media (max-width: 480px) {
     width: 36px;
