@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import heroBgImage from "../../img/HeroSection.jpg";
 import AxiosInstance from "../../api/AxiosInstance";
+import ItemApi from "../../api/item.api";
 
 const PageContainer = styled.div`
   // 페이지 전체를 감싸는 부분
@@ -541,7 +542,30 @@ const MainPage = () => {
       }
     };
 
-    fetchGameRankings(); // 위의 함수들 실행시킴
+    const fetchRecentItems = async () => {
+      try {
+        // ItemApi 명세 구조인 getItems 함수 사용 (최신 매물 5개 요청 예시)
+        const response = await ItemApi.getItems({ page: 0, size: 5 });
+
+        // 백엔드 반환 데이터 포맷 형태에 맞춰 분기 핸들링
+        if (response.data && response.data.success) {
+          setRecentItems(response.data.data);
+        } else if (Array.isArray(response.data)) {
+          setRecentItems(response.data);
+        }
+      } catch (error) {
+        console.error("최근 등록된 매물을 불러오지 못했습니다.", error);
+      }
+    };
+
+    const fetchAllData = async () => {
+      setIsLoading(true);
+      // 병렬 데이터 페칭 최적화
+      await Promise.all([fetchGameRankings(), fetchRecentItems()]);
+      setIsLoading(false);
+    };
+
+    fetchAllData(); // 위의 함수들 실행시킴
   }, []);
 
   // 최근 등록된 매물 카테고리의 등록시간 -분 전/ -시간 전
@@ -628,7 +652,6 @@ const MainPage = () => {
                 <GameIcon>🎮</GameIcon>
                 <GameContent>
                   <GameName>{game.gameName}</GameName> {/* 게임명 */}
-                  <GameGenre>{game.genre}</GameGenre> {/* 장르명 */}
                 </GameContent>
               </RankCard>
             ))}
@@ -659,13 +682,13 @@ const MainPage = () => {
             </thead>
             <tbody>
               {recentItems.map((item) => (
-                <tr key={item.id}>
+                <tr key={item.itemId}>
                   <td>
                     <ItemInfoCell>
                       <ItemImgPlaceholder>📦</ItemImgPlaceholder>
                       <div>
                         <ItemTitle>{item.title}</ItemTitle>
-                        <ItemGameCategory>{item.game}</ItemGameCategory>
+                        <ItemGameCategory>{item.gameName}</ItemGameCategory>
                       </div>
                     </ItemInfoCell>
                   </td>
@@ -675,7 +698,7 @@ const MainPage = () => {
                     {formatRelativeTime(item.createdAt)}
                   </td>
                   <td>
-                    <BuyButton onClick={() => handleBuyClick(item.id)}>
+                    <BuyButton onClick={() => handleBuyClick(item.itemId)}>
                       구매하기
                     </BuyButton>
                   </td>
