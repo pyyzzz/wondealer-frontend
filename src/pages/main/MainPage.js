@@ -11,6 +11,10 @@ const PageContainer = styled.div`
   background-color: var(--bg-primary);
   color: var(--text-primary);
   padding-bottom: 80px;
+  // 반응형
+  @media (max-width: 768px) {
+    padding-bottom: 40px;
+  }
 `;
 
 // 히어로 섹션 (배경 이미지 영역)
@@ -23,6 +27,13 @@ const HeroSection = styled.div`
   align-items: center;
   text-align: center;
   overflow: hidden;
+  // 반응형
+  @media (max-width: 768px) {
+    height: 460px;
+  }
+  @media (max-width: 480px) {
+    height: 380px;
+  }
 
   &::before {
     content: "";
@@ -67,6 +78,13 @@ const MainTitle = styled.h1`
   line-height: 1.3;
   margin-top: 12px;
   letter-spacing: -0.5px;
+  // 반응형
+  @media (max-width: 768px) {
+    font-size: 32px;
+  }
+  @media (max-width: 480px) {
+    font-size: 26px;
+  }
 `;
 
 // 배너 텍스트(믿을 수 있는 거래~)
@@ -75,6 +93,12 @@ const Description = styled.p`
   color: var(--text-secondary);
   margin-top: 16px;
   opacity: 0.8;
+
+  // 반응형
+  @media (max-width: 480px) {
+    font-size: 13px;
+    margin-top: 10px;
+  }
 `;
 
 // 배너 검색창 테두리
@@ -86,6 +110,12 @@ const SearchWrapper = styled.div`
   padding: 6px 6px 6px 24px;
   margin-top: 32px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+
+  // 반응형
+  @media (max-width: 480px) {
+    margin-top: 24px;
+    padding: 4px 4px 4px 16px;
+  }
 `;
 
 // 배너 검색창 입력 부분
@@ -97,6 +127,10 @@ const SearchInput = styled.input`
   color: #121317;
   &::placeholder {
     color: #9aa0a6;
+  }
+  // 반응형
+  @media (max-width: 480px) {
+    font-size: 14px;
   }
 `;
 
@@ -115,6 +149,12 @@ const SearchButton = styled.button`
   &:hover {
     transform: scale(1.05);
   }
+  // 반응형
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
 `;
 
 // 배너 아래 8개 게임 부분
@@ -127,9 +167,11 @@ const QuickMenuSection = styled.div`
   grid-template-columns: repeat(8, 1fr);
   gap: 12px;
   padding: 0 20px;
+  // 반응형
   @media (max-width: 768px) {
     grid-template-columns: repeat(4, 1fr);
-    margin-top: 20px;
+    margin-top: 24px;
+    gap: 16px 12px;
   }
 `;
 
@@ -156,6 +198,12 @@ const QuickIconCircle = styled.div`
   align-items: center;
   font-size: 28px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  // 반응형
+  @media (max-width: 480px) {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
+  }
 `;
 
 // 배너 아래 8개 게임명
@@ -166,6 +214,11 @@ const QuickGameLabel = styled.span`
   margin-top: 8px;
   text-align: center;
   white-space: nowrap;
+  // 반응형
+  @media (max-width: 480px) {
+    font-size: 11px;
+    margin-top: 6px;
+  }
 `;
 
 // 인기 순위, 최근 등록된 매물
@@ -173,12 +226,20 @@ const Section = styled.section`
   max-width: 1080px;
   margin: 60px auto 0 auto;
   padding: 0 20px;
+  // 반응형
+  @media (max-width: 768px) {
+    margin-top: 40px;
+  }
 `;
 
 // 인기 게임 순위, 최근 등록된 매물 텍스트
 const SectionTitle = styled.h2`
   font-size: 24px;
   font-weight: 700;
+  // 반응형
+  @media (max-width: 768px) {
+    font-size: 20px;
+  }
 `;
 
 // 실시간 거래량 기준 텍스트
@@ -187,6 +248,11 @@ const SectionSubtitle = styled.p`
   color: var(--text-secondary);
   margin-top: 4px;
   margin-bottom: 24px;
+  // 반응형
+  @media (max-width: 768px) {
+    font-size: 12px;
+    margin-bottom: 16px;
+  }
 `;
 
 // 인기 순위 그리드 레이아웃 (좌우 2줄 정렬)
@@ -194,8 +260,10 @@ const RankGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+  // 반응형
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 `;
 
@@ -211,6 +279,10 @@ const RankCard = styled.div`
   &:hover {
     background-color: var(--bg-container-high);
   }
+  // 반응형
+  @media (max-width: 480px) {
+    padding: 12px 16px;
+  }
 `;
 
 // 인기 순위 번호
@@ -219,6 +291,11 @@ const RankNumber = styled.span`
   font-weight: 700;
   color: var(--text-secondary);
   width: 24px;
+  // 반응형
+  @media (max-width: 480px) {
+    font-size: 16px;
+    width: 20px;
+  }
 `;
 
 // 인기 순위 아이콘
@@ -226,6 +303,12 @@ const GameIcon = styled.span`
   font-size: 20px;
   margin-left: 12px;
   margin-right: 16px;
+  // 반응형
+  @media (max-width: 480px) {
+    margin-left: 8px;
+    margin-right: 12px;
+    font-size: 18px;
+  }
 `;
 
 // 인기 게임 순위 세로 정렬
@@ -241,12 +324,20 @@ const GameName = styled.span`
   font-size: 15px;
   font-weight: 600;
   flex: 1;
+  // 반응형
+  @media (max-width: 480px) {
+    font-size: 14px;
+  }
 `;
 
 // 게임명 하단 텍스트
 const GameGenre = styled.span`
   font-size: 12px;
   color: var(--text-secondary);
+  // 반응형
+  @media (max-width: 480px) {
+    font-size: 11px;
+  }
 `;
 
 const LoadingText = styled.div`
@@ -279,6 +370,11 @@ const TableWrapper = styled.div`
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
+  // 반응형
+  @media (max-width: 768px) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 `;
 
 const ItemTable = styled.table`
@@ -286,6 +382,10 @@ const ItemTable = styled.table`
   border-collapse: collapse;
   text-align: left;
   font-size: 14px;
+  // 반응형
+  @media (max-width: 768px) {
+    min-width: 600px;
+  }
 
   th,
   td {
@@ -319,6 +419,10 @@ const ItemInfoCell = styled.div`
   display: flex;
   align-items: center;
   gap: 16px;
+  // 반응형
+  @media (max-width: 480px) {
+    gap: 10px;
+  }
 `;
 
 // 최근 등록된 매물 아이콘
@@ -331,6 +435,7 @@ const ItemImgPlaceholder = styled.div`
   justify-content: center;
   align-items: center;
   font-size: 20px;
+  flex-shrink: 0;
 `;
 
 // 최근 등록된 매물 텍스트
@@ -338,6 +443,16 @@ const ItemTitle = styled.div`
   font-weight: 600;
   font-size: 15px;
   color: var(--text-primary);
+
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @media (max-width: 768px) {
+    font-size: 14px;
+    max-width: 150px;
+  }
 `;
 
 const ItemGameCategory = styled.div`
@@ -356,11 +471,18 @@ const BuyButton = styled.button`
   font-size: 13px;
   font-weight: 600;
   transition: all 0.2s;
+  white-space: nowrap;
 
   &:hover {
     background-color: var(--color-primary);
     color: var(--on-primary);
     border-color: var(--color-primary);
+  }
+
+  // 반응형
+  @media (max-width: 768px) {
+    padding: 6px 12px;
+    font-size: 12px;
   }
 `;
 
