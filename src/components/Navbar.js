@@ -1,47 +1,115 @@
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+
+import walletIcon from "../img/walletIcon.svg";
+import chatIcon from "../img/chatIcon.svg";
+import logo from "../img/logo.svg";
+import sun from "../img/sun.svg";
+import moon from "../img/moon.svg";
 
 const Navbar = () => {
   const { isLoggedIn, user, logout } = useAuth();
   const navigate = useNavigate();
 
+  const { theme, setTheme } = useTheme(); // ThemeContext에서 테마 가져옴
+
+  const [searchKeyword, setSearchKeyword] = useState(""); // 네비바 검색어 입력
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // 로그인 완료 후 닉네임 드롭다운
+
   const handleLogout = () => {
     logout();
+    setIsMenuOpen(false); // 로그아웃 시 드롭다운 닫기
     navigate("/");
+  };
+  // 검색바 실행
+  const handleSearch = (e) => {
+    if (e.key && e.key !== "Enter") return;
+
+    if (!searchKeyword.trim()) {
+      alert("검색어를 입력하세요.");
+      return;
+    }
+    navigate(`/search?q=${encodeURIComponent(searchKeyword)}`);
   };
 
   return (
     <Nav>
-      {/* 로고 */}
-      <Logo onClick={() => navigate("/")}>WONDEALER</Logo>
-
-      {/* 검색바 */}
-      <SearchBar>
-        <SearchInput placeholder="아이템, 키워드 검색" />
-        <SearchButton>🔍</SearchButton>
-      </SearchBar>
-
-      {/* 우측 메뉴 */}
-      <RightMenu>
+      <LeftGroup>
+        {/* 로고 */}
+        <Logo onClick={() => navigate("/")}>
+          <LogoImg src={logo} alt="WONDEALER" />
+        </Logo>
         {/* 판매/경매 등록 버튼 */}
-        <NavButton onClick={() => navigate("/items/new")}>판매등록</NavButton>
-        <NavButton onClick={() => navigate("/auctions/new")}>
+        <MenuButton onClick={() => navigate("/items/new")}>판매등록</MenuButton>
+        <MenuButton onClick={() => navigate("/auctions/new")}>
           경매등록
-        </NavButton>
+        </MenuButton>
+        <MenuButton onClick={() => navigate("/auctions/new")}>
+          경매조회
+        </MenuButton>
+      </LeftGroup>
+
+      <RightGroup>
+        {/* 검색바 */}
+        <SearchBar>
+          <SearchInput
+            placeholder="게임검색"
+            value={searchKeyword}
+            onChange={(e) => setSearchKeyword(e.target.value)}
+            onKeyDown={handleSearch}
+          />
+          <SearchButton onClick={handleSearch}>🔍</SearchButton>
+        </SearchBar>
 
         {/* 아이콘 메뉴 */}
-        <IconButton onClick={() => navigate("/mypage/wallet")}>💰</IconButton>
-        <IconButton onClick={() => navigate("/chat")}>💬</IconButton>
+        <IconButton onClick={() => navigate("/mypage/wallet")}>
+          <IconImg src={walletIcon} alt="지갑" />
+        </IconButton>
 
-        {/* 로그인 상태에 따라 분기 */}
+        <IconButton onClick={() => navigate("/chat")}>
+          <IconImg src={chatIcon} alt="채팅" />
+        </IconButton>
+
+        <ThemeSwitcher>
+          {/* 왼쪽: 달 아이콘 (클릭 시 다크 모드로 변경) */}
+          <IconButton onClick={() => setTheme("dark")}>
+            <IconImg src={moon} alt="다크 모드" />
+          </IconButton>
+          <Separator>|</Separator>
+          {/* 오른쪽: 해 아이콘 (클릭 시 라이트 모드로 변경) */}
+          <IconButton onClick={() => setTheme("light")}>
+            <IconImg src={sun} alt="라이트 모드" />
+          </IconButton>
+        </ThemeSwitcher>
         {isLoggedIn ? (
-          <>
-            <Nickname onClick={() => navigate("/mypage")}>
-              {user?.nickname}
-            </Nickname>
-            <NavButton onClick={handleLogout}>로그아웃</NavButton>
-          </>
+          <UserMenuContainer>
+            <NicknameButton onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              <span>{user?.nickname || "닉네임"}</span>
+              <span className="arrow">{isMenuOpen ? "⋀" : "⋁"}</span>
+            </NicknameButton>
+
+            {/* 드롭다운 메뉴 (isMenuOpen이 true일 때만 노출) */}
+            {isMenuOpen && (
+              <DropdownMenu>
+                <DropdownItem className="title">
+                  {user?.nickname || "닉네임"}
+                </DropdownItem>
+                <DropdownItem
+                  onClick={() => {
+                    navigate("/mypage");
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  마이페이지
+                </DropdownItem>
+                <DropdownItem onClick={handleLogout}>로그아웃</DropdownItem>
+              </DropdownMenu>
+            )}
+          </UserMenuContainer>
         ) : (
           <>
             <NavButton onClick={() => navigate("/login")}>로그인</NavButton>
@@ -50,7 +118,7 @@ const Navbar = () => {
             </SignUpButton>
           </>
         )}
-      </RightMenu>
+      </RightGroup>
     </Nav>
   );
 };
@@ -67,65 +135,213 @@ const Nav = styled.nav`
   position: sticky;
   top: 0;
   z-index: 100;
+
+  @media (max-width: 768px) {
+    padding: 0 16px;
+  }
+`;
+
+const LeftGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 100%;
+
+  @media (max-width: 768px) {
+    gap: 12px;
+  }
+`;
+
+const RightGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  @media (max-width: 768px) {
+    gap: 8px;
+  }
 `;
 
 const Logo = styled.div`
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--color-primary);
   cursor: pointer;
-  letter-spacing: -0.02em;
+  margin-right: -15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  @media (max-width: 768px) {
+    margin-right: -25px;
+  }
+
+  @media (max-width: 580px) {
+    margin-right: 0;
+  }
+`;
+
+const LogoImg = styled.img`
+  height: 90px;
+  width: 220px;
+  flex-shrink: 0;
+  object-fit: contain;
+
+  filter: none !important;
+
+  margin-left: -25px;
+
+  @media (max-width: 768px) {
+    width: 180px;
+    height: 80px;
+    margin-left: -20px;
+  }
+
+  @media (max-width: 580px) {
+    width: 140px;
+    height: 60px;
+    margin-left: -15px;
+  }
+`;
+
+const MenuButton = styled.button`
+  color: ${(props) =>
+    props.$active ? "var(--text-primary)" : "var(--text-secondary)"};
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0 4px;
+  cursor: pointer;
+  height: 100%;
+  position: relative;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background-color: #c0c1ff;
+    display: none;
+  }
+
+  &:hover::after {
+    display: block;
+  }
+
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 const SearchBar = styled.div`
   display: flex;
   align-items: center;
-  background-color: var(--bg-container-high);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0 12px;
-  width: 340px;
-  height: 36px;
+  background-color: #ffffff;
+  border-radius: 30px;
+  padding: 4px 4px 4px 20px;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 260px;
+  height: 38px;
+
+  @media (max-width: 768px) {
+    width: 200px;
+  }
+  @media (max-width: 580px) {
+    display: none;
+  }
 `;
 
 const SearchInput = styled.input`
   flex: 1;
-  background: none;
   border: none;
-  color: var(--text-primary);
+  background: none;
   font-size: 14px;
+  color: #121317;
+  outline: none;
+  padding: 0;
+
   &::placeholder {
-    color: var(--text-secondary);
+    color: #9aa0a6;
   }
 `;
 
 const SearchButton = styled.button`
-  color: var(--text-secondary);
-  font-size: 16px;
-`;
-
-const RightMenu = styled.div`
+  width: 30px;
+  height: 30px;
+  background-color: #6339f9;
+  border: none;
+  border-radius: 50%;
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 8px;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  margin-left: 8px;
+
+  &:hover {
+    transform: scale(1.05);
+  }
 `;
 
 const NavButton = styled.button`
   color: var(--text-primary);
+  background: none;
+  border: none;
   font-size: 14px;
   font-weight: 500;
   padding: 6px 12px;
   border-radius: 6px;
+  cursor: pointer;
   &:hover {
     background-color: var(--bg-container-high);
   }
+
+  @media (max-width: 580px) {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+`;
+
+const IconImg = styled.img`
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  object-fit: contain;
+  display: block;
+`;
+
+const ThemeSwitcher = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const Separator = styled.span`
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 200;
+  margin: 0 2px; // 아이콘과의 좌우 여백
+  user-select: none;
 `;
 
 const SignUpButton = styled(NavButton)`
   background-color: var(--color-primary);
   color: var(--on-primary);
+  font-weight: 600;
+  border: 1px solid var(--color-primary);
+
   &:hover {
-    opacity: 0.9;
+    background-color: #512bd4;
+    border-color: #512bd4;
+    color: var(--text-primary);
   }
 `;
 
@@ -136,13 +352,83 @@ const IconButton = styled.button`
   &:hover {
     background-color: var(--bg-container-high);
   }
+  @media (max-width: 580px) {
+    font-size: 16px;
+    padding: 4px;
+  }
 `;
 
-const Nickname = styled.span`
+const UserMenuContainer = styled.div`
+  position: relative;
+  display: inline-block;
+`;
+
+const NicknameButton = styled.button`
+  background-color: #2a2b2e;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
   font-size: 14px;
-  font-weight: 500;
-  color: var(--color-primary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: #38393d;
+  }
+
+  .arrow {
+    font-size: 10px;
+    color: #aaaaaa;
+  }
+  @media (max-width: 580px) {
+    padding: 6px 10px;
+    font-size: 12px;
+    gap: 4px;
+  }
+`;
+
+const DropdownMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 140px;
+  background-color: #1e1f22;
+  border: 1px solid #2d2f34;
+  border-radius: 12px;
+  padding: 6px 0;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  overflow: hidden;
+`;
+
+const DropdownItem = styled.div`
+  padding: 10px 16px;
+  font-size: 14px;
+  color: #cccccc;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: #2a2b2e;
+    color: #ffffff;
+  }
+
+  &.title {
+    font-weight: 700;
+    color: #ffffff;
+    cursor: default;
+    border-bottom: 1px solid #2d2f34;
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+    &:hover {
+      background: none;
+    }
+  }
 `;
 
 export default Navbar;
