@@ -9,7 +9,7 @@ import PrivateRoute from "./components/PrivateRoute";
 import MainPage from "./pages/main/MainPage";
 // import ItemListPage     from "./pages/item/ItemListPage";
 // import ItemDetailPage   from "./pages/item/ItemDetailPage";
-// import ItemNewPage      from "./pages/item/ItemNewPage";
+import ItemNewPage from "./pages/item/ItemNewPage";
 
 // 경매, 결제, 채팅
 // import AuctionListPage  from "./pages/auction/AuctionListPage";
@@ -47,6 +47,8 @@ function App() {
           <Route path="/" element={<MainPage />} />
           <Route path="/items" element={<div>상품 목록 (TODO)</div>} />
           <Route path="/items/:itemId" element={<div>상품 상세 (TODO)</div>} />
+
+          <Route path="/items/new" element={<ItemNewPage />} />
           <Route path="/auctions" element={<div>경매 목록 (TODO)</div>} />
           <Route
             path="/auctions/:auctionId"
@@ -56,14 +58,7 @@ function App() {
           <Route path="/signup" element={<div>회원가입 (TODO)</div>} />
 
           {/* ── 인증 필요 페이지 (PrivateRoute 적용) ─────────── */}
-          <Route
-            path="/items/new"
-            element={
-              <PrivateRoute>
-                <div>판매 등록 (TODO)</div>
-              </PrivateRoute>
-            }
-          />
+
           <Route
             path="/items/:itemId/edit"
             element={
