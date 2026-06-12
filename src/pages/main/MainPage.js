@@ -4,6 +4,7 @@ import styled from "styled-components";
 import heroBgImage from "../../img/HeroSection.jpg";
 import AxiosInstance from "../../api/AxiosInstance";
 import ItemApi from "../../api/item.api";
+import GameRankingApi from "../../api/gameRanking.api";
 
 const PageContainer = styled.div`
   // 페이지 전체를 감싸는 부분
@@ -234,6 +235,14 @@ const Section = styled.section`
   }
 `;
 
+const RecentSection = styled(Section)`
+  margin-top: 100px; /* 기존 60px에서 100px로 대폭 늘려 여유 공간 확보 */
+
+  @media (max-width: 768px) {
+    margin-top: 60px; /* 모바일/태블릿 가독성을 위해 반응형 간격 지정 */
+  }
+`;
+
 // 인기 게임 순위, 최근 등록된 매물 텍스트
 const SectionTitle = styled.h2`
   font-size: 24px;
@@ -257,14 +266,20 @@ const SectionSubtitle = styled.p`
   }
 `;
 
-// 인기 순위 그리드 레이아웃 (좌우 2줄 정렬)
+// 인기 순위 레이아웃 (좌우 2줄 정렬)
 const RankGrid = styled.div`
+  margin-top: 28px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(5, auto);
+  grid-auto-flow: column;
   gap: 16px;
-  // 반응형
+
   @media (max-width: 768px) {
+    margin-top: 20px;
     grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-flow: row;
     gap: 10px;
   }
 `;
@@ -300,16 +315,27 @@ const RankNumber = styled.span`
   }
 `;
 
-// 인기 순위 아이콘
-const GameIcon = styled.span`
-  font-size: 20px;
+const GameImageWrapper = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
   margin-left: 12px;
   margin-right: 16px;
-  // 반응형
+  background-color: var(--bg-container-low);
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
   @media (max-width: 480px) {
+    width: 30px;
+    height: 30px;
     margin-left: 8px;
     margin-right: 12px;
-    font-size: 18px;
   }
 `;
 
@@ -332,38 +358,11 @@ const GameName = styled.span`
   }
 `;
 
-// 게임명 하단 텍스트
-const GameGenre = styled.span`
-  font-size: 12px;
-  color: var(--text-secondary);
-  // 반응형
-  @media (max-width: 480px) {
-    font-size: 11px;
-  }
-`;
-
 const LoadingText = styled.div`
   color: var(--text-secondary);
   text-align: center;
   padding: 40px;
   font-size: 15px;
-`;
-
-// 인기 순위 변동 부분
-const RankChange = styled.span`
-  font-size: 12px;
-  font-weight: 600;
-  margin-left: auto;
-
-  &.up {
-    color: #4edea3; /* 상승 시 */
-  }
-  &.down {
-    color: #ffb2b7; /* 하락 시 */
-  }
-  &.same {
-    color: #c7c4d7; /* 순위 유지 시 */
-  }
 `;
 
 // 최근 등록 매물 테이블 스타일
@@ -438,6 +437,13 @@ const ItemImgPlaceholder = styled.div`
   align-items: center;
   font-size: 20px;
   flex-shrink: 0;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 `;
 
 // 최근 등록된 매물 텍스트
@@ -530,16 +536,31 @@ const MainPage = () => {
     // 인기 게임 순위 처리
     const fetchGameRankings = async () => {
       try {
-        setIsLoading(true);
-        const response = await AxiosInstance.get("/api/rankings"); // 인기 게임 순위 정보 요청
+        const response = await GameRankingApi.getGameRankings();
+        console.log("인기 게임 API 응답 원본:", response); // 브라우저 콘솔에서 확인용
 
-        if (response.data && response.data.success) {
-          setPopularGames(response.data.data);
+        // 1. 백엔드 데이터 포맷 유연하게 추출
+        let rawData = [];
+        if (
+          response.data &&
+          response.data.success &&
+          Array.isArray(response.data.data)
+        ) {
+          rawData = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          rawData = response.data;
         }
+
+        // 백엔드 필드명인 gameRank 기준으로 안전하게 정렬
+        const sortedRank = rawData.sort((a, b) => {
+          const rankA = Number(a?.gameRank) || 999;
+          const rankB = Number(b?.gameRank) || 999;
+          return rankA - rankB;
+        });
+
+        setPopularGames(sortedRank);
       } catch (error) {
-        console.error("인기 게임 순위를 불러오지 못했습니다.");
-      } finally {
-        setIsLoading(false);
+        console.error("인기 게임 순위를 불러오지 못했습니다.", error);
       }
     };
 
@@ -638,7 +659,6 @@ const MainPage = () => {
       {/* 인기 게임 순위 영역*/}
       <Section>
         <SectionTitle>인기 게임 순위</SectionTitle>
-        <SectionSubtitle>실시간 거래량 기준</SectionSubtitle>
 
         {isLoading ? (
           <LoadingText>
@@ -646,22 +666,31 @@ const MainPage = () => {
           </LoadingText>
         ) : (
           <RankGrid>
-            {popularGames.map((game) => (
-              // API 명세 필드값 구조화 매핑 (rank 고유 키 설정)
-              <RankCard key={game.rank}>
-                <RankNumber>{game.rank}</RankNumber> {/* 순위 번호 */}
-                <GameIcon>🎮</GameIcon>
-                <GameContent>
-                  <GameName>{game.gameName}</GameName> {/* 게임명 */}
-                </GameContent>
-              </RankCard>
-            ))}
+            {popularGames.map((game, index) => {
+              const rank = game.gameRank || index + 1;
+              const name = game.gameName || "알 수 없는 게임";
+              const img =
+                game.gameImg ||
+                "https://placehold.co/40x40/171821/ffffff?text=Game";
+
+              return (
+                <RankCard key={rank} onClick={() => handleQuickMenuClick(name)}>
+                  <RankNumber>{rank}</RankNumber>
+                  <GameImageWrapper>
+                    <img src={img} alt={name} />
+                  </GameImageWrapper>
+                  <GameContent>
+                    <GameName>{name}</GameName>
+                  </GameContent>
+                </RankCard>
+              );
+            })}
           </RankGrid>
         )}
       </Section>
 
-      {/* 3. 최근 등록된 매물 영역 */}
-      <Section>
+      {/* 최근 등록된 매물 영역 */}
+      <RecentSection>
         <SectionTitle>최근 등록된 매물</SectionTitle>
         <SectionSubtitle>
           업데이트:{" "}
@@ -686,7 +715,13 @@ const MainPage = () => {
                 <tr key={item.itemId}>
                   <td>
                     <ItemInfoCell>
-                      <ItemImgPlaceholder>📦</ItemImgPlaceholder>
+                      <ItemImgPlaceholder>
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.title} />
+                        ) : (
+                          "📦"
+                        )}
+                      </ItemImgPlaceholder>
                       <div>
                         <ItemTitle>{item.title}</ItemTitle>
                         <ItemGameCategory>{item.gameName}</ItemGameCategory>
@@ -694,7 +729,9 @@ const MainPage = () => {
                     </ItemInfoCell>
                   </td>
                   <td className="gray-text">{item.server}</td>
-                  <td className="price-text">{item.price}</td>
+                  <td className="price-text">
+                    {Number(item.price).toLocaleString()}원
+                  </td>
                   <td className="gray-text">
                     {formatRelativeTime(item.createdAt)}
                   </td>
@@ -708,7 +745,7 @@ const MainPage = () => {
             </tbody>
           </ItemTable>
         </TableWrapper>
-      </Section>
+      </RecentSection>
     </PageContainer>
   );
 };
