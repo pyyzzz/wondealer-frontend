@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 
@@ -96,6 +96,17 @@ const serverListData = {
 const ItemNewPage = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null); // 파일 인풋 제어용 Ref
+
+  useEffect(() => {
+    // 로컬 스토리지에 로그인 토큰이 있는지 확인
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      alert("로그인이 필요한 서비스입니다.");
+      // 로그인 페이지 경로가 다르면 "/login"을 알맞게 수정
+      navigate("/login", { replace: true });
+    }
+  }, [navigate]);
 
   // 카테고리 상태 관리 (아이템, 게임머니, 계정)
   const [category, setCategory] = useState("item");
