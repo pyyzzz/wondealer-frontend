@@ -1,0 +1,553 @@
+/* auth.css — 로그인 / 회원가입 공용 스타일 */
+
+.auth-page {
+  min-height: calc(100vh - 60px - 120px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  background-color: var(--bg-primary);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 40px 36px;
+}
+
+.auth-logo {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.auth-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.auth-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.auth-field {
+  margin-bottom: 16px;
+}
+
+.auth-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.auth-input {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  background-color: var(--bg-container-high);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: border-color 0.15s;
+}
+
+.auth-input:focus {
+  border-color: var(--color-primary);
+}
+
+.auth-input::placeholder {
+  color: var(--outline);
+}
+
+.auth-error {
+  background-color: rgba(255, 81, 106, 0.12);
+  border: 1px solid var(--color-danger);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--color-danger);
+  margin-bottom: 16px;
+}
+
+.auth-submit {
+  width: 100%;
+  height: 44px;
+  margin-top: 12px;
+  background-color: var(--color-primary);
+  color: var(--on-primary);
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.auth-submit:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.auth-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.auth-footer {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.auth-footer a {
+  color: var(--color-primary);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Google 버튼 */
+.auth-google {
+  width: 100%;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.auth-google:hover {
+  background-color: var(--bg-container-high);
+}
+
+/* 구분선 */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background-color: var(--border-color);
+}
+
+/* 약관 */
+.auth-terms {
+  margin: 20px 0 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 13px;
+}
+
+.auth-terms-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.auth-terms-divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 10px 0;
+}
+
+.auth-terms-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.auth-terms-row:last-child {
+  margin-bottom: 0;
+}
+
+.auth-terms-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.auth-terms-row button {
+  font-size: 12px;
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* 약관 모달 */
+.auth-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.auth-modal {
+  background-color: var(--bg-container);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+
+.auth-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.auth-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  font-family: inherit;
+}
+
+.auth-modal-close {
+  margin-top: 16px;
+  height: 40px;
+  background-color: var(--color-primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 아이디/비밀번호 찾기 링크 스타일 */
+.auth-find-links {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+}
+
+.auth-find-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.auth-find-links a:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.auth-find-divider {
+  color: var(--border-color);
+}
+
+/* ==========================================================================
+   [전체 배경] 완전히 까만 블랙색으로 깊이감 부여
+   ========================================================================== */
+.auth-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 90vh; /* 로고와 카드가 중앙에 오도록 충분한 높이 */
+  background-color: #000000; /* 완전한 블랙 */
+  font-family:
+    "Noto Sans KR", sans-serif; /* 한국어 가독성을 위한 깔끔한 폰트 */
+  padding: 40px 20px;
+  flex-direction: column; /* 로고가 카드 위에 오도록 설정 */
+}
+
+/* ==========================================================================
+   [로고] 스크린샷의 'WONDEALER' 핑크-블루 네온 그레이디언트 재현
+   ========================================================================== */
+.auth-logo {
+  font-size: 42px; /* 로고를 크게 강조 */
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 2px;
+  margin-bottom: 50px; /* 로고와 카드 사이 간격 */
+
+  /* 그레이디언트 텍스트 효과 (스크린샷 색상) */
+  background: linear-gradient(90deg, #ff6b6b 0%, #b2b9ff 50%, #60a5fa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  /* 부드러운 네온 광채 효과 */
+  text-shadow: 0 0 15px rgba(178, 185, 255, 0.4);
+}
+
+/* ==========================================================================
+   [카드 컨테이너] 은은한 무채색 다크 그레이와 부드러운 라운딩
+   ========================================================================== */
+.auth-card {
+  background-color: #111317; /* 스크린샷의 차분한 다크 그레이색 */
+  border: 1px solid #2a2e35; /* 아주 연한 경계선 */
+  border-radius: 12px;
+
+  /* 카드 주변에 은은하게 퍼지는 퍼플 광채 (스크린샷 분위기) */
+  box-shadow: 0 8px 30px rgba(178, 185, 255, 0.1);
+
+  width: 100%;
+  max-width: 440px; /* 카드 폭 조정 */
+  padding: 50px 40px;
+  box-sizing: border-box;
+}
+
+/* [계정 찾기] 제목 및 설명 */
+.find-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.find-header h2 {
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.find-header p {
+  color: #8f94a1; /* 스크린샷의 차분한 그레이 설명글색 */
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   [탭 메뉴] 스크린샷의 활성화된 탭 하단 퍼플 라인 재현
+   ========================================================================== */
+.find-tabs {
+  display: flex;
+  margin-bottom: 30px;
+  border-bottom: 1px solid #2a2e35; /* 탭 하단 전체 경계선 */
+}
+
+.find-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #6a6e7a; /* 비활성화된 탭 글씨색 */
+  padding: 15px 0;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative; /* 하단 라인을 위한 포지셔닝 */
+}
+
+.find-tab:hover {
+  color: #ffffff;
+}
+
+/* 활성화된 탭 (아이디 찾기) 스타일 */
+.find-tab.active {
+  color: #ffffff;
+  font-weight: bold;
+}
+
+/* 활성화된 탭 하단의 퍼플 라인 (스크린샷 재현) */
+.find-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: #b2b9ff; /* 스크린샷의 퍼플색 */
+}
+
+/* ==========================================================================
+   [입력창] 스크린샷의 어두운 무채색 인풋과 라벨
+   ========================================================================== */
+.find-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-label {
+  color: #d1d5db; /* 라벨 화이트색 */
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.auth-input {
+  background-color: #1f2329; /* 인풋창 내부 어두운 다크 그레이색 */
+  border: 1px solid #374151; /* 스크린샷의 뚜렷한 경계선 */
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 15px;
+  padding: 14px 16px;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* 포커스 시 퍼플 아웃라인 효과 */
+.auth-input:focus {
+  border-color: #b2b9ff;
+}
+
+.auth-input::placeholder {
+  color: #6a6e7a; /* placeholder 회색색 */
+}
+
+/* [이메일 그룹] 인풋 + 인증번호 버튼 (CSS Grid 사용) */
+.email-input-group {
+  display: grid;
+  grid-template-columns: 1fr 120px; /* 인증번호 버튼 폭 고정 */
+  gap: 10px;
+}
+
+/* ==========================================================================
+   [버튼] 스크린샷의 그레이 버튼과 퍼플 버튼 재현
+   ========================================================================= */
+
+/* 1. [인증번호 발송] 그레이 버튼 (스크린샷 재현) */
+.btn-send-code {
+  background-color: #374151; /* 스크린샷의 차분한 회색 버튼색 */
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-send-code:hover:not(:disabled) {
+  background-color: #4b5563;
+}
+
+.btn-send-code:disabled {
+  background-color: #1f2329;
+  color: #6a6e7a;
+  cursor: not-allowed;
+}
+
+/* 2. [아이디 찾기] 퍼플 버튼 (스크린샷 핵심 색상 재현) */
+.auth-submit {
+  background-color: #b2b9ff; /* 스크린샷의 핵심 네온 퍼플색 */
+  border: none;
+  border-radius: 8px;
+  color: #000000; /* 퍼플 버튼 위 검은 글씨색 (가독성) */
+  font-size: 16px;
+  font-weight: 700;
+  padding: 16px;
+  width: 100%;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin-top: 15px;
+}
+
+.auth-submit:hover:not(:disabled) {
+  opacity: 0.85; /* 마우스 올렸을 때 살짝 흐려짐 */
+}
+
+.auth-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   [알림 메시지] 다크모드 전용 네온 효과
+   ========================================================================== */
+.auth-message {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 14px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+/* 에러: 다크 레드 네온 효과 */
+.auth-message.error,
+.auth-error {
+  color: #fca5a5;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* 성공: 퍼플 네온 효과 */
+.auth-message.success {
+  color: #d8daff;
+  background-color: rgba(178, 185, 255, 0.1);
+  border: 1px solid rgba(178, 185, 255, 0.3);
+}
+
+/* ==========================================================================
+   [하단 링크] 스크린샷의 중앙 정렬된 링크 재현
+   ========================================================================== */
+.find-footer {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.back-to-login {
+  color: #8f94a1; /* 스크린샷의 설명글과 같은 그레이색 */
+  font-size: 14px;
+  text-decoration: none;
+  transition: color 0.2s;
+  display: inline-block;
+}
+
+.back-to-login:hover {
+  color: #ffffff;
+}
