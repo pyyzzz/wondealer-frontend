@@ -235,6 +235,14 @@ const Section = styled.section`
   }
 `;
 
+const RecentSection = styled(Section)`
+  margin-top: 100px; /* 기존 60px에서 100px로 대폭 늘려 여유 공간 확보 */
+
+  @media (max-width: 768px) {
+    margin-top: 60px; /* 모바일/태블릿 가독성을 위해 반응형 간격 지정 */
+  }
+`;
+
 // 인기 게임 순위, 최근 등록된 매물 텍스트
 const SectionTitle = styled.h2`
   font-size: 24px;
@@ -260,6 +268,7 @@ const SectionSubtitle = styled.p`
 
 // 인기 순위 레이아웃 (좌우 2줄 정렬)
 const RankGrid = styled.div`
+  margin-top: 28px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(5, auto);
@@ -267,6 +276,7 @@ const RankGrid = styled.div`
   gap: 16px;
 
   @media (max-width: 768px) {
+    margin-top: 20px;
     grid-template-columns: 1fr;
     grid-template-rows: none;
     grid-auto-flow: row;
@@ -649,7 +659,6 @@ const MainPage = () => {
       {/* 인기 게임 순위 영역*/}
       <Section>
         <SectionTitle>인기 게임 순위</SectionTitle>
-        <SectionSubtitle>실시간 거래량 기준</SectionSubtitle>
 
         {isLoading ? (
           <LoadingText>
@@ -681,7 +690,7 @@ const MainPage = () => {
       </Section>
 
       {/* 최근 등록된 매물 영역 */}
-      <Section>
+      <RecentSection>
         <SectionTitle>최근 등록된 매물</SectionTitle>
         <SectionSubtitle>
           업데이트:{" "}
@@ -736,7 +745,7 @@ const MainPage = () => {
             </tbody>
           </ItemTable>
         </TableWrapper>
-      </Section>
+      </RecentSection>
     </PageContainer>
   );
 };
