@@ -95,6 +95,17 @@ const AuctionNewPage = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
+  useEffect(() => {
+    // 로컬 스토리지에 로그인 토큰이 있는지 확인
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      alert("로그인이 필요한 서비스입니다.");
+      // 로그인 페이지 경로가 다르면 "/login"을 알맞게 수정
+      navigate("/login", { replace: true });
+    }
+  }, [navigate]);
+
   // 기본 정보 State
   const [gameName, setGameName] = useState("");
   const [serverName, setServerName] = useState("");
