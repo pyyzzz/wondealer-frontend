@@ -10,11 +10,13 @@ import MainPage from "./pages/main/MainPage";
 // import ItemListPage     from "./pages/item/ItemListPage";
 // import ItemDetailPage   from "./pages/item/ItemDetailPage";
 import ItemNewPage from "./pages/item/ItemNewPage";
+import ItemEditPage from "./pages/item/ItemEditPage";
+
 
 // 경매, 결제, 채팅
 // import AuctionListPage  from "./pages/auction/AuctionListPage";
 // import AuctionDetailPage from "./pages/auction/AuctionDetailPage";
-// import AuctionNewPage   from "./pages/auction/AuctionNewPage";
+import AuctionNewPage   from "./pages/auction/AuctionNewPage";
 // import PaymentPage      from "./pages/payment/PaymentPage";
 // import ChatPage         from "./pages/chat/ChatPage";
 
@@ -47,8 +49,10 @@ function App() {
           <Route path="/" element={<MainPage />} />
           <Route path="/items" element={<div>상품 목록 (TODO)</div>} />
           <Route path="/items/:itemId" element={<div>상품 상세 (TODO)</div>} />
+          <Route path="/items/edit" element={<ItemEditPage />} />
 
           <Route path="/items/new" element={<ItemNewPage />} />
+          <Route path="/auctions" element={<AuctionNewPage />} />
           <Route path="/auctions" element={<div>경매 목록 (TODO)</div>} />
           <Route
             path="/auctions/:auctionId"
@@ -59,22 +63,7 @@ function App() {
 
           {/* ── 인증 필요 페이지 (PrivateRoute 적용) ─────────── */}
 
-          <Route
-            path="/items/:itemId/edit"
-            element={
-              <PrivateRoute>
-                <div>판매 수정 (TODO)</div>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/auctions/new"
-            element={
-              <PrivateRoute>
-                <div>경매 등록 (TODO)</div>
-              </PrivateRoute>
-            }
-          />
+        
           <Route
             path="/payment"
             element={
