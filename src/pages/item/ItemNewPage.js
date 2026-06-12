@@ -95,7 +95,7 @@ const serverListData = {
 
 const ItemNewPage = () => {
   const navigate = useNavigate();
-  const fileInputRef = useRef(null); // 파일 인풋 제어용 Ref 추가
+  const fileInputRef = useRef(null); // 파일 인풋 제어용 Ref
 
   // 카테고리 상태 관리 (아이템, 게임머니, 계정)
   const [category, setCategory] = useState("item");
@@ -107,11 +107,27 @@ const ItemNewPage = () => {
   const [description, setDescription] = useState(""); // 물품설명
   const [price, setPrice] = useState(""); // 희망 가격
 
+  // 콤마 제거 후 숫자로 변환하는 함수
+  const getRawPrice = (val) => {
+    return Number(val.replace(/,/g, "")) || 0; // 모든 콤마를 빈 문자열로 바꾸고 숫자로 변환
+  };
+
+  // 가격 입력 시 숫자에 실시간으로 콤마를 넣어줌
+  const handlePriceChange = (e) => {
+    const value = e.target.value.replace(/[^0-9]/g, ""); // 숫자 외의 문자 제거
+    if (value === "") {
+      setPrice(""); // 지워서 빈 값이 되면 빈 문자열로 초기화 후 리턴
+      return;
+    }
+    const formattedValue = Number(value).toLocaleString(); // 세자리마다 콤마 붙이기
+    setPrice(formattedValue); // 콤마 찍힌 문자열을 최종 가격 상태로 저장
+  };
+
   // 업로드된 이미지 리스트 상태 관리 (최대 5장)
   const [images, setImages] = useState([]);
 
   // 가격 입력 시 최종 정산 금액 및 수수료 자동 계산 (5%)
-  const inputPrice = Number(price) || 0;
+  const inputPrice = getRawPrice(price); // 콤마 없는 금액 계산
   const commission = Math.floor(inputPrice * 0.05); // 수수로 5% 계산
   const finalPrice = inputPrice - commission; // 입력한 가격에서 수수료 빼서 실제로 가져가는 정산 금액
 
@@ -363,10 +379,10 @@ const ItemNewPage = () => {
               <label>판매 희망 가격</label>
               <PriceInputWrapper isMoney={category === "money"}>
                 <input
-                  type="number"
+                  type="text"
                   placeholder="0"
                   value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  onChange={handlePriceChange}
                 />
                 <span>₩</span>
               </PriceInputWrapper>
