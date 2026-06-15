@@ -352,7 +352,7 @@ const LoadingText = styled.div`
 `;
 
 const EmptyBox = styled.div`
-  background: var(--bg-surface-lowest, #ffffff);
+  background: var(--bg-surface-lowest, black); 
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 40px 16px;
