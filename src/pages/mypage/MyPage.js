@@ -404,7 +404,7 @@ function Badge({ children, color = "zinc" }) {
   return <span className={`mp-badge ${color}`}>{children}</span>;
 }
 
-// ── 마일리지 충전 모달 ──────────────────────────────────────────
+// ── 마일리지 충전 프리셋 ──────────────────────────────────────────
 const CHARGE_PRESETS = [
   { m: 10000, krw: 11000 },
   { m: 30000, krw: 33000 },
@@ -413,8 +413,78 @@ const CHARGE_PRESETS = [
   { m: 500000, krw: 550000 },
 ];
 
+// ── 공통 사이드바 내비게이션 (전체화면 레이아웃용) ─────────────────────
+function FullPageSidebar({ onClose }) {
+  return (
+    <div
+      style={{
+        width: 260,
+        padding: "24px 16px",
+        borderRight: "1px solid #27272a",
+        backgroundColor: "#09090b",
+        minHeight: "100vh",
+        flexShrink: 0,
+      }}
+    >
+      <div style={{ marginBottom: 32, paddingLeft: 12 }}>
+        <div
+          style={{
+            fontSize: 11,
+            color: "#71717a",
+            fontWeight: 500,
+            tracking: "0.05em",
+          }}
+        >
+          내 계정
+        </div>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 800,
+            color: "#e4e4e7",
+            marginTop: 4,
+          }}
+        >
+          PREMIUM TRADER
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {[
+          { name: "마일리지 관리", active: true },
+          { name: "회원정보 수정" },
+          { name: "활동 기록" },
+          { name: "등록 물품 관리" },
+          { name: "고객센터" },
+        ].map((item, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={!item.active ? onClose : undefined}
+            style={{
+              width: "100%",
+              padding: "12px 16px",
+              borderRadius: 8,
+              border: "none",
+              textAlign: "left",
+              fontSize: 13,
+              fontWeight: item.active ? 700 : 500,
+              cursor: "pointer",
+              background: item.active ? "#4c1d95" : "transparent",
+              color: item.active ? "#ffffff" : "#a1a1aa",
+              transition: "all 0.2s",
+            }}
+          >
+            {item.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── 마일리지 충전 페이지 (이미지 4번 스타일) ──────────────────────────
 function ChargeModal({ balance, onClose, onSuccess }) {
-  const [selected, setSelected] = useState(null); // preset index
+  const [selected, setSelected] = useState(0); // 기본 첫 번째 프리셋 선택
   const [custom, setCustom] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -423,8 +493,7 @@ function ChargeModal({ balance, onClose, onSuccess }) {
     selected !== null
       ? CHARGE_PRESETS[selected].m
       : Number(custom.replace(/\D/g, "") || 0);
-  const krw = selected !== null ? CHARGE_PRESETS[selected].krw : mileage; // 1:1 for custom
-  const fee = 0; // 수수료 0%
+  const krw = selected !== null ? CHARGE_PRESETS[selected].krw : mileage;
 
   const handleCharge = async () => {
     if (mileage < 10000) {
@@ -455,56 +524,204 @@ function ChargeModal({ balance, onClose, onSuccess }) {
   };
 
   return (
-    <div className="mp-modal-backdrop">
-      <div className="mp-modal" style={{ maxWidth: 520 }}>
-        <div className="mp-modal-header">
-          <div className="mp-modal-title">
-            <span style={{ fontSize: 16 }}>🪙</span> 마일리지 충전
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        zIndex: 9999,
+        display: "flex",
+        backgroundColor: "#09090b",
+        color: "#ffffff",
+        fontFamily: "sans-serif",
+        overflowY: "auto",
+      }}
+    >
+      {/* 왼쪽 사이드바 */}
+      <FullPageSidebar onClose={onClose} />
+
+      {/* 오른쪽 메인 콘텐츠 */}
+      <div
+        style={{
+          flex: 1,
+          padding: "40px 48px",
+          maxWidth: 1200,
+          margin: "0 auto",
+        }}
+      >
+        {/* 헤더 상단 */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            marginBottom: 32,
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                fontSize: 24,
+                fontWeight: 700,
+                margin: 0,
+                color: "#f4f4f5",
+              }}
+            >
+              마일리지 충전
+            </h1>
+            <p
+              style={{
+                fontSize: 13,
+                color: "#a1a1aa",
+                marginTop: 6,
+                margin: 0,
+              }}
+            >
+              보유하신 마일리지를 안전하게 충전하고 특별한 아이템들을
+              만나보세요.
+            </p>
           </div>
-          <button className="mp-modal-close" onClick={onClose} type="button">
+          <button
+            onClick={onClose}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#a1a1aa",
+              cursor: "pointer",
+              fontSize: 20,
+            }}
+            type="button"
+          >
             <Icon.X />
           </button>
         </div>
-        <div className="mp-modal-body">
-          {/* 현재 잔액 */}
-          <div className="mp-charge-balance-row">
-            <span style={{ fontSize: 11, color: "#71717a" }}>
-              현재 보유 마일리지
-            </span>
+
+        {/* 현재 보유 마일리지 카드 */}
+        <div
+          style={{
+            background: "#18181b",
+            border: "1px solid #27272a",
+            borderRadius: 12,
+            padding: "24px 32px",
+            marginBottom: 32,
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#71717a", marginBottom: 8 }}>
+            현재 보유 마일리지
+          </div>
+          <div
+            style={{
+              fontSize: 32,
+              fontWeight: 800,
+              color: "#c084fc",
+              fontFamily: "monospace",
+            }}
+          >
+            {fmt(balance)}{" "}
             <span
               style={{
-                fontSize: 13,
-                fontWeight: 900,
-                fontFamily: "monospace",
-                color: "#a78bfa",
+                fontSize: 20,
+                fontWeight: 600,
+                marginLeft: 2,
+                color: "#a1a1aa",
               }}
             >
-              {fmt(balance)} M
+              M
             </span>
           </div>
+        </div>
 
-          {/* 충전금액 선택 */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: "#71717a", marginBottom: 10 }}>
-              충전금액 선택
+        {/* 2단 분할 그리드 */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 360px",
+            gap: 32,
+            alignItems: "start",
+          }}
+        >
+          {/* 왼쪽 입력 및 프리셋 */}
+          <div
+            style={{
+              background: "#18181b",
+              border: "1px solid #27272a",
+              borderRadius: 12,
+              padding: 24,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: "#e4e4e7",
+                marginBottom: 16,
+              }}
+            >
+              + 충전 금액 선택
             </div>
-            <div className="mp-charge-presets">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 12,
+              }}
+            >
               {CHARGE_PRESETS.map((p, i) => (
                 <button
                   key={i}
                   type="button"
-                  className={`mp-charge-preset-btn${selected === i ? " active" : ""}`}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    padding: "16px 8px",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    background: selected === i ? "transparent" : "#27272a",
+                    border:
+                      selected === i
+                        ? "2px solid #7c3aed"
+                        : "1px solid transparent",
+                  }}
                   onClick={() => {
                     setSelected(i);
                     setCustom("");
                   }}
                 >
-                  <span className="mp-charge-preset-m">{fmt(p.m)}M</span>
-                  <span className="mp-charge-preset-krw">{fmt(p.krw)}KRW</span>
+                  <span
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "#ffffff",
+                      marginBottom: 4,
+                    }}
+                  >
+                    {fmt(p.m)}M
+                  </span>
+                  <span style={{ fontSize: 11, color: "#a1a1aa" }}>
+                    {fmt(p.krw)} KRW
+                  </span>
                 </button>
               ))}
-              {/* 직접입력 */}
-              <div className="mp-charge-custom-wrap">
+
+              {/* 직접 입력 */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "0 12px",
+                  borderRadius: 8,
+                  background: "#27272a",
+                  border:
+                    selected === null
+                      ? "2px solid #7c3aed"
+                      : "1px solid transparent",
+                }}
+              >
                 <input
                   value={custom}
                   onChange={(e) => {
@@ -513,66 +730,162 @@ function ChargeModal({ balance, onClose, onSuccess }) {
                     setSelected(null);
                   }}
                   placeholder="직접 입력"
-                  className="mp-charge-custom-input"
+                  style={{
+                    width: "100%",
+                    background: "transparent",
+                    border: "none",
+                    color: "#ffffff",
+                    outline: "none",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    textAlign: "right",
+                    paddingRight: 4,
+                  }}
                 />
-                <span style={{ fontSize: 11, color: "#71717a" }}>M</span>
+                <span
+                  style={{ fontSize: 12, color: "#a1a1aa", fontWeight: 700 }}
+                >
+                  M
+                </span>
               </div>
             </div>
           </div>
 
-          {/* 충전 요약 */}
-          <div className="mp-charge-summary">
-            <div className="mp-charge-summary-title">충전 요약</div>
-            <div className="mp-charge-summary-row">
-              <span>충전 마일리지</span>
-              <span style={{ color: "#a78bfa", fontWeight: 700 }}>
-                {fmt(mileage)} M
-              </span>
-            </div>
-            <div className="mp-charge-summary-row">
-              <span>수수료 (0%)</span>
-              <span>0 KRW</span>
-            </div>
-            <div className="mp-charge-summary-divider" />
-            <div className="mp-charge-summary-row total">
-              <span>최종 결제 금액</span>
-              <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 15 }}>
-                {fmt(krw)} KRW
-              </span>
-            </div>
-          </div>
-
-          {error && (
-            <div className="mp-modal-error" style={{ marginBottom: 8 }}>
-              {error}
-            </div>
-          )}
-
+          {/* 오른쪽 정산 요약 및 결제단 */}
           <div
             style={{
-              fontSize: 10,
-              color: "#52525b",
-              marginBottom: 12,
-              lineHeight: 1.5,
+              background: "#18181b",
+              border: "1px solid #27272a",
+              borderRadius: 12,
+              padding: 24,
             }}
           >
-            본인은 WONDEALER 마일리지 충전 약관에 동의하며, 법적 고지 사항을
-            확인했습니다.
-          </div>
-
-          <div className="mp-modal-footer">
-            <button className="cancel" type="button" onClick={onClose}>
-              취소
-            </button>
-            <button
-              className="confirm"
-              type="button"
-              onClick={handleCharge}
-              disabled={loading || mileage < 10000}
-              style={{ background: "#7c3aed" }}
+            <div
+              style={{
+                fontSize: 15,
+                fontWeight: 700,
+                color: "#e4e4e7",
+                marginBottom: 20,
+              }}
             >
-              {loading ? "처리중..." : "충전하기"}
-            </button>
+              충전 요약
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                fontSize: 13,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  color: "#a1a1aa",
+                }}
+              >
+                <span>충전 마일리지</span>
+                <span style={{ color: "#ffffff", fontWeight: 700 }}>
+                  {fmt(mileage)} M
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  color: "#a1a1aa",
+                }}
+              >
+                <span>수수료 (0%)</span>
+                <span style={{ color: "#ffffff" }}>0 KRW</span>
+              </div>
+              <div
+                style={{ borderTop: "1px solid #27272a", margin: "8px 0" }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span style={{ fontSize: 13, color: "#ffffff" }}>
+                  최종 결제 금액
+                </span>
+                <span
+                  style={{ color: "#4ade80", fontWeight: 900, fontSize: 18 }}
+                >
+                  {fmt(krw)} KRW
+                </span>
+              </div>
+            </div>
+
+            {error && (
+              <div
+                style={{
+                  color: "#f87171",
+                  fontSize: 12,
+                  marginTop: 16,
+                  background: "rgba(248,113,113,0.1)",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            <div
+              style={{
+                fontSize: 11,
+                color: "#52525b",
+                marginTop: 24,
+                marginBottom: 16,
+                lineHeight: 1.6,
+              }}
+            >
+              본인은 WONDEALER 마일리지 충전 약관에 동의하며, 법적 고지 사항을
+              확인했습니다.
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={onClose}
+                type="button"
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: 8,
+                  border: "1px solid #3f3f46",
+                  color: "#e4e4e7",
+                  background: "transparent",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleCharge}
+                disabled={loading || mileage < 10000}
+                style={{
+                  flex: 2,
+                  padding: "14px",
+                  borderRadius: 8,
+                  border: "none",
+                  color: "#ffffff",
+                  background: "#7c3aed",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {loading ? "처리중..." : "충전하기"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -580,7 +893,7 @@ function ChargeModal({ balance, onClose, onSuccess }) {
   );
 }
 
-// ── 마일리지 출금 모달 ──────────────────────────────────────────
+// ── 마일리지 출금 신청 페이지 (이미지 3번 스타일) ───────────────────────
 function WithdrawModal({
   balance,
   bankName,
@@ -597,6 +910,7 @@ function WithdrawModal({
   const feeRate = 0.02;
   const fee = Math.floor(requested * feeRate);
   const MIN = 10000;
+  const withdrawable = Math.max(0, balance);
   const net = requested - fee;
 
   const handleWithdraw = async () => {
@@ -638,139 +952,414 @@ function WithdrawModal({
   };
 
   return (
-    <div className="mp-modal-backdrop">
-      <div className="mp-modal" style={{ maxWidth: 520 }}>
-        <div className="mp-modal-header">
-          <div className="mp-modal-title">
-            <span style={{ fontSize: 16 }}>💳</span> 마일리지 출금 신청
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        zIndex: 9999,
+        display: "flex",
+        backgroundColor: "#09090b",
+        color: "#ffffff",
+        fontFamily: "sans-serif",
+        overflowY: "auto",
+      }}
+    >
+      {/* 왼쪽 사이드바 */}
+      <FullPageSidebar onClose={onClose} />
+
+      {/* 오른쪽 메인 콘텐츠 */}
+      <div
+        style={{
+          flex: 1,
+          padding: "40px 48px",
+          maxWidth: 1200,
+          margin: "0 auto",
+        }}
+      >
+        {/* 헤더 상단 */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            marginBottom: 32,
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                fontSize: 24,
+                fontWeight: 700,
+                margin: 0,
+                color: "#f4f4f5",
+              }}
+            >
+              마일리지 출금 신청
+            </h1>
+            <p
+              style={{
+                fontSize: 13,
+                color: "#a1a1aa",
+                marginTop: 6,
+                margin: 0,
+              }}
+            >
+              보유하신 마일리지를 등록된 계좌로 안전하게 출금 신청하실 수
+              있습니다.
+            </p>
           </div>
-          <button className="mp-modal-close" onClick={onClose} type="button">
+          <button
+            onClick={onClose}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#a1a1aa",
+              cursor: "pointer",
+              fontSize: 20,
+            }}
+            type="button"
+          >
             <Icon.X />
           </button>
         </div>
-        <div className="mp-modal-body">
-          {/* 잔액 / 출금가능 */}
-          <div className="mp-withdraw-balance-grid">
-            <div className="mp-withdraw-balance-card">
-              <div className="mp-withdraw-balance-label">보유 마일리지</div>
-              <div className="mp-withdraw-balance-value violet">
-                {fmt(balance)} M
-              </div>
-            </div>
-            <div className="mp-withdraw-balance-card">
-              <div className="mp-withdraw-balance-label">출금 가능 금액</div>
-              <div className="mp-withdraw-balance-value green">
-                {fmt(Math.max(0, balance - MIN))} M
-              </div>
-            </div>
-          </div>
 
-          {/* 출금 금액 */}
-          <div className="mp-form-group" style={{ marginBottom: 12 }}>
-            <label className="mp-form-label">
-              출금 금액 (최소 {fmt(MIN)}M 이상 입력)
-            </label>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                value={amount}
-                onChange={(e) => {
-                  setAmount(e.target.value.replace(/\D/g, ""));
-                  setError("");
-                }}
-                placeholder={`${fmt(MIN)} 이상`}
-                className="mp-form-input"
-                style={{ flex: 1 }}
-              />
-              <button
-                type="button"
-                className="mp-btn-secondary"
-                style={{ flexShrink: 0, fontSize: 10, padding: "8px 10px" }}
-                onClick={() => setAmount(String(Math.max(0, balance - MIN)))}
-              >
-                최대 금액
-              </button>
+        {/* 상단 잔액 요약 (2열 구조) */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 20,
+            marginBottom: 32,
+          }}
+        >
+          <div
+            style={{
+              background: "#18181b",
+              border: "1px solid #27272a",
+              borderRadius: 12,
+              padding: "20px 24px",
+            }}
+          >
+            <div style={{ fontSize: 12, color: "#71717a", marginBottom: 6 }}>
+              전체 보유 마일리지
             </div>
-          </div>
-
-          {/* 입금 계좌 */}
-          <div className="mp-withdraw-account-box">
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 8,
+                fontSize: 26,
+                fontWeight: 800,
+                color: "#ffffff",
+                fontFamily: "monospace",
               }}
             >
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa" }}>
-                입금 계좌 정보
-              </span>
-              <span style={{ fontSize: 10, color: "#52525b" }}>
-                SAFE PAYOUT
+              {fmt(balance)}{" "}
+              <span style={{ fontSize: 16, fontWeight: 500, color: "#a1a1aa" }}>
+                M
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div className="mp-withdraw-bank-icon">🏦</div>
-              <div>
+          </div>
+          <div
+            style={{
+              background: "rgba(16, 185, 129, 0.04)",
+              border: "1px solid rgba(16, 185, 129, 0.2)",
+              borderRadius: 12,
+              padding: "20px 24px",
+            }}
+          >
+            <div style={{ fontSize: 12, color: "#10b981", marginBottom: 6 }}>
+              최대 출금 가능 마일리지
+            </div>
+            <div
+              style={{
+                fontSize: 26,
+                fontWeight: 800,
+                color: "#10b981",
+                fontFamily: "monospace",
+              }}
+            >
+              {fmt(withdrawable)}{" "}
+              <span style={{ fontSize: 16, fontWeight: 500 }}>M</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 하단 2단 구조 */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 380px",
+            gap: 32,
+            alignItems: "start",
+          }}
+        >
+          {/* 왼쪽 입력 데이터 폼 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#a1a1aa",
+                  marginBottom: 10,
+                }}
+              >
+                출금 신청금액
+              </label>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <div
-                  style={{ fontSize: 12, fontWeight: 700, color: "#e4e4e7" }}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    background: "#18181b",
+                    border: "1px solid #27272a",
+                    borderRadius: 8,
+                    padding: "0 14px",
+                  }}
                 >
-                  {bankName || "등록된 계좌 없음"}
+                  <input
+                    value={amount}
+                    onChange={(e) =>
+                      setAmount(e.target.value.replace(/\D/g, ""))
+                    }
+                    placeholder="최소 10,000M 이상 입력"
+                    style={{
+                      width: "100%",
+                      background: "transparent",
+                      border: "none",
+                      color: "#ffffff",
+                      outline: "none",
+                      padding: "14px 0",
+                      fontSize: 14,
+                    }}
+                  />
                 </div>
-                <div style={{ fontSize: 11, color: "#71717a", marginTop: 2 }}>
-                  {accountNumber
-                    ? `${accountNumber} (${accountHolder})`
-                    : "회원정보 수정에서 계좌를 등록해주세요"}
+                <button
+                  type="button"
+                  onClick={() => setAmount(String(withdrawable))}
+                  style={{
+                    background: "#27272a",
+                    border: "1px solid #3f3f46",
+                    color: "#e4e4e7",
+                    padding: "14px 18px",
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  전액출금
+                </button>
+              </div>
+            </div>
+
+            {/* 계좌 박스 */}
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#a1a1aa",
+                  marginBottom: 10,
+                }}
+              >
+                입금계좌 정보
+              </label>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  background: "#18181b",
+                  border: "1px solid #27272a",
+                  borderRadius: 8,
+                  padding: "16px 20px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      background: "#27272a",
+                      display: "flex",
+                      alignItems: "center",
+                      fontSize: 18,
+                      justifyContent: "center",
+                    }}
+                  >
+                    🏦
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: "#e4e4e7",
+                      }}
+                    >
+                      {bankName || "등록된 계좌 없음"}
+                    </div>
+                    <div
+                      style={{ fontSize: 12, color: "#71717a", marginTop: 2 }}
+                    >
+                      {accountNumber
+                        ? `${accountNumber} (예금주: ${accountHolder})`
+                        : "회원정보 수정에서 계좌를 등록해주세요"}
+                    </div>
+                  </div>
                 </div>
+              </div>
+            </div>
+
+            {/* 영수증 데이터 라인 */}
+            <div
+              style={{
+                background: "#18181b",
+                border: "1px solid #27272a",
+                borderRadius: 8,
+                padding: "16px 20px",
+                fontSize: 13,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  color: "#a1a1aa",
+                }}
+              >
+                <span>예상 수수료 (2%)</span>
+                <span style={{ color: "#f87171" }}>- {fmt(fee)} KRW</span>
+              </div>
+              <div
+                style={{ borderTop: "1px solid #27272a", margin: "4px 0" }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontWeight: 700,
+                }}
+              >
+                <span style={{ color: "#ffffff" }}>최종 출금 금액</span>
+                <span style={{ color: "#4ade80", fontSize: 16 }}>
+                  {fmt(Math.max(0, net))} KRW
+                </span>
               </div>
             </div>
           </div>
 
-          {/* 출금 요약 */}
-          <div className="mp-charge-summary" style={{ marginTop: 12 }}>
-            <div className="mp-charge-summary-row">
-              <span>출금 신청 금액</span>
-              <span style={{ fontFamily: "monospace" }}>
-                {fmt(requested)} M
-              </span>
-            </div>
-            <div className="mp-charge-summary-row">
-              <span>수수료 (2%)</span>
-              <span style={{ color: "#f87171" }}>- {fmt(fee)} KRW</span>
-            </div>
-            <div className="mp-charge-summary-divider" />
-            <div className="mp-charge-summary-row total">
-              <span>최종 출금 금액</span>
-              <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 14 }}>
-                {fmt(Math.max(0, net))} KRW
-              </span>
-            </div>
-          </div>
-
-          <div className="mp-info-box" style={{ marginTop: 12 }}>
-            <Icon.AlertCircle />
-            출금 신청 후 영업일 기준 1~3일 이내 입금됩니다. 주말/공휴일 제외.
-          </div>
-
-          {error && (
-            <div className="mp-modal-error" style={{ marginTop: 8 }}>
-              {error}
-            </div>
-          )}
-
-          <div className="mp-modal-footer" style={{ marginTop: 14 }}>
-            <button className="cancel" type="button" onClick={onClose}>
-              취소
-            </button>
-            <button
-              className="confirm"
-              type="button"
-              onClick={handleWithdraw}
-              disabled={loading || requested < MIN}
-              style={{ background: "#7c3aed" }}
+          {/* 오른쪽 사이드 패널 (주의사항 + 버튼) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div
+              style={{
+                background: "rgba(39, 39, 42, 0.4)",
+                border: "1px solid #27272a",
+                borderRadius: 12,
+                padding: 24,
+              }}
             >
-              {loading ? "처리중..." : "출금 신청하기"}
-            </button>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#e4e4e7",
+                  marginBottom: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <Icon.AlertCircle
+                  style={{ width: 16, height: 16, color: "#a78bfa" }}
+                />{" "}
+                출금 시 주의사항
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 16,
+                  fontSize: 12,
+                  color: "#a1a1aa",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  lineHeight: 1.6,
+                }}
+              >
+                <li>출금 신청은 1일 1회만 가능합니다.</li>
+                <li>
+                  출금 신청 후 처리 완료까지 영업일 기준 최소 1~3일 정도 소요될
+                  수 있습니다.
+                </li>
+                <li>
+                  잘못 입력된 계좌정보는 이체 실패의 원인이 되며 자동 취소
+                  처리됩니다.
+                </li>
+              </ul>
+            </div>
+
+            {error && (
+              <div
+                style={{
+                  color: "#f87171",
+                  fontSize: 12,
+                  background: "rgba(248,113,113,0.1)",
+                  padding: "12px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(248,113,113,0.2)",
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={onClose}
+                type="button"
+                style={{
+                  flex: 1,
+                  padding: "16px",
+                  borderRadius: 8,
+                  border: "1px solid #3f3f46",
+                  color: "#e4e4e7",
+                  background: "transparent",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleWithdraw}
+                disabled={loading || requested < MIN}
+                style={{
+                  flex: 2,
+                  padding: "16px",
+                  borderRadius: 8,
+                  border: "none",
+                  color: "#ffffff",
+                  background: "#7c3aed",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {loading ? "처리중..." : "출금 신청하기"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
