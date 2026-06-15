@@ -1,107 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import ItemApi from "../../api/item.api";
-import { AuctionApi } from "../../api/auction.api";
+import AuctionApi from "../../api/auction.api";
 
 import clock from "../../img/clock.svg";
 import imgsc from "../../img/imgsc.svg";
 import imgsc2 from "../../img/imgsc2.svg";
 
-// ── Fallback 데이터 (백엔드 미구현 게임 목록 API 대비) ──────────
-const FALLBACK_GAMES = [
-  { gameId: "lostark", gameName: "로스트아크" },
-  { gameId: "maple", gameName: "메이플스토리" },
-  { gameId: "dungeon", gameName: "던전앤파이터" },
-  { gameId: "lineage", gameName: "리니지M" },
-  { gameId: "fc", gameName: "FC온라인" },
-  { gameId: "battle", gameName: "배틀그라운드" },
-  { gameId: "valorant", gameName: "발로란트" },
-  { gameId: "overwatch", gameName: "오버워치2" },
-];
-
-const FALLBACK_SERVERS = {
-  lostark: [
-    "루페온",
-    "카마인",
-    "아브렐슈드",
-    "카단",
-    "아만",
-    "실리안",
-    "카제로스",
-    "니나브",
-    "북미",
-    "유럽",
-  ],
-  maple: [
-    "스카니아",
-    "루나",
-    "엘리시움",
-    "크로아",
-    "베라",
-    "오로라",
-    "유니온",
-    "이노시스",
-    "제니스",
-    "RED",
-    "아케인",
-    "노바",
-    "에오스",
-    "헬리오스",
-    "챌린저스1",
-    "챌린저스2",
-    "챌린저스3",
-    "챌린저스4",
-  ],
-  dungeon: [
-    "통합서버",
-    "카인",
-    "디레지에",
-    "바칼",
-    "프레이",
-    "시로코",
-    "안톤",
-    "카시야스",
-    "힐더",
-    "스타트",
-    "이벤트(시즌)서버",
-  ],
-  lineage: [
-    "데포로쥬",
-    "판도라",
-    "듀크데필",
-    "파푸리온",
-    "린드비오르",
-    "군터",
-    "하딘",
-    "아툰",
-    "케레니스",
-    "이실로테",
-    "안타라스",
-    "발라카스",
-    "사이하",
-    "블루디카",
-  ],
-  fc: ["서버전체"],
-  battle: ["서버전체", "스팀서버", "카카오서버"],
-  valorant: ["서버전체"],
-  overwatch: ["전체"],
-};
-
-const FALLBACK_CATEGORIES = {
-  lostark: ["장비", "각인서", "재료", "펫/탈것", "기타"],
-  maple: ["장비", "소비", "펫", "기타"],
-  dungeon: ["장비", "아바타", "강화재료", "기타"],
-  lineage: ["무기", "방어구", "재료", "기타"],
-  fc: ["선수권", "강화", "기타"],
-  battle: ["스킨", "기타"],
-  valorant: ["스킨", "포인트", "기타"],
-  overwatch: ["스킨", "기타"],
-};
-
-const AuctionNewPage = () => {
+const AuctionEditPage = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
   const fileInputRef = useRef(null);
   const { isLoggedIn } = useAuth();
 
@@ -128,16 +38,41 @@ const AuctionNewPage = () => {
   const [endTime, setEndTime] = useState("");
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
+
+  // 기존 경매 데이터 로드
+  useEffect(() => {
+    if (!id) return;
+    AuctionApi.getAuction(id)
+      .then((r) => {
+        const d = r.data?.data ?? r.data ?? {};
+        setGameId(d.gameId ?? d.game ?? "");
+        setServerId(d.serverId ?? d.gameServer ?? "");
+        setCategoryId(d.categoryId ?? d.category ?? "");
+        setTitle(d.title ?? "");
+        setDescription(d.description ?? "");
+        setBuyNowPrice(
+          d.buyNowPrice ? Number(d.buyNowPrice).toLocaleString() : "",
+        );
+        setStartPrice(
+          d.startPrice ? Number(d.startPrice).toLocaleString() : "",
+        );
+        setMinBidUnit(
+          d.minBidUnit ? Number(d.minBidUnit).toLocaleString() : "1,000",
+        );
+      })
+      .catch(() => {
+        setError("경매 정보를 불러오는 데 실패했습니다.");
+      })
+      .finally(() => setFetching(false));
+  }, [id]);
 
   // 게임 목록 로드
   useEffect(() => {
     ItemApi.getGames()
-      .then((r) => {
-        const list = r.data?.data ?? r.data ?? [];
-        setGames(list.length > 0 ? list : FALLBACK_GAMES);
-      })
-      .catch(() => setGames(FALLBACK_GAMES));
+      .then((r) => setGames(r.data?.data ?? r.data ?? []))
+      .catch(() => setGames([]));
   }, []);
 
   // 게임 선택 시 서버·카테고리 로드
@@ -145,37 +80,14 @@ const AuctionNewPage = () => {
     if (!gameId) {
       setServers([]);
       setCategories([]);
-      setServerId("");
-      setCategoryId("");
       return;
     }
-    setServerId("");
-    setCategoryId("");
-
-    // fallback 즉시 세팅
-    const fbServers = (FALLBACK_SERVERS[gameId] ?? []).map((name) => ({
-      serverId: name,
-      serverName: name,
-    }));
-    const fbCats = (FALLBACK_CATEGORIES[gameId] ?? []).map((name) => ({
-      categoryId: name,
-      categoryName: name,
-    }));
-    setServers(fbServers);
-    setCategories(fbCats);
-
     ItemApi.getGameServers(gameId)
-      .then((r) => {
-        const l = r.data?.data ?? r.data ?? [];
-        if (l.length > 0) setServers(l);
-      })
-      .catch(() => {});
+      .then((r) => setServers(r.data?.data ?? r.data ?? []))
+      .catch(() => setServers([]));
     ItemApi.getCategories(gameId)
-      .then((r) => {
-        const l = r.data?.data ?? r.data ?? [];
-        if (l.length > 0) setCategories(l);
-      })
-      .catch(() => {});
+      .then((r) => setCategories(r.data?.data ?? r.data ?? []))
+      .catch(() => setCategories([]));
   }, [gameId]);
 
   // 종료 시간 계산
@@ -228,19 +140,12 @@ const AuctionNewPage = () => {
 
     setLoading(true);
     try {
-      // ⚠️ Multipart 데이터 전송을 위한 FormData 선언
-      const formData = new FormData();
-
       const payload = {
-        gameId: isNaN(Number(gameId)) ? gameId : Number(gameId),
-        serverId: serverId
-          ? isNaN(Number(serverId))
-            ? serverId
-            : Number(serverId)
-          : null,
-        categoryId: isNaN(Number(categoryId)) ? categoryId : Number(categoryId),
-        title: title.trim(),
-        description: description.trim(),
+        gameId,
+        serverId: serverId || null,
+        categoryId,
+        title,
+        description,
         buyNowPrice: buyNowPrice
           ? Number(buyNowPrice.replace(/[^0-9]/g, ""))
           : null,
@@ -248,29 +153,14 @@ const AuctionNewPage = () => {
         minBidUnit: Number(minBidUnit.replace(/[^0-9]/g, "")) || 1000,
         durationHours: duration,
       };
-
-      // 1. DTO 데이터를 JSON Blob 형태로 래핑하여 추가 (Spring 415/400 에러 방지)
-      formData.append(
-        "auction",
-        new Blob([JSON.stringify(payload)], { type: "application/json" }),
-      );
-
-      // 2. 선택된 이미지 파일들을 MultipartFile 배열에 맞게 순차 매핑
-      images.forEach((imgObj) => {
-        formData.append("images", imgObj.file);
-      });
-
-      // API 호출 실행
-      await AuctionApi.createAuction(formData);
-
-      alert("경매 물품 등록이 완료되었습니다!");
-      navigate("/auction"); // 라우터 규칙에 맞춰 /auction 으로 이동
+      await AuctionApi.updateAuction(id, payload);
+      alert("경매 수정이 완료되었습니다!");
+      navigate(`/auctions/${id}`);
     } catch (err) {
-      console.error("경매등록 에러 원인 확인:", err);
       const msg =
         err.response?.data?.message ??
         err.response?.data?.error ??
-        "등록 중 오류가 발생했습니다.";
+        "수정 중 오류가 발생했습니다.";
       setError(msg);
     } finally {
       setLoading(false);
@@ -278,19 +168,25 @@ const AuctionNewPage = () => {
   };
 
   if (!isLoggedIn) return null;
+  if (fetching)
+    return (
+      <PageContainer>
+        <div style={{ color: "#888", textAlign: "center", paddingTop: 80 }}>
+          불러오는 중...
+        </div>
+      </PageContainer>
+    );
 
   return (
     <PageContainer>
       <HeaderSection>
-        <Breadcrumb onClick={() => navigate("/")}>
-          MARKET &gt; AUCTION REGISTRATION
+        <Breadcrumb onClick={() => navigate("/auctions")}>
+          MARKET &gt; AUCTION EDIT
         </Breadcrumb>
-        <PageTitle>경매 등록</PageTitle>
+        <PageTitle>경매 수정</PageTitle>
         <PageDesc>
-          당신의 소중한 자산을 경매를 통해 합리적인 가격에 판매하세요.
-          <br />
-          투명한 시세 데이터와 최첨단 보안 거래 시스템을 통해 최적의 거래 경험을
-          제공합니다.
+          경매 정보를 수정하세요. 단, 이미 입찰이 진행된 경우 일부 항목은 변경이
+          제한될 수 있습니다.
         </PageDesc>
       </HeaderSection>
 
@@ -419,7 +315,7 @@ const AuctionNewPage = () => {
                 </PriceInputWrapper>
               </FormGroup>
               <FormGroup>
-                <label>경매 기간</label>
+                <label>경매 기간 (연장)</label>
                 <TabButtonGroup>
                   {[
                     { label: "24시간", sub: "1일", value: 24 },
@@ -512,11 +408,14 @@ const AuctionNewPage = () => {
         {error && <ErrorBox>{error}</ErrorBox>}
 
         <ButtonGroup>
-          <CancelButton type="button" onClick={() => navigate("/auction")}>
+          <CancelButton
+            type="button"
+            onClick={() => navigate(`/auctions/${id}`)}
+          >
             취소
           </CancelButton>
           <SubmitButton type="submit" disabled={loading}>
-            {loading ? "등록 중..." : "등록하기"}
+            {loading ? "수정 중..." : "수정하기"}
           </SubmitButton>
         </ButtonGroup>
       </form>
@@ -524,7 +423,7 @@ const AuctionNewPage = () => {
   );
 };
 
-// ── Styled Components ──────────────────────────────────────────
+// ── Styled Components (AuctionNewPage와 동일) ──────────────────
 const PageContainer = styled.div`
   background-color: #0b0c10;
   color: #fff;
@@ -575,12 +474,6 @@ const PageDesc = styled.p`
   max-width: 700px;
   @media (max-width: 768px) {
     font-size: 12px;
-  }
-  @media (max-width: 480px) {
-    font-size: 11px;
-    br {
-      display: none;
-    }
   }
 `;
 const SectionContainer = styled.div`
@@ -958,4 +851,4 @@ const SubmitButton = styled.button`
   }
 `;
 
-export default AuctionNewPage;
+export default AuctionEditPage;

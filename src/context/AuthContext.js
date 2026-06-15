@@ -5,17 +5,14 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(
-    () => localStorage.getItem("accessToken") !== null
+    () => localStorage.getItem("accessToken") !== null,
   );
 
-  // 새로고침 후에도 유저 정보 유지: localStorage에서 복원
   const [user, setUser] = useState(() => {
     const nickname = localStorage.getItem("nickname");
     return nickname ? { nickname } : null;
   });
 
-  // 로그인 성공 시 호출
-  // userData: { accessToken, refreshToken, nickname }
   const login = (userData) => {
     Common.setAccessToken(userData.accessToken);
     Common.setRefreshToken(userData.refreshToken);
@@ -24,7 +21,15 @@ export const AuthProvider = ({ children }) => {
     setUser({ nickname: userData.nickname });
   };
 
-  // 로그아웃 시 호출
+  // 프로필 저장 후 닉네임 등 context 반영용
+  const updateUser = (partial) => {
+    setUser((prev) => {
+      const next = { ...prev, ...partial };
+      if (partial.nickname) localStorage.setItem("nickname", partial.nickname);
+      return next;
+    });
+  };
+
   const logout = () => {
     Common.clearStorage();
     setIsLoggedIn(false);
@@ -32,7 +37,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
+    <AuthContext.Provider
+      value={{ isLoggedIn, user, login, logout, updateUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

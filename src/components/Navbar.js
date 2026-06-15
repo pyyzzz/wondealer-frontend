@@ -3,101 +3,88 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-
-import walletIcon from "../img/walletIcon.svg";
-import chatIcon from "../img/chatIcon.svg";
-import logo from "../img/logo.svg";
-import sun from "../img/sun.svg";
-import moon from "../img/moon.svg";
+import logoImg from "../img/logo.svg";
 
 const Navbar = () => {
   const { isLoggedIn, user, logout } = useAuth();
   const navigate = useNavigate();
+  const { setTheme } = useTheme();
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const { theme, setTheme } = useTheme(); // ThemeContext에서 테마 가져옴
-
-  const [searchKeyword, setSearchKeyword] = useState(""); // 네비바 검색어 입력
-
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // 로그인 완료 후 닉네임 드롭다운
+  const nickname =
+    user?.nickname ||
+    user?.name ||
+    user?.username ||
+    (user?.email ? user.email.split("@")[0] : "") ||
+    "닉네임";
 
   const handleLogout = () => {
     logout();
-    setIsMenuOpen(false); // 로그아웃 시 드롭다운 닫기
+    setIsMenuOpen(false);
     navigate("/");
   };
-  // 검색바 실행
-  const handleSearch = (e) => {
-    if (e.key && e.key !== "Enter") return;
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
     if (!searchKeyword.trim()) {
       alert("검색어를 입력하세요.");
       return;
     }
-    navigate(`/search?q=${encodeURIComponent(searchKeyword)}`);
+    navigate(`/items?keyword=${encodeURIComponent(searchKeyword)}`);
   };
 
   return (
     <Nav>
       <LeftGroup>
-        {/* 로고 */}
         <Logo onClick={() => navigate("/")}>
-          <LogoImg src={logo} alt="WONDEALER" />
+          <LogoImage src={logoImg} alt="WONDEALER" />
         </Logo>
-        {/* 판매/경매 등록 버튼 */}
         <MenuButton onClick={() => navigate("/items/new")}>판매등록</MenuButton>
         <MenuButton onClick={() => navigate("/auctions/new")}>
           경매등록
         </MenuButton>
-        <MenuButton onClick={() => navigate("/auctions/new")}>
-          경매조회
-        </MenuButton>
+        <MenuButton onClick={() => navigate("/auctions")}>경매조회</MenuButton>
       </LeftGroup>
 
       <RightGroup>
-        {/* 검색바 */}
-        <SearchBar>
+        <SearchBar onSubmit={handleSearchSubmit}>
           <SearchInput
             placeholder="게임검색"
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
-            onKeyDown={handleSearch}
           />
-          <SearchButton onClick={handleSearch}>🔍</SearchButton>
+          <SearchButton type="submit">🔍</SearchButton>
         </SearchBar>
 
-        {/* 아이콘 메뉴 */}
-        <IconButton onClick={() => navigate("/mypage/wallet")}>
-          <IconImg src={walletIcon} alt="지갑" />
+        <IconButton onClick={() => navigate("/mypage/wallet")} title="지갑">
+          <EmojiIcon>👛</EmojiIcon>
         </IconButton>
 
-        <IconButton onClick={() => navigate("/chat")}>
-          <IconImg src={chatIcon} alt="채팅" />
+        <IconButton onClick={() => navigate("/chat")} title="채팅">
+          <EmojiIcon>💬</EmojiIcon>
         </IconButton>
 
         <ThemeSwitcher>
-          {/* 왼쪽: 달 아이콘 (클릭 시 다크 모드로 변경) */}
-          <IconButton onClick={() => setTheme("dark")}>
-            <IconImg src={moon} alt="다크 모드" />
+          <IconButton onClick={() => setTheme("dark")} title="다크 모드">
+            <EmojiIcon>🌙</EmojiIcon>
           </IconButton>
           <Separator>|</Separator>
-          {/* 오른쪽: 해 아이콘 (클릭 시 라이트 모드로 변경) */}
-          <IconButton onClick={() => setTheme("light")}>
-            <IconImg src={sun} alt="라이트 모드" />
+          <IconButton onClick={() => setTheme("light")} title="라이트 모드">
+            <EmojiIcon>☀️</EmojiIcon>
           </IconButton>
         </ThemeSwitcher>
+
         {isLoggedIn ? (
           <UserMenuContainer>
             <NicknameButton onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              <span>{user?.nickname || "닉네임"}</span>
+              <span>{nickname}</span>
               <span className="arrow">{isMenuOpen ? "⋀" : "⋁"}</span>
             </NicknameButton>
 
-            {/* 드롭다운 메뉴 (isMenuOpen이 true일 때만 노출) */}
             {isMenuOpen && (
               <DropdownMenu>
-                <DropdownItem className="title">
-                  {user?.nickname || "닉네임"}
-                </DropdownItem>
+                <DropdownItem className="title">{nickname}</DropdownItem>
                 <DropdownItem
                   onClick={() => {
                     navigate("/mypage");
@@ -123,7 +110,6 @@ const Navbar = () => {
   );
 };
 
-// ── Styled Components ─────────────────────────────────────────
 const Nav = styled.nav`
   display: flex;
   align-items: center;
@@ -164,46 +150,26 @@ const RightGroup = styled.div`
 
 const Logo = styled.div`
   cursor: pointer;
-  margin-right: -15px;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  @media (max-width: 768px) {
-    margin-right: -25px;
-  }
-
-  @media (max-width: 580px) {
-    margin-right: 0;
-  }
+  height: 100%;
 `;
 
-const LogoImg = styled.img`
-  height: 90px;
-  width: 220px;
-  flex-shrink: 0;
+const LogoImage = styled.img`
+  height: 32px;
   object-fit: contain;
 
-  filter: none !important;
-
-  margin-left: -25px;
-
   @media (max-width: 768px) {
-    width: 180px;
-    height: 80px;
-    margin-left: -20px;
+    height: 26px;
   }
-
   @media (max-width: 580px) {
-    width: 140px;
-    height: 60px;
-    margin-left: -15px;
+    height: 22px;
   }
 `;
 
 const MenuButton = styled.button`
-  color: ${(props) =>
-    props.$active ? "var(--text-primary)" : "var(--text-secondary)"};
+  color: var(--text-secondary);
   background: none;
   border: none;
   font-size: 14px;
@@ -238,7 +204,7 @@ const MenuButton = styled.button`
   }
 `;
 
-const SearchBar = styled.div`
+const SearchBar = styled.form`
   display: flex;
   align-items: center;
   background-color: #ffffff;
@@ -300,6 +266,8 @@ const NavButton = styled.button`
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
+  transition: background-color 0.2s;
+
   &:hover {
     background-color: var(--bg-container-high);
   }
@@ -308,28 +276,6 @@ const NavButton = styled.button`
     font-size: 12px;
     padding: 6px 8px;
   }
-`;
-
-const IconImg = styled.img`
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  object-fit: contain;
-  display: block;
-`;
-
-const ThemeSwitcher = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-`;
-
-const Separator = styled.span`
-  color: var(--text-secondary);
-  font-size: 14px;
-  font-weight: 200;
-  margin: 0 2px; // 아이콘과의 좌우 여백
-  user-select: none;
 `;
 
 const SignUpButton = styled(NavButton)`
@@ -346,16 +292,49 @@ const SignUpButton = styled(NavButton)`
 `;
 
 const IconButton = styled.button`
-  font-size: 18px;
+  background: none;
+  border: none;
   padding: 6px;
   border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+
   &:hover {
     background-color: var(--bg-container-high);
   }
+
   @media (max-width: 580px) {
-    font-size: 16px;
     padding: 4px;
   }
+`;
+
+const EmojiIcon = styled.span`
+  font-size: 18px;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+  user-select: none;
+
+  @media (max-width: 580px) {
+    font-size: 15px;
+  }
+`;
+
+const ThemeSwitcher = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const Separator = styled.span`
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 200;
+  margin: 0 2px;
+  user-select: none;
 `;
 
 const UserMenuContainer = styled.div`
@@ -385,6 +364,7 @@ const NicknameButton = styled.button`
     font-size: 10px;
     color: #aaaaaa;
   }
+
   @media (max-width: 580px) {
     padding: 6px 10px;
     font-size: 12px;
@@ -425,6 +405,7 @@ const DropdownItem = styled.div`
     border-bottom: 1px solid #2d2f34;
     padding-bottom: 12px;
     margin-bottom: 4px;
+
     &:hover {
       background: none;
     }

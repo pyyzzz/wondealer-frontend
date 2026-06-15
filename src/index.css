@@ -11,3 +11,19 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById("login-page-keyframes")
+) {
+  const style = document.createElement("style");
+  style.id = "login-page-keyframes";
+  style.textContent = `
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #identifier:focus, #password:focus {
+      border-color: #6c63ff !important;
+      box-shadow: 0 0 0 3px rgba(108,99,255,0.15);
+    }
+  `;
+  document.head.appendChild(style);
+}

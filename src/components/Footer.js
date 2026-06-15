@@ -162,3 +162,6 @@ const Copyright = styled.p`
 `;
 
 export default Footer;
+
+
+

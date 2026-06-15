@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
+import ItemApi from "../../api/item.api";
 
 import item from "../../img/item.svg";
 import gameMoney from "../../img/gamemoney.svg";
@@ -49,7 +49,6 @@ const ItemEditPage = () => {
   const { itemId } = useParams();
   const fileInputRef = useRef(null);
 
-  // 상태 관리 (초기값은 비워두고 useEffect에서 채움)
   const [category, setCategory] = useState("item");
   const [gameName, setGameName] = useState("");
   const [serverName, setServerName] = useState("");
@@ -59,38 +58,30 @@ const ItemEditPage = () => {
   const [price, setPrice] = useState("");
   const [images, setImages] = useState([]);
 
-  // 기존 등록 데이터 불러오기 (수정 페이지 핵심)
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
   useEffect(() => {
-    // 실제 프로젝트에서는 ItemApi.getItem(itemId) 등을 호출하여 데이터를 가져옵니다.
-    // 여기서는 예시 데이터를 불러온 것으로 가정합니다.
-    const fetchItemData = async () => {
-      console.log(`${itemId}번 물품 정보를 불러옵니다.`);
-
-      // 임시 데이터 (나중에 API 연동 시 이 부분을 axios.get()? 교체하세요)
-      const dummyData = {
-        category: "item",
-        gameName: "lostark",
-        serverName: "루페온",
-        quantity: "", // 게임 머니일 경우
-        title: "기존에 등록했던 [S급] 전설의 검",
-        description: "기존에 작성했던 상세 설명 내용입니다.",
-        price: "50000",
-        // 기존 이미지가 있다면 URL 형태로 가져옵니다.
-        existingImages: [{ preview: "https://placehold.co/100", file: null }],
-      };
-
-      setCategory(dummyData.category);
-      setGameName(dummyData.gameName);
-      setServerName(dummyData.serverName);
-      setQuantity(dummyData.quantity || "");
-      setTitle(dummyData.title);
-      setDescription(dummyData.description);
-      setPrice(dummyData.price);
-      setImages(dummyData.existingImages);
-    };
-
-    fetchItemData();
-  }, [itemId, navigate]);
+    ItemApi.getItem(itemId)
+      .then((r) => {
+        const d = r.data?.data || r.data;
+        setCategory(d.category || "item");
+        setGameName(d.gameName || "");
+        setServerName(d.serverName || "");
+        setQuantity(d.quantity || "");
+        setTitle(d.title || "");
+        setDescription(d.details || d.description || "");
+        setPrice(String(d.price || ""));
+        if (d.existingImages?.length) {
+          setImages(
+            d.existingImages.map((url) => ({ preview: url, file: null })),
+          );
+        }
+      })
+      .catch(() => navigate("/items"))
+      .finally(() => setLoading(false));
+  }, [itemId]); // eslint-disable-line
 
   // 가격 계산 로직
   const inputPrice = Number(price) || 0;
@@ -100,6 +91,7 @@ const ItemEditPage = () => {
   const handleUploadClick = () => {
     if (fileInputRef.current) fileInputRef.current.click();
   };
+
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
     if (images.length + files.length > 5) {
@@ -110,24 +102,23 @@ const ItemEditPage = () => {
       file,
       preview: URL.createObjectURL(file),
     }));
-    // 기존 이미지 배열 뒤에 새로 추가한 이미지 합치는 것
-    setImages((prevImages) => [...prevImages, ...newImages]);
+    setImages((prev) => [...prev, ...newImages]);
   };
 
   const handleRemoveImage = (indexToRemove, e) => {
     e.stopPropagation();
-    setImages((prevImages) =>
-      prevImages.filter((_, idx) => idx !== indexToRemove),
-    );
+    setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  // 수정하기 제출 핸들러
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!gameName) return alert("게임을 선택해 주세요.");
     if (!serverName) return alert("서버를 선택해 주세요.");
     if (!title.trim()) return alert("물품 제목을 입력해 주세요.");
     if (inputPrice <= 0) return alert("올바른 가격을 입력해 주세요.");
+
+    setError("");
+    setSaving(true);
 
     const updateData = {
       category,
@@ -135,28 +126,35 @@ const ItemEditPage = () => {
       serverName,
       quantity: category === "money" ? quantity : null,
       title,
-      description,
+      details: description,
       price: inputPrice,
-      images: images.map((img) => img.file).filter(Boolean), // 파일 객체만 추출 (새로 업로드한 경우)
+      gameServer: serverName,
+      images: images.map((img) => img.file).filter(Boolean),
     };
 
-    console.log("수정된 데이터:", updateData);
-
-    /* [나중에 실제 API 연동 시 주석 해제하여 사용]
-      try {
-        // 기존 데이터를 수정할 때는 주로 PUT 또는 PATCH 메서드를 사용하며, itemId를 주소에 보냅니다.
-        await axios.put(`/api/items/${itemId}`, updateData);
-        alert("물품 정보 수정이 완료되었습니다!");
-        navigate("/mypage", { state: { tab: "registration-management" } });
-      } catch (error) {
-        console.error("수정 실패:", error);
-        alert("수정 중 오류가 발생했습니다. 다시 시도해주세요.");
-      }
-    */
-
-    alert("물품 정보 수정이 완료되었습니다!");
-    navigate("/mypage", { state: { tab: "registration-management" } });
+    try {
+      await ItemApi.updateItem(itemId, updateData);
+      alert("물품 정보 수정이 완료되었습니다!");
+      navigate("/mypage", { state: { tab: "registration-management" } });
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "수정 중 오류가 발생했습니다. 다시 시도해주세요.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <PageContainer>
+        <div style={{ textAlign: "center", padding: "80px", color: "#888da8" }}>
+          로딩 중...
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>
@@ -310,7 +308,7 @@ const ItemEditPage = () => {
         </FormGroup>
       </SectionContainer>
 
-      {/* 가격 설정 + 05 이미지 등록 */}
+      {/* 가격 설정 + 이미지 등록 */}
       <BottomGrid isMoney={category === "money"}>
         <SectionContainer style={{ margin: 0 }}>
           <SectionTitle>
@@ -393,21 +391,23 @@ const ItemEditPage = () => {
         )}
       </BottomGrid>
 
-      {/* 하단 버튼  */}
+      {/* ── 2번 파일: 에러 메시지 표시 ── */}
+      {error && <ErrorBox>{error}</ErrorBox>}
+
+      {/* 하단 버튼 */}
       <ButtonGroup>
-        {/* 취소 시 무조건 메인으로 이동하도록 navigate("/") 설정 */}
         <CancelButton type="button" onClick={() => navigate("/")}>
           취소
         </CancelButton>
-        <SubmitButton type="button" onClick={handleSubmit}>
-          수정하기
+        <SubmitButton type="button" onClick={handleSubmit} disabled={saving}>
+          {saving ? "저장 중..." : "수정하기"}
         </SubmitButton>
       </ButtonGroup>
     </PageContainer>
   );
 };
 
-// ── Styled Components (ItemNewPage와 동일) ───────────────────────
+// ── Styled Components ──────────────────────────────────────────────
 const PageContainer = styled.div`
   background-color: #0b0c10;
   color: #ffffff;
@@ -470,7 +470,7 @@ const Card = styled.div`
   display: flex;
   align-items: center;
   gap: 16px;
-  cursor: pointer;
+  cursor: default;
   position: relative;
 `;
 const IconWrapper = styled.div`
@@ -731,6 +731,15 @@ const RemoveButton = styled.button`
     background-color: #ef4444;
   }
 `;
+const ErrorBox = styled.div`
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #ef4444;
+  margin-bottom: 24px;
+`;
 const ButtonGroup = styled.div`
   display: flex;
   justify-content: center;
@@ -758,6 +767,8 @@ const SubmitButton = styled.button`
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  opacity: ${(props) => (props.disabled ? 0.6 : 1)};
+  pointer-events: ${(props) => (props.disabled ? "none" : "auto")};
 `;
 
 export default ItemEditPage;
