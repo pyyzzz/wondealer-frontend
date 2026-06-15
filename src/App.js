@@ -45,7 +45,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/find-id" element={<FindIdPage />} />
-        <Route path="/find-password" element={<FindPasswordPage />} />
+        <Route path="/reset-password" element={<FindPasswordPage />} />
 
         <Route
           path="/items/new"
