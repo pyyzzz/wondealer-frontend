@@ -107,6 +107,15 @@
   cursor: not-allowed;
 }
 
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
 .auth-footer {
   margin-top: 20px;
   text-align: center;

@@ -18,6 +18,7 @@ import SignUpPage from "./pages/auth/SignUpPage";
 import FindIdPage from "./pages/auth/FindIdPage";
 import FindPasswordPage from "./pages/auth/FindPasswordPage";
 import OAuthCallbackPage from "./pages/auth/OAuthCallbackPage";
+import EmailVerifyPage from "./pages/auth/EmailVerifyPage";
 import MyPage from "./pages/mypage/MyPage";
 import AdminPage from "./pages/admin/AdminPage";
 
@@ -35,6 +36,8 @@ function App() {
   return (
     <Routes>
       <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+      {/* 이메일 인증 링크 — Layout 밖(Navbar/Footer 없어도 무관하나 Layout 안에 넣어도 OK) */}
+      <Route path="/verify-email" element={<EmailVerifyPage />} />
 
       <Route element={<Layout />}>
         <Route path="/" element={<MainPage />} />

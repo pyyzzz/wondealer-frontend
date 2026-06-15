@@ -1,46 +1,105 @@
-// SignUpPage.jsx
-import { useState, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import AuthApi from "../../api/auth.api";
+import { useState, useCallback, useEffect } from "react";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { AuthApi } from "../../api/auth.api";
 import logo from "../../img/logo.svg";
 import "./auth.css";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [form, setForm] = useState({
-    username: "",
-    password: "",
-    passwordConfirm: "",
-    name: "",
-    nickname: "",
-    phone: "",
-    email: "",
+  // 최초 로드 시 localStorage에 백업된 데이터가 있다면 불러옵니다. (탭 간 데이터 유지)
+  const [form, setForm] = useState(() => {
+    const savedForm = localStorage.getItem("signup_form_backUp");
+    return savedForm
+      ? JSON.parse(savedForm)
+      : {
+          username: "",
+          password: "",
+          passwordConfirm: "",
+          name: "",
+          nickname: "",
+          phone: "",
+          email: "",
+        };
   });
 
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailMsg, setEmailMsg] = useState("");
 
+  // 실시간으로 localStorage에 데이터 백업
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
+    setForm((f) => {
+      const updated = { ...f, [name]: value };
+      localStorage.setItem("signup_form_backUp", JSON.stringify(updated));
+      return updated;
+    });
+
+    if (name === "email") {
+      setEmailSent(false);
+      setEmailVerified(false);
+      setEmailMsg("");
+    }
   }, []);
+
+  useEffect(() => {
+    const verified = searchParams.get("verified");
+    const email = searchParams.get("email");
+
+    if (verified === "true") {
+      setEmailVerified(true);
+      setEmailSent(true);
+      setEmailMsg("✓ 인증이 완료되었습니다.");
+
+      if (email) {
+        const decodedEmail = decodeURIComponent(email);
+        setForm((f) => {
+          const updated = { ...f, email: decodedEmail };
+          localStorage.setItem("signup_form_backUp", JSON.stringify(updated));
+          return updated;
+        });
+      }
+    }
+  }, [searchParams]);
+
+  const handleSendEmail = async () => {
+    if (!form.email) {
+      setEmailMsg("이메일을 먼저 입력해주세요.");
+      return;
+    }
+    setEmailSending(true);
+    setEmailMsg("");
+    try {
+      await AuthApi.sendVerifyEmail(form.email);
+      setEmailSent(true);
+      setEmailMsg("인증 메일을 발송했습니다. 메일함을 확인해주세요.");
+    } catch (err) {
+      setEmailMsg(err.response?.data?.message || "메일 발송에 실패했습니다.");
+    } finally {
+      setEmailSending(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!agreeTerms) {
-      setError("이용약관 및 개인정보 처리방침에 동의해주세요.");
-      return;
-    }
     if (form.password !== form.passwordConfirm) {
       setError("비밀번호가 일치하지 않습니다.");
       return;
     }
-    if (form.password.length < 8) {
-      setError("비밀번호는 8자 이상이어야 합니다.");
+    if (!emailVerified) {
+      setError("이메일 인증을 완료해주세요.");
+      return;
+    }
+    if (!agreeTerms) {
+      setError("이용약관 및 개인정보 처리방침에 동의해주세요.");
       return;
     }
 
@@ -55,6 +114,10 @@ export default function SignUpPage() {
         email: form.email,
         termsAgreed: [1, 2],
       });
+
+      // 가입 성공 시 백업 데이터 완벽 청소
+      localStorage.removeItem("signup_form_backUp");
+
       alert("회원가입이 완료되었습니다.");
       navigate("/login");
     } catch (err) {
@@ -78,9 +141,116 @@ export default function SignUpPage() {
           <p>새로운 거래의 시작을 함께하세요.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="find-form">
+        <form onSubmit={handleSubmit} className="auth-form">
           {error && <div className="auth-error">{error}</div>}
 
+          {/* 이메일 */}
+          <div className="auth-field">
+            <label className="auth-label">
+              이메일
+              {emailVerified && (
+                <span
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 12,
+                    color: "#4ade80",
+                    fontWeight: 600,
+                  }}
+                >
+                  ✓ 인증 완료
+                </span>
+              )}
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                className="auth-input"
+                name="email"
+                type="email"
+                placeholder="example@email.com"
+                value={form.email}
+                onChange={handleChange}
+                disabled={emailVerified}
+                required
+                style={{
+                  flex: 1,
+                  ...(emailVerified && {
+                    borderColor: "#4ade80",
+                    color: "#4ade80",
+                  }),
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleSendEmail}
+                disabled={emailSending || emailVerified}
+                style={{
+                  flexShrink: 0,
+                  padding: "0 14px",
+                  height: 44,
+                  borderRadius: 8,
+                  border: "none",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: emailVerified ? "default" : "pointer",
+                  whiteSpace: "nowrap",
+                  background: emailVerified ? "#1a3a1a" : "#374151",
+                  color: emailVerified ? "#4ade80" : "#fff",
+                  transition: "background 0.2s",
+                }}
+              >
+                {emailVerified
+                  ? "✓ 인증완료"
+                  : emailSending
+                    ? "발송 중..."
+                    : emailSent
+                      ? "재발송"
+                      : "인증 메일 발송"}
+              </button>
+            </div>
+            {emailMsg && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginTop: 6,
+                }}
+              >
+                {emailSent && !emailVerified && (
+                  <svg
+                    style={{
+                      animation: "spin 1s linear infinite",
+                      flexShrink: 0,
+                    }}
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#b2b9ff"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  >
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                )}
+                <p
+                  style={{
+                    fontSize: 12,
+                    margin: 0,
+                    color: emailVerified
+                      ? "#4ade80"
+                      : emailSent
+                        ? "#b2b9ff"
+                        : "#fca5a5",
+                  }}
+                >
+                  {emailMsg}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 아이디 */}
           <div className="auth-field">
             <label className="auth-label">아이디</label>
             <input
@@ -93,19 +263,21 @@ export default function SignUpPage() {
             />
           </div>
 
+          {/* 비밀번호 */}
           <div className="auth-field">
             <label className="auth-label">비밀번호</label>
             <input
               className="auth-input"
               name="password"
               type="password"
-              placeholder="영문, 숫자, 특수문자 조합 8자 이상"
+              placeholder="비밀번호를 입력하세요"
               value={form.password}
               onChange={handleChange}
               required
             />
           </div>
 
+          {/* 비밀번호 확인 */}
           <div className="auth-field">
             <label className="auth-label">비밀번호 확인</label>
             <input
@@ -119,6 +291,7 @@ export default function SignUpPage() {
             />
           </div>
 
+          {/* 이름 */}
           <div className="auth-field">
             <label className="auth-label">이름</label>
             <input
@@ -131,6 +304,7 @@ export default function SignUpPage() {
             />
           </div>
 
+          {/* 닉네임 + 휴대폰 */}
           <div className="auth-row">
             <div className="auth-field">
               <label className="auth-label">닉네임</label>
@@ -156,19 +330,7 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          <div className="auth-field">
-            <label className="auth-label">이메일</label>
-            <input
-              className="auth-input"
-              name="email"
-              type="email"
-              placeholder="example@email.com"
-              value={form.email}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
+          {/* 약관 동의 */}
           <div className="auth-checkbox-group">
             <input
               type="checkbox"
@@ -190,6 +352,8 @@ export default function SignUpPage() {
           이미 계정이 있으신가요? <Link to="/login">로그인</Link>
         </div>
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
