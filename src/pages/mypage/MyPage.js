@@ -404,7 +404,7 @@ function Badge({ children, color = "zinc" }) {
   return <span className={`mp-badge ${color}`}>{children}</span>;
 }
 
-// ── 마일리지 충전 프리셋 ──────────────────────────────────────────
+// ── 마일리지 충전 프리셋 ─────────────────────────────────────────
 const CHARGE_PRESETS = [
   { m: 10000, krw: 11000 },
   { m: 30000, krw: 33000 },
@@ -413,78 +413,9 @@ const CHARGE_PRESETS = [
   { m: 500000, krw: 550000 },
 ];
 
-// ── 공통 사이드바 내비게이션 (전체화면 레이아웃용) ─────────────────────
-function FullPageSidebar({ onClose }) {
-  return (
-    <div
-      style={{
-        width: 260,
-        padding: "24px 16px",
-        borderRight: "1px solid #27272a",
-        backgroundColor: "#09090b",
-        minHeight: "100vh",
-        flexShrink: 0,
-      }}
-    >
-      <div style={{ marginBottom: 32, paddingLeft: 12 }}>
-        <div
-          style={{
-            fontSize: 11,
-            color: "#71717a",
-            fontWeight: 500,
-            tracking: "0.05em",
-          }}
-        >
-          내 계정
-        </div>
-        <div
-          style={{
-            fontSize: 14,
-            fontWeight: 800,
-            color: "#e4e4e7",
-            marginTop: 4,
-          }}
-        >
-          PREMIUM TRADER
-        </div>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {[
-          { name: "마일리지 관리", active: true },
-          { name: "회원정보 수정" },
-          { name: "활동 기록" },
-          { name: "등록 물품 관리" },
-          { name: "고객센터" },
-        ].map((item, idx) => (
-          <button
-            key={idx}
-            type="button"
-            onClick={!item.active ? onClose : undefined}
-            style={{
-              width: "100%",
-              padding: "12px 16px",
-              borderRadius: 8,
-              border: "none",
-              textAlign: "left",
-              fontSize: 13,
-              fontWeight: item.active ? 700 : 500,
-              cursor: "pointer",
-              background: item.active ? "#4c1d95" : "transparent",
-              color: item.active ? "#ffffff" : "#a1a1aa",
-              transition: "all 0.2s",
-            }}
-          >
-            {item.name}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── 마일리지 충전 페이지 (이미지 4번 스타일) ──────────────────────────
-function ChargeModal({ balance, onClose, onSuccess }) {
-  const [selected, setSelected] = useState(0); // 기본 첫 번째 프리셋 선택
+// ── 마일리지 충전 탭 콘텐츠 ─────────────────────────────────────
+function ChargeTab({ balance, onSuccess, onBack }) {
+  const [selected, setSelected] = useState(0);
   const [custom, setCustom] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -524,368 +455,119 @@ function ChargeModal({ balance, onClose, onSuccess }) {
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        zIndex: 9999,
-        display: "flex",
-        backgroundColor: "#09090b",
-        color: "#ffffff",
-        fontFamily: "sans-serif",
-        overflowY: "auto",
-      }}
-    >
-      {/* 왼쪽 사이드바 */}
-      <FullPageSidebar onClose={onClose} />
+    <div>
+      {/* 뒤로가기 */}
+      <div className="mp-support-back" onClick={onBack}>
+        <Icon.ChevronLeft /> 마일리지 조회로 돌아가기
+      </div>
 
-      {/* 오른쪽 메인 콘텐츠 */}
-      <div
-        style={{
-          flex: 1,
-          padding: "40px 48px",
-          maxWidth: 1200,
-          margin: "0 auto",
-        }}
-      >
-        {/* 헤더 상단 */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: 32,
-          }}
-        >
-          <div>
-            <h1
-              style={{
-                fontSize: 24,
-                fontWeight: 700,
-                margin: 0,
-                color: "#f4f4f5",
-              }}
-            >
-              마일리지 충전
-            </h1>
-            <p
-              style={{
-                fontSize: 13,
-                color: "#a1a1aa",
-                marginTop: 6,
-                margin: 0,
-              }}
-            >
-              보유하신 마일리지를 안전하게 충전하고 특별한 아이템들을
-              만나보세요.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#a1a1aa",
-              cursor: "pointer",
-              fontSize: 20,
-            }}
-            type="button"
-          >
-            <Icon.X />
-          </button>
+      <div className="mp-section-title">마일리지 충전</div>
+      <div className="mp-section-sub">
+        보유하신 마일리지를 안전하게 충전하고 특별한 아이템들을 만나보세요.
+      </div>
+
+      {/* 현재 보유 마일리지 */}
+      <div className="mp-card mp-charge-balance-card">
+        <div className="mp-mileage-label">현재 보유 마일리지</div>
+        <div className="mp-charge-balance-amount">
+          {fmt(balance)} <span>M</span>
         </div>
+      </div>
 
-        {/* 현재 보유 마일리지 카드 */}
-        <div
-          style={{
-            background: "#18181b",
-            border: "1px solid #27272a",
-            borderRadius: 12,
-            padding: "24px 32px",
-            marginBottom: 32,
-          }}
-        >
-          <div style={{ fontSize: 12, color: "#71717a", marginBottom: 8 }}>
-            현재 보유 마일리지
+      {/* 2단 그리드 */}
+      <div className="mp-charge-grid">
+        {/* 왼쪽: 프리셋 */}
+        <div className="mp-card">
+          <div className="mp-card-title" style={{ marginBottom: 16 }}>
+            충전 금액 선택
           </div>
-          <div
-            style={{
-              fontSize: 32,
-              fontWeight: 800,
-              color: "#c084fc",
-              fontFamily: "monospace",
-            }}
-          >
-            {fmt(balance)}{" "}
-            <span
-              style={{
-                fontSize: 20,
-                fontWeight: 600,
-                marginLeft: 2,
-                color: "#a1a1aa",
-              }}
-            >
-              M
-            </span>
-          </div>
-        </div>
-
-        {/* 2단 분할 그리드 */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 360px",
-            gap: 32,
-            alignItems: "start",
-          }}
-        >
-          {/* 왼쪽 입력 및 프리셋 */}
-          <div
-            style={{
-              background: "#18181b",
-              border: "1px solid #27272a",
-              borderRadius: 12,
-              padding: 24,
-            }}
-          >
+          <div className="mp-charge-preset-grid">
+            {CHARGE_PRESETS.map((p, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`mp-charge-preset-btn${selected === i ? " active" : ""}`}
+                onClick={() => {
+                  setSelected(i);
+                  setCustom("");
+                }}
+              >
+                <span className="mp-charge-preset-m">{fmt(p.m)}M</span>
+                <span className="mp-charge-preset-krw">{fmt(p.krw)} KRW</span>
+              </button>
+            ))}
+            {/* 직접 입력 */}
             <div
+              className={`mp-charge-preset-btn mp-charge-custom${selected === null ? " active" : ""}`}
+            >
+              <input
+                value={custom}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "");
+                  setCustom(v);
+                  setSelected(null);
+                }}
+                placeholder="직접 입력"
+                className="mp-charge-custom-input"
+              />
+              <span className="mp-charge-preset-krw">M</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 오른쪽: 요약 */}
+        <div className="mp-card mp-charge-summary">
+          <div className="mp-card-title" style={{ marginBottom: 20 }}>
+            충전 요약
+          </div>
+          <div className="mp-charge-summary-rows">
+            <div className="mp-charge-summary-row">
+              <span>충전 마일리지</span>
+              <span className="mp-charge-summary-val">{fmt(mileage)} M</span>
+            </div>
+            <div className="mp-charge-summary-row">
+              <span>수수료 (0%)</span>
+              <span>0 KRW</span>
+            </div>
+            <div className="mp-charge-summary-divider" />
+            <div className="mp-charge-summary-row mp-charge-summary-total">
+              <span>최종 결제 금액</span>
+              <span className="mp-charge-summary-total-val">
+                {fmt(krw)} KRW
+              </span>
+            </div>
+          </div>
+
+          {error && <div className="mp-charge-error">{error}</div>}
+
+          <div className="mp-charge-terms">
+            본인은 WONDEALER 마일리지 충전 약관에 동의하며, 법적 고지 사항을
+            확인했습니다.
+          </div>
+
+          <div className="mp-modal-footer" style={{ marginTop: 0 }}>
+            <button type="button" className="cancel" onClick={onBack}>
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={handleCharge}
+              disabled={loading || mileage < 10000}
               style={{
+                flex: 2,
+                padding: "14px",
+                borderRadius: 8,
+                border: "none",
+                color: "#ffffff",
+                background: "#7c3aed",
                 fontSize: 14,
                 fontWeight: 700,
-                color: "#e4e4e7",
-                marginBottom: 16,
+                cursor: loading || mileage < 10000 ? "not-allowed" : "pointer",
+                opacity: mileage < 10000 ? 0.5 : 1,
               }}
             >
-              + 충전 금액 선택
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: 12,
-              }}
-            >
-              {CHARGE_PRESETS.map((p, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    padding: "16px 8px",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    background: selected === i ? "transparent" : "#27272a",
-                    border:
-                      selected === i
-                        ? "2px solid #7c3aed"
-                        : "1px solid transparent",
-                  }}
-                  onClick={() => {
-                    setSelected(i);
-                    setCustom("");
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 700,
-                      color: "#ffffff",
-                      marginBottom: 4,
-                    }}
-                  >
-                    {fmt(p.m)}M
-                  </span>
-                  <span style={{ fontSize: 11, color: "#a1a1aa" }}>
-                    {fmt(p.krw)} KRW
-                  </span>
-                </button>
-              ))}
-
-              {/* 직접 입력 */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "0 12px",
-                  borderRadius: 8,
-                  background: "#27272a",
-                  border:
-                    selected === null
-                      ? "2px solid #7c3aed"
-                      : "1px solid transparent",
-                }}
-              >
-                <input
-                  value={custom}
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/\D/g, "");
-                    setCustom(v);
-                    setSelected(null);
-                  }}
-                  placeholder="직접 입력"
-                  style={{
-                    width: "100%",
-                    background: "transparent",
-                    border: "none",
-                    color: "#ffffff",
-                    outline: "none",
-                    fontSize: 14,
-                    fontWeight: 700,
-                    textAlign: "right",
-                    paddingRight: 4,
-                  }}
-                />
-                <span
-                  style={{ fontSize: 12, color: "#a1a1aa", fontWeight: 700 }}
-                >
-                  M
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 오른쪽 정산 요약 및 결제단 */}
-          <div
-            style={{
-              background: "#18181b",
-              border: "1px solid #27272a",
-              borderRadius: 12,
-              padding: 24,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 15,
-                fontWeight: 700,
-                color: "#e4e4e7",
-                marginBottom: 20,
-              }}
-            >
-              충전 요약
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-                fontSize: 13,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  color: "#a1a1aa",
-                }}
-              >
-                <span>충전 마일리지</span>
-                <span style={{ color: "#ffffff", fontWeight: 700 }}>
-                  {fmt(mileage)} M
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  color: "#a1a1aa",
-                }}
-              >
-                <span>수수료 (0%)</span>
-                <span style={{ color: "#ffffff" }}>0 KRW</span>
-              </div>
-              <div
-                style={{ borderTop: "1px solid #27272a", margin: "8px 0" }}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span style={{ fontSize: 13, color: "#ffffff" }}>
-                  최종 결제 금액
-                </span>
-                <span
-                  style={{ color: "#4ade80", fontWeight: 900, fontSize: 18 }}
-                >
-                  {fmt(krw)} KRW
-                </span>
-              </div>
-            </div>
-
-            {error && (
-              <div
-                style={{
-                  color: "#f87171",
-                  fontSize: 12,
-                  marginTop: 16,
-                  background: "rgba(248,113,113,0.1)",
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                }}
-              >
-                {error}
-              </div>
-            )}
-
-            <div
-              style={{
-                fontSize: 11,
-                color: "#52525b",
-                marginTop: 24,
-                marginBottom: 16,
-                lineHeight: 1.6,
-              }}
-            >
-              본인은 WONDEALER 마일리지 충전 약관에 동의하며, 법적 고지 사항을
-              확인했습니다.
-            </div>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={onClose}
-                type="button"
-                style={{
-                  flex: 1,
-                  padding: "14px",
-                  borderRadius: 8,
-                  border: "1px solid #3f3f46",
-                  color: "#e4e4e7",
-                  background: "transparent",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={handleCharge}
-                disabled={loading || mileage < 10000}
-                style={{
-                  flex: 2,
-                  padding: "14px",
-                  borderRadius: 8,
-                  border: "none",
-                  color: "#ffffff",
-                  background: "#7c3aed",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                {loading ? "처리중..." : "충전하기"}
-              </button>
-            </div>
+              {loading ? "처리중..." : "충전하기"}
+            </button>
           </div>
         </div>
       </div>
@@ -893,14 +575,14 @@ function ChargeModal({ balance, onClose, onSuccess }) {
   );
 }
 
-// ── 마일리지 출금 신청 페이지 (이미지 3번 스타일) ───────────────────────
-function WithdrawModal({
+// ── 마일리지 출금 탭 콘텐츠 ─────────────────────────────────────
+function WithdrawTab({
   balance,
   bankName,
   accountNumber,
   accountHolder,
-  onClose,
   onSuccess,
+  onBack,
 }) {
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
@@ -952,414 +634,152 @@ function WithdrawModal({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        zIndex: 9999,
-        display: "flex",
-        backgroundColor: "#09090b",
-        color: "#ffffff",
-        fontFamily: "sans-serif",
-        overflowY: "auto",
-      }}
-    >
-      {/* 왼쪽 사이드바 */}
-      <FullPageSidebar onClose={onClose} />
+    <div>
+      {/* 뒤로가기 */}
+      <div className="mp-support-back" onClick={onBack}>
+        <Icon.ChevronLeft /> 마일리지 조회로 돌아가기
+      </div>
 
-      {/* 오른쪽 메인 콘텐츠 */}
-      <div
-        style={{
-          flex: 1,
-          padding: "40px 48px",
-          maxWidth: 1200,
-          margin: "0 auto",
-        }}
-      >
-        {/* 헤더 상단 */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: 32,
-          }}
-        >
-          <div>
-            <h1
-              style={{
-                fontSize: 24,
-                fontWeight: 700,
-                margin: 0,
-                color: "#f4f4f5",
-              }}
-            >
-              마일리지 출금 신청
-            </h1>
-            <p
-              style={{
-                fontSize: 13,
-                color: "#a1a1aa",
-                marginTop: 6,
-                margin: 0,
-              }}
-            >
-              보유하신 마일리지를 등록된 계좌로 안전하게 출금 신청하실 수
-              있습니다.
-            </p>
+      <div className="mp-section-title">마일리지 출금 신청</div>
+      <div className="mp-section-sub">
+        보유하신 마일리지를 등록된 계좌로 안전하게 출금 신청하실 수 있습니다.
+      </div>
+
+      {/* 잔액 2열 카드 */}
+      <div className="mp-withdraw-balance-row">
+        <div className="mp-card mp-withdraw-balance-card">
+          <div className="mp-mileage-label">전체 보유 마일리지</div>
+          <div className="mp-withdraw-bal">
+            {fmt(balance)} <span>M</span>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#a1a1aa",
-              cursor: "pointer",
-              fontSize: 20,
-            }}
-            type="button"
-          >
-            <Icon.X />
-          </button>
         </div>
+        <div className="mp-card mp-withdraw-balance-card mp-withdraw-balance-green">
+          <div className="mp-mileage-label" style={{ color: "#10b981" }}>
+            최대 출금 가능 마일리지
+          </div>
+          <div className="mp-withdraw-bal mp-withdraw-bal-green">
+            {fmt(withdrawable)} <span>M</span>
+          </div>
+        </div>
+      </div>
 
-        {/* 상단 잔액 요약 (2열 구조) */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 20,
-            marginBottom: 32,
-          }}
-        >
-          <div
-            style={{
-              background: "#18181b",
-              border: "1px solid #27272a",
-              borderRadius: 12,
-              padding: "20px 24px",
-            }}
-          >
-            <div style={{ fontSize: 12, color: "#71717a", marginBottom: 6 }}>
-              전체 보유 마일리지
-            </div>
-            <div
-              style={{
-                fontSize: 26,
-                fontWeight: 800,
-                color: "#ffffff",
-                fontFamily: "monospace",
-              }}
+      {/* 하단 2단 */}
+      <div className="mp-withdraw-grid">
+        {/* 왼쪽: 입력 폼 */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* 출금 금액 */}
+          <div className="mp-card">
+            <label
+              className="mp-form-label"
+              style={{ marginBottom: 10, display: "block" }}
             >
-              {fmt(balance)}{" "}
-              <span style={{ fontSize: 16, fontWeight: 500, color: "#a1a1aa" }}>
-                M
+              출금 신청금액
+            </label>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <div className="mp-withdraw-input-wrap">
+                <input
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
+                  placeholder="최소 10,000M 이상 입력"
+                  className="mp-withdraw-input"
+                />
+              </div>
+              <button
+                type="button"
+                className="mp-btn-secondary"
+                onClick={() => setAmount(String(withdrawable))}
+                style={{ whiteSpace: "nowrap", padding: "10px 16px" }}
+              >
+                전액출금
+              </button>
+            </div>
+          </div>
+
+          {/* 계좌 정보 */}
+          <div className="mp-card">
+            <label
+              className="mp-form-label"
+              style={{ marginBottom: 10, display: "block" }}
+            >
+              입금계좌 정보
+            </label>
+            <div className="mp-withdraw-account-box">
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div className="mp-withdraw-bank-icon">🏦</div>
+                <div>
+                  <div className="mp-withdraw-bank-name">
+                    {bankName || "등록된 계좌 없음"}
+                  </div>
+                  <div className="mp-withdraw-bank-sub">
+                    {accountNumber
+                      ? `${accountNumber} (예금주: ${accountHolder})`
+                      : "회원정보 수정에서 계좌를 등록해주세요"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 영수증 */}
+          <div className="mp-card mp-withdraw-receipt">
+            <div className="mp-charge-summary-row">
+              <span>예상 수수료 (2%)</span>
+              <span style={{ color: "#f87171" }}>- {fmt(fee)} KRW</span>
+            </div>
+            <div className="mp-charge-summary-divider" />
+            <div className="mp-charge-summary-row mp-charge-summary-total">
+              <span>최종 출금 금액</span>
+              <span className="mp-charge-summary-total-val">
+                {fmt(Math.max(0, net))} KRW
               </span>
             </div>
           </div>
-          <div
-            style={{
-              background: "rgba(16, 185, 129, 0.04)",
-              border: "1px solid rgba(16, 185, 129, 0.2)",
-              borderRadius: 12,
-              padding: "20px 24px",
-            }}
-          >
-            <div style={{ fontSize: 12, color: "#10b981", marginBottom: 6 }}>
-              최대 출금 가능 마일리지
-            </div>
-            <div
-              style={{
-                fontSize: 26,
-                fontWeight: 800,
-                color: "#10b981",
-                fontFamily: "monospace",
-              }}
-            >
-              {fmt(withdrawable)}{" "}
-              <span style={{ fontSize: 16, fontWeight: 500 }}>M</span>
-            </div>
-          </div>
         </div>
 
-        {/* 하단 2단 구조 */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 380px",
-            gap: 32,
-            alignItems: "start",
-          }}
-        >
-          {/* 왼쪽 입력 데이터 폼 */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#a1a1aa",
-                  marginBottom: 10,
-                }}
-              >
-                출금 신청금액
-              </label>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    background: "#18181b",
-                    border: "1px solid #27272a",
-                    borderRadius: 8,
-                    padding: "0 14px",
-                  }}
-                >
-                  <input
-                    value={amount}
-                    onChange={(e) =>
-                      setAmount(e.target.value.replace(/\D/g, ""))
-                    }
-                    placeholder="최소 10,000M 이상 입력"
-                    style={{
-                      width: "100%",
-                      background: "transparent",
-                      border: "none",
-                      color: "#ffffff",
-                      outline: "none",
-                      padding: "14px 0",
-                      fontSize: 14,
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAmount(String(withdrawable))}
-                  style={{
-                    background: "#27272a",
-                    border: "1px solid #3f3f46",
-                    color: "#e4e4e7",
-                    padding: "14px 18px",
-                    borderRadius: 8,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  전액출금
-                </button>
-              </div>
+        {/* 오른쪽: 주의사항 + 버튼 */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="mp-card mp-withdraw-notice">
+            <div className="mp-card-title" style={{ marginBottom: 14 }}>
+              <Icon.AlertCircle /> 출금 시 주의사항
             </div>
-
-            {/* 계좌 박스 */}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#a1a1aa",
-                  marginBottom: 10,
-                }}
-              >
-                입금계좌 정보
-              </label>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  background: "#18181b",
-                  border: "1px solid #27272a",
-                  borderRadius: 8,
-                  padding: "16px 20px",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      background: "#27272a",
-                      display: "flex",
-                      alignItems: "center",
-                      fontSize: 18,
-                      justifyContent: "center",
-                    }}
-                  >
-                    🏦
-                  </div>
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: "#e4e4e7",
-                      }}
-                    >
-                      {bankName || "등록된 계좌 없음"}
-                    </div>
-                    <div
-                      style={{ fontSize: 12, color: "#71717a", marginTop: 2 }}
-                    >
-                      {accountNumber
-                        ? `${accountNumber} (예금주: ${accountHolder})`
-                        : "회원정보 수정에서 계좌를 등록해주세요"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 영수증 데이터 라인 */}
-            <div
-              style={{
-                background: "#18181b",
-                border: "1px solid #27272a",
-                borderRadius: 8,
-                padding: "16px 20px",
-                fontSize: 13,
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  color: "#a1a1aa",
-                }}
-              >
-                <span>예상 수수료 (2%)</span>
-                <span style={{ color: "#f87171" }}>- {fmt(fee)} KRW</span>
-              </div>
-              <div
-                style={{ borderTop: "1px solid #27272a", margin: "4px 0" }}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontWeight: 700,
-                }}
-              >
-                <span style={{ color: "#ffffff" }}>최종 출금 금액</span>
-                <span style={{ color: "#4ade80", fontSize: 16 }}>
-                  {fmt(Math.max(0, net))} KRW
-                </span>
-              </div>
-            </div>
+            <ul className="mp-withdraw-notice-list">
+              <li>출금 신청은 1일 1회만 가능합니다.</li>
+              <li>
+                출금 신청 후 처리 완료까지 영업일 기준 최소 1~3일 정도 소요될 수
+                있습니다.
+              </li>
+              <li>
+                잘못 입력된 계좌정보는 이체 실패의 원인이 되며 자동 취소
+                처리됩니다.
+              </li>
+            </ul>
           </div>
 
-          {/* 오른쪽 사이드 패널 (주의사항 + 버튼) */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div
+          {error && <div className="mp-charge-error">{error}</div>}
+
+          <div className="mp-modal-footer" style={{ marginTop: 0 }}>
+            <button type="button" className="cancel" onClick={onBack}>
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={handleWithdraw}
+              disabled={loading || requested < MIN}
               style={{
-                background: "rgba(39, 39, 42, 0.4)",
-                border: "1px solid #27272a",
-                borderRadius: 12,
-                padding: 24,
+                flex: 2,
+                padding: "16px",
+                borderRadius: 8,
+                border: "none",
+                color: "#ffffff",
+                background: "#7c3aed",
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: loading || requested < MIN ? "not-allowed" : "pointer",
+                opacity: requested < MIN ? 0.5 : 1,
               }}
             >
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#e4e4e7",
-                  marginBottom: 14,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <Icon.AlertCircle
-                  style={{ width: 16, height: 16, color: "#a78bfa" }}
-                />{" "}
-                출금 시 주의사항
-              </div>
-              <ul
-                style={{
-                  margin: 0,
-                  paddingLeft: 16,
-                  fontSize: 12,
-                  color: "#a1a1aa",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                  lineHeight: 1.6,
-                }}
-              >
-                <li>출금 신청은 1일 1회만 가능합니다.</li>
-                <li>
-                  출금 신청 후 처리 완료까지 영업일 기준 최소 1~3일 정도 소요될
-                  수 있습니다.
-                </li>
-                <li>
-                  잘못 입력된 계좌정보는 이체 실패의 원인이 되며 자동 취소
-                  처리됩니다.
-                </li>
-              </ul>
-            </div>
-
-            {error && (
-              <div
-                style={{
-                  color: "#f87171",
-                  fontSize: 12,
-                  background: "rgba(248,113,113,0.1)",
-                  padding: "12px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(248,113,113,0.2)",
-                }}
-              >
-                {error}
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={onClose}
-                type="button"
-                style={{
-                  flex: 1,
-                  padding: "16px",
-                  borderRadius: 8,
-                  border: "1px solid #3f3f46",
-                  color: "#e4e4e7",
-                  background: "transparent",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={handleWithdraw}
-                disabled={loading || requested < MIN}
-                style={{
-                  flex: 2,
-                  padding: "16px",
-                  borderRadius: 8,
-                  border: "none",
-                  color: "#ffffff",
-                  background: "#7c3aed",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                {loading ? "처리중..." : "출금 신청하기"}
-              </button>
-            </div>
+              {loading ? "처리중..." : "출금 신청하기"}
+            </button>
           </div>
         </div>
       </div>
@@ -1367,7 +787,7 @@ function WithdrawModal({
   );
 }
 
-// ── 탈퇴 모달 ───────────────────────────────────────────────────
+// ── 탈퇴 모달 ──────────────────────────────────────────────────
 function DeleteAccountModal({ onConfirm, onClose }) {
   const [step, setStep] = useState(1);
   const [password, setPassword] = useState("");
@@ -1523,8 +943,8 @@ function DeleteAccountModal({ onConfirm, onClose }) {
   );
 }
 
-// ── 마일리지 탭 ─────────────────────────────────────────────────
-function MileageTab() {
+// ── 마일리지 탭 ────────────────────────────────────────────────
+function MileageTab({ onGoCharge, onGoWithdraw }) {
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState([]);
   const [stats, setStats] = useState({
@@ -1535,35 +955,24 @@ function MileageTab() {
   });
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showCharge, setShowCharge] = useState(false);
-  const [showWithdraw, setShowWithdraw] = useState(false);
-  const [bankInfo, setBankInfo] = useState({
-    bankName: "",
-    accountNumber: "",
-    accountHolder: "",
-  });
 
   const fetchData = useCallback(async () => {
     const tk = token();
     try {
-      const [balRes, txRes, statRes, actRes, profileRes] =
-        await Promise.allSettled([
-          fetch("/api/members/me/mileage", {
-            headers: { Authorization: `Bearer ${tk}` },
-          }),
-          fetch("/api/members/me/mileage/transactions?size=3", {
-            headers: { Authorization: `Bearer ${tk}` },
-          }),
-          fetch("/api/members/me/stats", {
-            headers: { Authorization: `Bearer ${tk}` },
-          }),
-          fetch("/api/members/me/activities?size=3", {
-            headers: { Authorization: `Bearer ${tk}` },
-          }),
-          fetch("/api/members/me", {
-            headers: { Authorization: `Bearer ${tk}` },
-          }),
-        ]);
+      const [balRes, txRes, statRes, actRes] = await Promise.allSettled([
+        fetch("/api/members/me/mileage", {
+          headers: { Authorization: `Bearer ${tk}` },
+        }),
+        fetch("/api/members/me/mileage/transactions?size=3", {
+          headers: { Authorization: `Bearer ${tk}` },
+        }),
+        fetch("/api/members/me/stats", {
+          headers: { Authorization: `Bearer ${tk}` },
+        }),
+        fetch("/api/members/me/activities?size=3", {
+          headers: { Authorization: `Bearer ${tk}` },
+        }),
+      ]);
 
       if (balRes.status === "fulfilled" && balRes.value.ok) {
         const d = await balRes.value.json();
@@ -1588,15 +997,6 @@ function MileageTab() {
         const d = await actRes.value.json();
         const list = d?.data?.content ?? d?.content ?? d?.data ?? [];
         setRecentActivity(Array.isArray(list) ? list.slice(0, 3) : []);
-      }
-      if (profileRes.status === "fulfilled" && profileRes.value.ok) {
-        const d = await profileRes.value.json();
-        const p = d?.data ?? d;
-        setBankInfo({
-          bankName: p.bankName ?? "",
-          accountNumber: p.accountNumber ?? "",
-          accountHolder: p.accountHolder ?? "",
-        });
       }
     } catch (e) {
       console.error("마일리지 탭 로드 오류:", e);
@@ -1640,32 +1040,6 @@ function MileageTab() {
 
   return (
     <div>
-      {showCharge && (
-        <ChargeModal
-          balance={balance}
-          onClose={() => setShowCharge(false)}
-          onSuccess={(amt) => {
-            setBalance((prev) => prev + amt);
-            setShowCharge(false);
-            alert(`${fmt(amt)}M 충전이 완료되었습니다.`);
-          }}
-        />
-      )}
-      {showWithdraw && (
-        <WithdrawModal
-          balance={balance}
-          bankName={bankInfo.bankName}
-          accountNumber={bankInfo.accountNumber}
-          accountHolder={bankInfo.accountHolder}
-          onClose={() => setShowWithdraw(false)}
-          onSuccess={(amt) => {
-            setBalance((prev) => Math.max(0, prev - amt));
-            setShowWithdraw(false);
-            alert(`${fmt(amt)}M 출금 신청이 완료되었습니다.`);
-          }}
-        />
-      )}
-
       {/* 잔액 + 최근 거래 */}
       <div className="mp-mileage-top">
         <div className="mp-card mp-mileage-balance">
@@ -1677,14 +1051,14 @@ function MileageTab() {
             <button
               className="mp-btn-primary"
               type="button"
-              onClick={() => setShowCharge(true)}
+              onClick={onGoCharge}
             >
-              마일리지충전
+              마일리지 충전
             </button>
             <button
               className="mp-btn-secondary"
               type="button"
-              onClick={() => setShowWithdraw(true)}
+              onClick={onGoWithdraw}
             >
               출금 신청
             </button>
@@ -1795,7 +1169,7 @@ function MileageTab() {
   );
 }
 
-// ── 프로필 탭 ───────────────────────────────────────────────────
+// ── 프로필 탭 ──────────────────────────────────────────────────
 const BANKS = ["신한은행", "국민은행", "하나은행", "우리은행", "카카오뱅크"];
 
 function ProfileTab({
@@ -1858,7 +1232,6 @@ function ProfileTab({
       .finally(() => {
         if (mounted) setLoading(false);
       });
-
     return () => {
       mounted = false;
     };
@@ -1993,7 +1366,6 @@ function ProfileTab({
           onClose={() => setShowModal(false)}
         />
       )}
-
       <div className="mp-section-title">회원정보 수정</div>
       <div className="mp-section-sub">
         귀하의 계정 정보와 출금 수단을 안전하게 관리하세요.
@@ -2250,7 +1622,7 @@ function ProfileTab({
   );
 }
 
-// ── 활동 기록 탭 ────────────────────────────────────────────────
+// ── 활동 기록 탭 ───────────────────────────────────────────────
 const SUB_TAB_API = {
   "구매 내역": "/api/members/me/purchases",
   "판매 내역": "/api/members/me/sales",
@@ -2271,11 +1643,9 @@ const PAGE_SIZE_ACTIVITY = 3;
 function ActivityTab() {
   const [activeSubTab, setActiveSubTab] = useState("구매 내역");
   const [data, setData] = useState([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState("전체");
-
   const PERIODS = ["전체", "1개월", "3개월", "6개월"];
 
   useEffect(() => {
@@ -2283,7 +1653,6 @@ function ActivityTab() {
     setLoading(true);
     setData([]);
     setPage(1);
-
     fetch(`${SUB_TAB_API[activeSubTab]}?size=20`, {
       headers: { Authorization: `Bearer ${token()}` },
     })
@@ -2295,11 +1664,6 @@ function ActivityTab() {
         if (!mounted) return;
         const list = json?.data?.content ?? json?.content ?? json?.data ?? [];
         setData(Array.isArray(list) ? list : []);
-        setTotal(
-          json?.data?.totalElements ??
-            json?.totalElements ??
-            (Array.isArray(list) ? list.length : 0),
-        );
       })
       .catch(() => {
         if (mounted) setData([]);
@@ -2307,7 +1671,6 @@ function ActivityTab() {
       .finally(() => {
         if (mounted) setLoading(false);
       });
-
     return () => {
       mounted = false;
     };
@@ -2326,7 +1689,6 @@ function ActivityTab() {
         최근 구매/판매/경매 기록을 확인하실 수 있습니다.
       </div>
 
-      {/* 필터 행 */}
       <div
         style={{
           display: "flex",
@@ -2390,7 +1752,6 @@ function ActivityTab() {
           </button>
         </div>
       </div>
-
       <div style={{ borderBottom: "1px solid #27272a", marginBottom: 20 }} />
 
       {loading ? (
@@ -2497,7 +1858,7 @@ function ActivityTab() {
   );
 }
 
-// ── 등록 물품 탭 ────────────────────────────────────────────────
+// ── 등록 물품 탭 ───────────────────────────────────────────────
 function ItemsTab({ navigate }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2505,7 +1866,6 @@ function ItemsTab({ navigate }) {
   const [editPrice, setEditPrice] = useState("");
   const [deleting, setDeleting] = useState(null);
   const [activeItemTab, setActiveItemTab] = useState("아이템");
-
   const ITEM_TABS = ["아이템", "게임머니", "계정", "경매물품"];
 
   useEffect(() => {
@@ -2600,7 +1960,6 @@ function ItemsTab({ navigate }) {
         </button>
       </div>
 
-      {/* 통계 */}
       <div className="mp-items-stats">
         {[
           { label: "현재 판매중인 물품", value: sellingCount, cls: "violet" },
@@ -2620,7 +1979,6 @@ function ItemsTab({ navigate }) {
         ))}
       </div>
 
-      {/* 물품 카테고리 탭 */}
       <div className="mp-subtab-bar" style={{ marginBottom: 16 }}>
         {ITEM_TABS.map((tab) => (
           <button
@@ -2779,7 +2137,7 @@ function ItemsTab({ navigate }) {
   );
 }
 
-// ── 고객센터 ─────────────────────────────────────────────────────
+// ── 고객센터 ──────────────────────────────────────────────────
 const NOTICE_CATEGORIES = ["전체", "시스템", "이벤트", "점검안내"];
 const FAQ_CATEGORIES = [
   "전체",
@@ -3357,7 +2715,7 @@ function SupportTab() {
   }
 }
 
-// ── 사이드바 ─────────────────────────────────────────────────────
+// ── 사이드바 ──────────────────────────────────────────────────
 const SIDEBAR_ITEMS = [
   { key: "mileage", label: "마일리지 조회", Icon: Icon.Coins },
   { key: "profile", label: "회원정보 수정", Icon: Icon.User },
@@ -3366,7 +2724,10 @@ const SIDEBAR_ITEMS = [
   { key: "support", label: "고객센터", Icon: Icon.Headphones },
 ];
 
-// ── 메인 ─────────────────────────────────────────────────────────
+// charge/withdraw는 mileage의 서브뷰이므로 사이드바에서는 mileage를 active로 표시
+const TAB_TO_SIDEBAR_KEY = { charge: "mileage", withdraw: "mileage" };
+
+// ── 메인 ──────────────────────────────────────────────────────
 export default function MyPage({ tab: defaultTab }) {
   const { user, logout, isLoggedIn } = useAuth();
   const navigate = useNavigate();
@@ -3376,6 +2737,40 @@ export default function MyPage({ tab: defaultTab }) {
   );
   const [sidebarProfileImg, setSidebarProfileImg] = useState(null);
 
+  // 충전/출금에서 balance 공유
+  const [sharedBalance, setSharedBalance] = useState(0);
+  const [bankInfo, setBankInfo] = useState({
+    bankName: "",
+    accountNumber: "",
+    accountHolder: "",
+  });
+
+  useEffect(() => {
+    const tk = token();
+    Promise.allSettled([
+      fetch("/api/members/me/mileage", {
+        headers: { Authorization: `Bearer ${tk}` },
+      }),
+      fetch("/api/members/me", { headers: { Authorization: `Bearer ${tk}` } }),
+    ]).then(([balRes, profileRes]) => {
+      if (balRes.status === "fulfilled" && balRes.value.ok) {
+        balRes.value
+          .json()
+          .then((d) => setSharedBalance(d?.data?.balance ?? d?.balance ?? 0));
+      }
+      if (profileRes.status === "fulfilled" && profileRes.value.ok) {
+        profileRes.value.json().then((d) => {
+          const p = d?.data ?? d;
+          setBankInfo({
+            bankName: p.bankName ?? "",
+            accountNumber: p.accountNumber ?? "",
+            accountHolder: p.accountHolder ?? "",
+          });
+        });
+      }
+    });
+  }, []);
+
   if (!isLoggedIn) {
     navigate("/login");
     return null;
@@ -3384,6 +2779,64 @@ export default function MyPage({ tab: defaultTab }) {
   const handleDeleteAccount = () => {
     logout();
     navigate("/");
+  };
+
+  const activeSidebarKey = TAB_TO_SIDEBAR_KEY[activeTab] ?? activeTab;
+
+  const renderMain = () => {
+    switch (activeTab) {
+      case "mileage":
+        return (
+          <MileageTab
+            onGoCharge={() => setActiveTab("charge")}
+            onGoWithdraw={() => setActiveTab("withdraw")}
+          />
+        );
+      case "charge":
+        return (
+          <ChargeTab
+            balance={sharedBalance}
+            onBack={() => setActiveTab("mileage")}
+            onSuccess={(amt) => {
+              setSharedBalance((prev) => prev + amt);
+              setActiveTab("mileage");
+              alert(`${fmt(amt)}M 충전이 완료되었습니다.`);
+            }}
+          />
+        );
+      case "withdraw":
+        return (
+          <WithdrawTab
+            balance={sharedBalance}
+            bankName={bankInfo.bankName}
+            accountNumber={bankInfo.accountNumber}
+            accountHolder={bankInfo.accountHolder}
+            onBack={() => setActiveTab("mileage")}
+            onSuccess={(amt) => {
+              setSharedBalance((prev) => Math.max(0, prev - amt));
+              setActiveTab("mileage");
+              alert(`${fmt(amt)}M 출금 신청이 완료되었습니다.`);
+            }}
+          />
+        );
+      case "profile":
+        return (
+          <ProfileTab
+            user={user}
+            onDeleteAccount={handleDeleteAccount}
+            onNicknameSaved={setSidebarNickname}
+            onProfileImgSaved={setSidebarProfileImg}
+          />
+        );
+      case "activity":
+        return <ActivityTab />;
+      case "items":
+        return <ItemsTab navigate={navigate} />;
+      case "support":
+        return <SupportTab />;
+      default:
+        return null;
+    }
   };
 
   return (
@@ -3416,7 +2869,7 @@ export default function MyPage({ tab: defaultTab }) {
               <button
                 key={key}
                 type="button"
-                className={`mp-nav-btn${activeTab === key ? " active" : ""}`}
+                className={`mp-nav-btn${activeSidebarKey === key ? " active" : ""}`}
                 onClick={() => setActiveTab(key)}
               >
                 <Ic />
@@ -3426,20 +2879,7 @@ export default function MyPage({ tab: defaultTab }) {
           </nav>
         </aside>
 
-        <main className="mp-main">
-          {activeTab === "mileage" && <MileageTab />}
-          {activeTab === "profile" && (
-            <ProfileTab
-              user={user}
-              onDeleteAccount={handleDeleteAccount}
-              onNicknameSaved={setSidebarNickname}
-              onProfileImgSaved={setSidebarProfileImg}
-            />
-          )}
-          {activeTab === "activity" && <ActivityTab />}
-          {activeTab === "items" && <ItemsTab navigate={navigate} />}
-          {activeTab === "support" && <SupportTab />}
-        </main>
+        <main className="mp-main">{renderMain()}</main>
       </div>
     </div>
   );
