@@ -271,16 +271,18 @@ const RankGrid = styled.div`
 const RankCard = styled.div`
   display: flex;
   align-items: center;
-  background-color: var(--bg-surface-lowest, #ffffff);
+  background-color: var(--bg-surface-lowest, black);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px 24px;
   cursor: pointer;
   transition: background-color 0.2s;
+
   &:hover {
     background-color: var(--bg-container-high);
     border-color: var(--color-primary);
   }
+
   @media (max-width: 480px) {
     padding: 12px 16px;
   }
@@ -292,6 +294,7 @@ const RankNumber = styled.span`
   color: ${(p) =>
     p.$rank <= 3 ? "var(--color-primary)" : "var(--text-secondary)"};
   width: 24px;
+
   @media (max-width: 480px) {
     font-size: 16px;
     width: 20px;
@@ -359,7 +362,7 @@ const EmptyBox = styled.div`
 `;
 
 const TableWrapper = styled.div`
-  background-color: var(--bg-surface-lowest, #ffffff);
+  background-color: var(--bg-surface-lowest, #fff);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
