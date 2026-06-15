@@ -5,10 +5,14 @@ import axios from "axios";
 import Common from "../../utils/Common";
 import heroBgImage from "../../img/HeroSection.jpg";
 
-// Axios 인스턴스 설정
 const api = axios.create({ baseURL: Common.API_URL });
 
+<<<<<<< Updated upstream
 // ── Styled Components (기존 UI 유지) ──────────────────────────────────
+=======
+// ── Styled Components (반응형 최적화 레이아웃) ──────────────────────────────
+
+>>>>>>> Stashed changes
 const PageContainer = styled.div`
   width: 100%;
   min-height: 100vh;
@@ -29,6 +33,11 @@ const HeroSection = styled.div`
   align-items: center;
   text-align: center;
   overflow: hidden;
+<<<<<<< Updated upstream
+=======
+
+  /* 태블릿 & 모바일 배너 높이 유연화 */
+>>>>>>> Stashed changes
   @media (max-width: 768px) {
     height: 460px;
   }
@@ -80,6 +89,7 @@ const MainTitle = styled.h1`
     color: #ffffff;
   }
 
+  /* 모바일 해상도 타이틀 텍스트 크기 축소 */
   @media (max-width: 768px) {
     font-size: 32px;
   }
@@ -157,10 +167,11 @@ const QuickMenuSection = styled.div`
   position: relative;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(8, 1fr); /* 데스크톱 8열 배치 */
   gap: 12px;
   padding: 0 20px;
 
+  /* 모바일/태블릿 화면 크기 축소 시 4열 배치 전환 */
   @media (max-width: 768px) {
     grid-template-columns: repeat(4, 1fr);
     margin-top: -24px;
@@ -255,10 +266,15 @@ const SectionSubtitle = styled.p`
 const RankGrid = styled.div`
   margin-top: 28px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, 1fr); /* 데스크톱 좌우 2열 배치 */
   grid-template-rows: repeat(5, auto);
   grid-auto-flow: column;
   gap: 16px;
+<<<<<<< Updated upstream
+=======
+
+  /* 태블릿 및 모바일 환경에서 직렬 1열 리스트로 재배치 */
+>>>>>>> Stashed changes
   @media (max-width: 768px) {
     margin-top: 20px;
     grid-template-columns: 1fr;
@@ -366,6 +382,11 @@ const TableWrapper = styled.div`
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
+<<<<<<< Updated upstream
+=======
+
+  /* 태블릿 및 모바일에서 테이블이 찌그러지지 않도록 가로 스크롤 보장 */
+>>>>>>> Stashed changes
   @media (max-width: 768px) {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -377,6 +398,11 @@ const ItemTable = styled.table`
   border-collapse: collapse;
   text-align: left;
   font-size: 14px;
+<<<<<<< Updated upstream
+=======
+
+  /* 모바일 해상도 붕괴 방지용 최소 너비 고정 */
+>>>>>>> Stashed changes
   @media (max-width: 768px) {
     min-width: 600px;
   }
@@ -478,7 +504,10 @@ const BuyButton = styled.button`
   }
 `;
 
+<<<<<<< Updated upstream
 // 고정 매핑용 아이콘 데이터
+=======
+>>>>>>> Stashed changes
 const GAME_ICONS = {
   로스트아크: "⚔️",
   "LOST ARK": "⚔️",
@@ -497,6 +526,8 @@ const GAME_ICONS = {
   "Overwatch 2": "🔫",
 };
 
+// ── Component Logic ─────────────────────────────────────────────────────────
+
 const MainPage = () => {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState("");
@@ -504,7 +535,10 @@ const MainPage = () => {
   const [recentItems, setRecentItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+<<<<<<< Updated upstream
   // 상단 빠른 메뉴 리스트
+=======
+>>>>>>> Stashed changes
   const quickMenus = [
     { name: "로스트아크", key: "lostark" },
     { name: "메이플스토리", key: "maplestory" },
@@ -516,7 +550,11 @@ const MainPage = () => {
     { name: "오버워치2", key: "overwatch2" },
   ];
 
+<<<<<<< Updated upstream
   // 상대 시간 변환 함수
+=======
+  // 등록 경과시간 포맷 헬퍼
+>>>>>>> Stashed changes
   const formatRelativeTime = (createdAtString) => {
     if (!createdAtString) return "방금 전";
     const now = new Date();
@@ -532,7 +570,19 @@ const MainPage = () => {
     return `${diffInDays}일 전`;
   };
 
+<<<<<<< Updated upstream
   // 통합 데이터 페칭 로직
+=======
+  // 실시간 등록시간 동기화 인터벌
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeTicker((prev) => prev + 1);
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // [API] 비회원 인가 유연성 보장 데이터 패칭
+>>>>>>> Stashed changes
   useEffect(() => {
     const fetchMainData = async () => {
       setIsLoading(true);
@@ -555,7 +605,7 @@ const MainPage = () => {
 
         setPopularGames(sortedRank);
 
-        // 2. 최근 등록된 매물 가져오기
+        // 2. 최근 등록 매물 가져오기
         try {
           const itemRes = await api.get("/api/items", {
             params: { page: 0, size: 5 },
@@ -564,6 +614,7 @@ const MainPage = () => {
           const itemList = itemRes.data?.data || itemRes.data || [];
           setRecentItems(Array.isArray(itemList) ? itemList : []);
         } catch (itemErr) {
+<<<<<<< Updated upstream
           console.warn(
             "최근 매물 목록 로드 실패 (API 미구현 안내 대체)",
             itemErr,
@@ -575,12 +626,20 @@ const MainPage = () => {
           "메인 페이지 데이터를 가져오는 중 오류가 발생했습니다.",
           error,
         );
+=======
+          console.warn("최근 매물 리스트 바인딩 실패", itemErr);
+          setRecentItems([]);
+        }
+      } catch (error) {
+        console.error("메인 데이터 페칭 에러 발생", error);
+>>>>>>> Stashed changes
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchMainData();
+<<<<<<< Updated upstream
   }, []);
 
   // 실시간 스탬프 갱신을 위한 타이머
@@ -593,6 +652,10 @@ const MainPage = () => {
   }, []);
 
   // 검색 처리
+=======
+  }, [timeTicker]);
+
+>>>>>>> Stashed changes
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (!keyword.trim()) {
@@ -602,14 +665,24 @@ const MainPage = () => {
     navigate(`/items?keyword=${encodeURIComponent(keyword)}`);
   };
 
+<<<<<<< Updated upstream
   // 퀵 메뉴 및 게임 랭킹 클릭 처리
+=======
+>>>>>>> Stashed changes
   const handleGameClick = (gameName) => {
     navigate(`/items?keyword=${encodeURIComponent(gameName)}`);
   };
 
+<<<<<<< Updated upstream
+=======
+  const handleBuyClick = (itemId) => {
+    navigate(`/item/${itemId}`);
+  };
+
+>>>>>>> Stashed changes
   return (
     <PageContainer>
-      {/* 상단 히어로 배너 영역 */}
+      {/* 상단 히어로 배너 */}
       <HeroSection>
         <HeroOverlay />
         <HeroContent>
@@ -643,7 +716,11 @@ const MainPage = () => {
         </HeroContent>
       </HeroSection>
 
+<<<<<<< Updated upstream
       {/* 배너 아래 8개 고정 게임 메뉴 */}
+=======
+      {/* 8열 퀵 게임 아이콘 메뉴 리스트 */}
+>>>>>>> Stashed changes
       <QuickMenuSection>
         {quickMenus.map((menu, index) => (
           <QuickMenuCard key={index} onClick={() => handleGameClick(menu.name)}>
@@ -662,7 +739,7 @@ const MainPage = () => {
         ))}
       </QuickMenuSection>
 
-      {/* 인기 게임 순위 영역 */}
+      {/* 실시간 인기 게임 랭킹 */}
       <Section>
         <SectionTitle>인기 게임 순위</SectionTitle>
         <SectionSubtitle>실시간 거래량 기준</SectionSubtitle>
@@ -708,7 +785,7 @@ const MainPage = () => {
         )}
       </Section>
 
-      {/* 최근 등록된 매물 영역 */}
+      {/* 최근 등록 상품 목록 테이블 */}
       <RecentSection>
         <SectionTitle>최근 등록된 매물</SectionTitle>
         <SectionSubtitle>
@@ -718,6 +795,7 @@ const MainPage = () => {
             : "방금 전"}
         </SectionSubtitle>
 
+<<<<<<< Updated upstream
         {isLoading ? (
           <LoadingText>최신 매물을 불러오는 중입니다...</LoadingText>
         ) : recentItems.length > 0 ? (
@@ -734,6 +812,22 @@ const MainPage = () => {
               </thead>
               <tbody>
                 {recentItems.map((item) => (
+=======
+        <TableWrapper>
+          <ItemTable>
+            <thead>
+              <tr>
+                <th style={{ width: "40%" }}>商品정보</th>
+                <th>서버</th>
+                <th>가격</th>
+                <th>등록시간</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentItems.length > 0 ? (
+                recentItems.map((item) => (
+>>>>>>> Stashed changes
                   <tr key={item.itemId}>
                     <td>
                       <ItemInfoCell>
