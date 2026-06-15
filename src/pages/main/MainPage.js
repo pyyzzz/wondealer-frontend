@@ -7,18 +7,15 @@ import heroBgImage from "../../img/HeroSection.jpg";
 
 const api = axios.create({ baseURL: Common.API_URL });
 
-<<<<<<< Updated upstream
-// ── Styled Components (기존 UI 유지) ──────────────────────────────────
-=======
 // ── Styled Components (반응형 최적화 레이아웃) ──────────────────────────────
 
->>>>>>> Stashed changes
 const PageContainer = styled.div`
   width: 100%;
   min-height: 100vh;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   padding-bottom: 80px;
+
   @media (max-width: 768px) {
     padding-bottom: 40px;
   }
@@ -33,11 +30,8 @@ const HeroSection = styled.div`
   align-items: center;
   text-align: center;
   overflow: hidden;
-<<<<<<< Updated upstream
-=======
 
   /* 태블릿 & 모바일 배너 높이 유연화 */
->>>>>>> Stashed changes
   @media (max-width: 768px) {
     height: 460px;
   }
@@ -117,6 +111,7 @@ const SearchForm = styled.form`
   padding: 6px 6px 6px 24px;
   margin-top: 32px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+
   @media (max-width: 480px) {
     margin-top: 24px;
     padding: 4px 4px 4px 16px;
@@ -270,11 +265,8 @@ const RankGrid = styled.div`
   grid-template-rows: repeat(5, auto);
   grid-auto-flow: column;
   gap: 16px;
-<<<<<<< Updated upstream
-=======
 
   /* 태블릿 및 모바일 환경에서 직렬 1열 리스트로 재배치 */
->>>>>>> Stashed changes
   @media (max-width: 768px) {
     margin-top: 20px;
     grid-template-columns: 1fr;
@@ -308,7 +300,7 @@ const RankNumber = styled.span`
   font-size: 18px;
   font-weight: 700;
   color: ${(p) =>
-    p.$rank <= 3 ? "var(--color-primary)" : "var(--text-secondary)"};
+    p.$rank <= 3 ? "var(--color-primary, #6339f9)" : "var(--text-secondary)"};
   width: 24px;
 
   @media (max-width: 480px) {
@@ -368,25 +360,23 @@ const LoadingText = styled.div`
 `;
 
 const EmptyBox = styled.div`
-  background: var(--bg-surface-lowest, black); 
+  background: var(--bg-surface-lowest, black);
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 40px 16px;
   text-align: center;
   font-size: 14px;
   color: var(--text-secondary);
+  grid-column: span 2;
 `;
 
 const TableWrapper = styled.div`
-  background-color: var(--bg-surface-lowest, #fff);
+  background-color: var(--bg-surface-lowest, black);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
-<<<<<<< Updated upstream
-=======
 
   /* 태블릿 및 모바일에서 테이블이 찌그러지지 않도록 가로 스크롤 보장 */
->>>>>>> Stashed changes
   @media (max-width: 768px) {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -398,11 +388,8 @@ const ItemTable = styled.table`
   border-collapse: collapse;
   text-align: left;
   font-size: 14px;
-<<<<<<< Updated upstream
-=======
 
   /* 모바일 해상도 붕괴 방지용 최소 너비 고정 */
->>>>>>> Stashed changes
   @media (max-width: 768px) {
     min-width: 600px;
   }
@@ -466,10 +453,11 @@ const ItemTitle = styled.div`
   font-weight: 600;
   font-size: 15px;
   color: var(--text-primary);
-  max-width: 200px;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+
   @media (max-width: 768px) {
     max-width: 150px;
     font-size: 14px;
@@ -493,6 +481,7 @@ const BuyButton = styled.button`
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+
   &:hover {
     background-color: var(--color-primary);
     color: var(--on-primary);
@@ -504,10 +493,6 @@ const BuyButton = styled.button`
   }
 `;
 
-<<<<<<< Updated upstream
-// 고정 매핑용 아이콘 데이터
-=======
->>>>>>> Stashed changes
 const GAME_ICONS = {
   로스트아크: "⚔️",
   "LOST ARK": "⚔️",
@@ -534,11 +519,8 @@ const MainPage = () => {
   const [popularGames, setPopularGames] = useState([]);
   const [recentItems, setRecentItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [timeTicker, setTimeTicker] = useState(0);
 
-<<<<<<< Updated upstream
-  // 상단 빠른 메뉴 리스트
-=======
->>>>>>> Stashed changes
   const quickMenus = [
     { name: "로스트아크", key: "lostark" },
     { name: "메이플스토리", key: "maplestory" },
@@ -550,11 +532,7 @@ const MainPage = () => {
     { name: "오버워치2", key: "overwatch2" },
   ];
 
-<<<<<<< Updated upstream
-  // 상대 시간 변환 함수
-=======
   // 등록 경과시간 포맷 헬퍼
->>>>>>> Stashed changes
   const formatRelativeTime = (createdAtString) => {
     if (!createdAtString) return "방금 전";
     const now = new Date();
@@ -570,9 +548,6 @@ const MainPage = () => {
     return `${diffInDays}일 전`;
   };
 
-<<<<<<< Updated upstream
-  // 통합 데이터 페칭 로직
-=======
   // 실시간 등록시간 동기화 인터벌
   useEffect(() => {
     const timer = setInterval(() => {
@@ -582,14 +557,13 @@ const MainPage = () => {
   }, []);
 
   // [API] 비회원 인가 유연성 보장 데이터 패칭
->>>>>>> Stashed changes
   useEffect(() => {
     const fetchMainData = async () => {
       setIsLoading(true);
       try {
         const token =
           localStorage.getItem("accessToken") || localStorage.getItem("token");
-        const headers = { Authorization: token ? `Bearer ${token}` : "" };
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
         // 1. 인기 게임 랭킹 가져오기
         const rankRes = await api.get("/api/rankings", { headers });
@@ -614,48 +588,19 @@ const MainPage = () => {
           const itemList = itemRes.data?.data || itemRes.data || [];
           setRecentItems(Array.isArray(itemList) ? itemList : []);
         } catch (itemErr) {
-<<<<<<< Updated upstream
-          console.warn(
-            "최근 매물 목록 로드 실패 (API 미구현 안내 대체)",
-            itemErr,
-          );
-          setRecentItems([]);
-        }
-      } catch (error) {
-        console.error(
-          "메인 페이지 데이터를 가져오는 중 오류가 발생했습니다.",
-          error,
-        );
-=======
           console.warn("최근 매물 리스트 바인딩 실패", itemErr);
           setRecentItems([]);
         }
       } catch (error) {
         console.error("메인 데이터 페칭 에러 발생", error);
->>>>>>> Stashed changes
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchMainData();
-<<<<<<< Updated upstream
-  }, []);
-
-  // 실시간 스탬프 갱신을 위한 타이머
-  const [timeTicker, setTimeTicker] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeTicker((prev) => prev + 1);
-    }, 30000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // 검색 처리
-=======
   }, [timeTicker]);
 
->>>>>>> Stashed changes
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (!keyword.trim()) {
@@ -665,21 +610,14 @@ const MainPage = () => {
     navigate(`/items?keyword=${encodeURIComponent(keyword)}`);
   };
 
-<<<<<<< Updated upstream
-  // 퀵 메뉴 및 게임 랭킹 클릭 처리
-=======
->>>>>>> Stashed changes
   const handleGameClick = (gameName) => {
     navigate(`/items?keyword=${encodeURIComponent(gameName)}`);
   };
 
-<<<<<<< Updated upstream
-=======
   const handleBuyClick = (itemId) => {
     navigate(`/item/${itemId}`);
   };
 
->>>>>>> Stashed changes
   return (
     <PageContainer>
       {/* 상단 히어로 배너 */}
@@ -716,11 +654,7 @@ const MainPage = () => {
         </HeroContent>
       </HeroSection>
 
-<<<<<<< Updated upstream
-      {/* 배너 아래 8개 고정 게임 메뉴 */}
-=======
       {/* 8열 퀵 게임 아이콘 메뉴 리스트 */}
->>>>>>> Stashed changes
       <QuickMenuSection>
         {quickMenus.map((menu, index) => (
           <QuickMenuCard key={index} onClick={() => handleGameClick(menu.name)}>
@@ -753,24 +687,16 @@ const MainPage = () => {
             {popularGames.map((game, index) => {
               const rank = game.rank || index + 1;
               const name = game.gameName || "알 수 없는 게임";
-              const hasImg = game.gameImg && game.gameImg !== "";
+              const img = game.gameImg;
 
               return (
                 <RankCard key={rank} onClick={() => handleGameClick(name)}>
                   <RankNumber $rank={rank}>{rank}</RankNumber>
                   <GameImageWrapper>
-                    {hasImg ? (
-                      <img src={game.gameImg} alt={name} />
+                    {img ? (
+                      <img src={img} alt={name} />
                     ) : (
-                      <img
-                        src={`../img/${name}.svg`}
-                        alt={name}
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                          e.target.parentNode.innerText =
-                            GAME_ICONS[name] || "🎮";
-                        }}
-                      />
+                      GAME_ICONS[name] || "🎮"
                     )}
                   </GameImageWrapper>
                   <GameContent>
@@ -781,7 +707,7 @@ const MainPage = () => {
             })}
           </RankGrid>
         ) : (
-          <EmptyBox>게임 순위 정보가 없습니다.</EmptyBox>
+          <EmptyBox>인기 게임 순위 정보가 제공되지 않습니다.</EmptyBox>
         )}
       </Section>
 
@@ -795,24 +721,6 @@ const MainPage = () => {
             : "방금 전"}
         </SectionSubtitle>
 
-<<<<<<< Updated upstream
-        {isLoading ? (
-          <LoadingText>최신 매물을 불러오는 중입니다...</LoadingText>
-        ) : recentItems.length > 0 ? (
-          <TableWrapper>
-            <ItemTable>
-              <thead>
-                <tr>
-                  <th style={{ width: "40%" }}>상품정보</th>
-                  <th>서버</th>
-                  <th>가격</th>
-                  <th>등록시간</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentItems.map((item) => (
-=======
         <TableWrapper>
           <ItemTable>
             <thead>
@@ -827,7 +735,6 @@ const MainPage = () => {
             <tbody>
               {recentItems.length > 0 ? (
                 recentItems.map((item) => (
->>>>>>> Stashed changes
                   <tr key={item.itemId}>
                     <td>
                       <ItemInfoCell>
@@ -835,45 +742,44 @@ const MainPage = () => {
                           {item.imageUrl ? (
                             <img src={item.imageUrl} alt={item.title} />
                           ) : (
-                            <img
-                              src={`../img/${item.gameName}.svg`}
-                              alt={item.gameName}
-                              onError={(e) => {
-                                e.target.style.display = "none";
-                                e.target.parentNode.innerText =
-                                  GAME_ICONS[item.gameName] || "📦";
-                              }}
-                            />
+                            "📦"
                           )}
                         </ItemImgPlaceholder>
                         <div>
-                          <ItemTitle title={item.title}>{item.title}</ItemTitle>
+                          <ItemTitle>{item.title}</ItemTitle>
                           <ItemGameCategory>{item.gameName}</ItemGameCategory>
                         </div>
                       </ItemInfoCell>
                     </td>
-                    <td className="gray-text">{item.server || "전체"}</td>
+                    <td className="gray-text">{item.server}</td>
                     <td className="price-text">
-                      {Number(item.price || 0).toLocaleString()}원
+                      {Number(item.price).toLocaleString()}원
                     </td>
                     <td className="gray-text">
                       {formatRelativeTime(item.createdAt)}
                     </td>
                     <td>
-                      <BuyButton
-                        onClick={() => navigate(`/item/${item.itemId}`)}
-                      >
+                      <BuyButton onClick={() => handleBuyClick(item.itemId)}>
                         구매하기
                       </BuyButton>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </ItemTable>
-          </TableWrapper>
-        ) : (
-          <EmptyBox>등록된 최신 매물이 없거나 불러올 수 없습니다.</EmptyBox>
-        )}
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan="5"
+                    style={{ textAlign: "center", padding: "40px" }}
+                  >
+                    <span className="gray-text">
+                      최근 등록된 판매 매물이 부재합니다.
+                    </span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </ItemTable>
+        </TableWrapper>
       </RecentSection>
     </PageContainer>
   );
