@@ -102,7 +102,6 @@ const SORT_OPTS = [
 
 const SIZE = 16;
 
-// 테스트 및 에러 핸들링을 위한 고도화된 더미 데이터 (게임/서버/카테고리 매칭용)
 const DUMMY_ITEMS = [
   {
     id: 1,
@@ -144,7 +143,6 @@ const DUMMY_ITEMS = [
     price: 15000,
     date: 1,
   },
-  // 메이플스토리 더미 데이터 분리 추가
   {
     id: 5,
     title: "아케인셰이드 두손검",
@@ -191,7 +189,6 @@ export default function ItemListPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // URL에서 실시간 파라미터 상태 가져오기
   const game = searchParams.get("game") || "전체";
   const server = searchParams.get("server") || "";
   const category = searchParams.get("category") || "전체아이템";
@@ -203,21 +200,16 @@ export default function ItemListPage() {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-
   const [servers, setServers] = useState([]);
   const [categories, setCategories] = useState([]);
 
-  // URL 파라미터 일괄 변경 유틸 함수
   const updateParams = useCallback(
     (newParams) => {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         Object.entries(newParams).forEach(([key, val]) => {
-          if (val === undefined || val === null || val === "") {
-            next.delete(key);
-          } else {
-            next.set(key, val);
-          }
+          if (val === undefined || val === null || val === "") next.delete(key);
+          else next.set(key, val);
         });
         return next;
       });
@@ -229,14 +221,13 @@ export default function ItemListPage() {
     setInputKeyword(keyword);
   }, [keyword]);
 
-  // 1. 게임 선택 시 하위 필터 목록(서버/카테고리 탭) 세팅
+  // 게임 선택 시 서버/카테고리 세팅
   useEffect(() => {
     if (game === "전체") {
       setServers([]);
       setCategories(["전체아이템"]);
       return;
     }
-
     const fbServers = FALLBACK_SERVERS[game] ?? [];
     const fbCats = [
       "전체아이템",
@@ -267,7 +258,7 @@ export default function ItemListPage() {
       .catch(() => {});
   }, [game]);
 
-  // 2. 검색 조건 연동 및 Fetch (★API 에러 시 클라이언트 가상 필터링 탑재)
+  // ✅ 목록 Fetch — 백엔드 ApiResponse<PageResDto<ItemListResDto>> 구조 대응
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
@@ -278,52 +269,39 @@ export default function ItemListPage() {
       if (keyword.trim()) params.keyword = keyword.trim();
 
       const res = await ItemApi.getItems(params);
-      const raw = res.data?.data ?? res.data ?? [];
-      const list = Array.isArray(raw) ? raw : (raw.content ?? []);
+
+      // 백엔드 응답 구조: { data: { content: [...], totalElements: N } }
+      const pageData = res.data?.data ?? res.data ?? {};
+      const list = Array.isArray(pageData)
+        ? pageData
+        : Array.isArray(pageData.content)
+          ? pageData.content
+          : [];
+
       setItems(list);
       setTotal(
-        res.data?.total ??
-          res.data?.totalCount ??
-          res.data?.totalElements ??
+        pageData.totalElements ??
+          pageData.totalCount ??
+          pageData.total ??
           list.length,
       );
-    } catch {
-      // [로컬 필터링 기능 연동] API 호출이 끊기거나 실패했을 때 프론트단에서 필터 처리
+    } catch (err) {
+      console.warn("목록 API 실패, 더미 데이터 사용:", err.message);
       let filtered = [...DUMMY_ITEMS];
-
-      // 1) 게임 필터링
-      if (game !== "전체") {
-        filtered = filtered.filter((item) => item.game === game);
-      }
-      // 2) 서버 필터링
-      if (server) {
-        filtered = filtered.filter((item) => item.gameServer === server);
-      }
-      // 3) 카테고리 필터링
-      if (category && category !== "전체아이템") {
-        filtered = filtered.filter((item) => item.category === category);
-      }
-      // 4) 키워드 검색 필터링
-      if (keyword.trim()) {
-        filtered = filtered.filter((item) =>
-          item.title.toLowerCase().includes(keyword.trim().toLowerCase()),
+      if (game !== "전체") filtered = filtered.filter((i) => i.game === game);
+      if (server) filtered = filtered.filter((i) => i.gameServer === server);
+      if (category && category !== "전체아이템")
+        filtered = filtered.filter((i) => i.category === category);
+      if (keyword.trim())
+        filtered = filtered.filter((i) =>
+          i.title.toLowerCase().includes(keyword.trim().toLowerCase()),
         );
-      }
-
-      // 5) 정렬 조건 매칭
-      if (sortBy === "price_asc") {
-        filtered.sort((a, b) => a.price - b.price);
-      } else if (sortBy === "price_desc") {
+      if (sortBy === "price_asc") filtered.sort((a, b) => a.price - b.price);
+      else if (sortBy === "price_desc")
         filtered.sort((a, b) => b.price - a.price);
-      } else {
-        filtered.sort((a, b) => b.date - a.date); // 최신순 (가상 타임스탬프)
-      }
-
-      // 6) 페이지네이션 슬라이싱 처리
-      const startIndex = (page - 1) * SIZE;
-      const paginatedList = filtered.slice(startIndex, startIndex + SIZE);
-
-      setItems(paginatedList);
+      else filtered.sort((a, b) => b.date - a.date);
+      const start = (page - 1) * SIZE;
+      setItems(filtered.slice(start, start + SIZE));
       setTotal(filtered.length);
     } finally {
       setLoading(false);
@@ -334,43 +312,23 @@ export default function ItemListPage() {
     fetchItems();
   }, [fetchItems]);
 
-  // 3. 필터 및 액션 버튼 조작 핸들러
-  const handleGameChange = (selectedGame) => {
-    setSearchParams({
-      game: selectedGame,
-      page: "1",
-    });
+  const handleGameChange = (g) => {
+    setSearchParams({ game: g, page: "1" });
     setInputKeyword("");
   };
-
-  const handleServerChange = (selectedServer) => {
-    updateParams({ server: selectedServer, page: "1" });
-  };
-
-  const handleCategoryChange = (selectedCategory) => {
-    updateParams({ category: selectedCategory, page: "1" });
-  };
-
-  const handleSortChange = (selectedSort) => {
-    updateParams({ sortBy: selectedSort, page: "1" });
-  };
-
+  const handleServerChange = (s) => updateParams({ server: s, page: "1" });
+  const handleCategoryChange = (c) => updateParams({ category: c, page: "1" });
+  const handleSortChange = (s) => updateParams({ sortBy: s, page: "1" });
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     updateParams({ keyword: inputKeyword.trim(), page: "1" });
   };
-
-  const handlePageChange = (targetPage) => {
-    updateParams({ page: String(targetPage) });
-  };
+  const handlePageChange = (p) => updateParams({ page: String(p) });
 
   const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
   const totalPages = Math.ceil(total / SIZE) || 1;
-
-  // 화면 표기용 게임명 포맷팅 맵
-  const displayGameName = (key) => {
-    return GAMES.find((g) => g.key === key)?.label || key;
-  };
+  const displayGameName = (key) =>
+    GAMES.find((g) => g.key === key)?.label || key;
 
   return (
     <PageWrap>
@@ -379,7 +337,6 @@ export default function ItemListPage() {
         <AddBtn onClick={() => navigate("/items/new")}>+ 판매 물품 등록</AddBtn>
       </TitleBar>
 
-      {/* 상단 대분류 게임 탭 */}
       <GameTabRow>
         {GAMES.map((g) => (
           <GameTab
@@ -393,7 +350,6 @@ export default function ItemListPage() {
       </GameTabRow>
 
       <MainLayout>
-        {/* 사이드바 필터 */}
         <Sidebar>
           <SidebarHeader>
             <SidebarTitle>{displayGameName(game)}</SidebarTitle>
@@ -428,7 +384,6 @@ export default function ItemListPage() {
           </ServerList>
         </Sidebar>
 
-        {/* 리스트 본문 컨테이너 */}
         <ContentArea>
           <FilterBar>
             <CategoryGroup>
@@ -442,7 +397,6 @@ export default function ItemListPage() {
                 </CategoryChip>
               ))}
             </CategoryGroup>
-
             <SortGroup>
               {SORT_OPTS.map((o) => (
                 <SortBtn
@@ -470,7 +424,8 @@ export default function ItemListPage() {
           ) : (
             <ListContainer>
               {items.map((item) => {
-                const id = item.id ?? item.itemId;
+                // ✅ 백엔드 ItemListResDto 필드명 기준
+                const id = item.itemId ?? item.id;
                 return (
                   <ItemCard key={id} onClick={() => navigate(`/items/${id}`)}>
                     <CardLeft>
@@ -478,18 +433,16 @@ export default function ItemListPage() {
                       <ItemInfo>
                         <ItemTitle>{item.title}</ItemTitle>
                         <ItemMeta>
-                          {displayGameName(item.game ?? item.gameName)} ·{" "}
-                          {item.gameServer ??
-                            item.serverName ??
-                            server ??
-                            "전체서버"}{" "}
-                          · 판매자: {item.seller ?? item.sellerNickname ?? "-"}
+                          {item.gameName ?? displayGameName(item.game)} ·{" "}
+                          {item.serverName ?? item.gameServer ?? "전체서버"} ·{" "}
+                          판매자: {item.sellerNickname ?? item.seller ?? "-"}
                         </ItemMeta>
                       </ItemInfo>
                     </CardLeft>
                     <CardRight>
+                      {/* ✅ 백엔드 필드명: basePrice */}
                       <PriceText>
-                        {fmt(item.price ?? item.basePrice)} 원
+                        {fmt(item.basePrice ?? item.price)} 원
                       </PriceText>
                       <BuyBtn
                         onClick={(e) => {
@@ -506,7 +459,6 @@ export default function ItemListPage() {
             </ListContainer>
           )}
 
-          {/* 하단 페이지네이션 조작계 */}
           {totalPages > 1 && (
             <Pagination>
               <PageArrow
@@ -541,7 +493,7 @@ export default function ItemListPage() {
   );
 }
 
-// ── Styled Components (기존 원본 스타일 레이아웃 고정) ──────────────────────────────────────────
+// ── Styled Components ──────────────────────────────────────────────────────────
 const PageWrap = styled.div`
   background-color: #08090c;
   color: #f1f3f5;

@@ -19,7 +19,7 @@ const Common = {
 
   handleUnauthorized: async () => {
     try {
-      const res = await axios.post(`${Common.API_URL}/auth/reissue`, {
+      const res = await axios.post("/auth/reissue", {
         accessToken: Common.getAccessToken(),
         refreshToken: Common.getRefreshToken(),
       });

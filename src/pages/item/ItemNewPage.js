@@ -8,96 +8,14 @@ import item from "../../img/item.svg";
 import gameMoney from "../../img/gamemoney.svg";
 import account from "../../img/account.svg";
 
-// ── 백엔드 게임 API 없을 때 fallback ──────────────────────────
+// ✅ 백엔드 실제 DB ID로 맞춤 (GET /api/games 응답 기준)
 const FALLBACK_GAMES = [
-  { gameId: "lostark", gameName: "로스트아크" },
-  { gameId: "maple", gameName: "메이플스토리" },
-  { gameId: "dungeon", gameName: "던전앤파이터" },
-  { gameId: "lineage", gameName: "리니지M" },
-  { gameId: "fc", gameName: "FC온라인" },
-  { gameId: "battle", gameName: "배틀그라운드" },
-  { gameId: "valorant", gameName: "발로란트" },
-  { gameId: "overwatch", gameName: "오버워치2" },
+  { gameId: 1, gameName: "로스트아크" },
+  { gameId: 2, gameName: "메이플스토리" },
+  { gameId: 3, gameName: "디아블로4" },
+  { gameId: 4, gameName: "리그 오브 레전드" },
+  { gameId: 5, gameName: "발로란트" },
 ];
-
-const FALLBACK_SERVERS = {
-  lostark: [
-    "루페온",
-    "카마인",
-    "아브렐슈드",
-    "카단",
-    "아만",
-    "실리안",
-    "카제로스",
-    "니나브",
-    "북미",
-    "유럽",
-  ],
-  maple: [
-    "스카니아",
-    "루나",
-    "엘리시움",
-    "크로아",
-    "베라",
-    "오로라",
-    "유니온",
-    "이노시스",
-    "제니스",
-    "RED",
-    "아케인",
-    "노바",
-    "에오스",
-    "헬리오스",
-    "챌린저스1",
-    "챌린저스2",
-    "챌린저스3",
-    "챌린저스4",
-  ],
-  dungeon: [
-    "통합서버",
-    "카인",
-    "디레지에",
-    "바칼",
-    "프레이",
-    "시로코",
-    "안톤",
-    "카시야스",
-    "힐더",
-    "스타트",
-    "이벤트(시즌)서버",
-  ],
-  lineage: [
-    "데포로쥬",
-    "판도라",
-    "듀크데필",
-    "파푸리온",
-    "린드비오르",
-    "군터",
-    "하딘",
-    "아툰",
-    "케레니스",
-    "이실로테",
-    "안타라스",
-    "발라카스",
-    "사이하",
-    "블루디카",
-  ],
-  fc: ["서버전체"],
-  battle: ["서버전체", "스팀서버", "카카오서버"],
-  valorant: ["서버전체"],
-  overwatch: ["전체"],
-};
-
-const FALLBACK_CATEGORIES = {
-  lostark: ["장비", "각인서", "재료", "펫/탈것", "기타"],
-  maple: ["장비", "소비", "펫", "기타"],
-  dungeon: ["장비", "아바타", "강화재료", "기타"],
-  lineage: ["무기", "방어구", "재료", "기타"],
-  fc: ["선수권", "강화", "기타"],
-  battle: ["스킨", "기타"],
-  valorant: ["스킨", "포인트", "기타"],
-  overwatch: ["스킨", "기타"],
-};
 
 const CATEGORY_META = [
   {
@@ -149,7 +67,7 @@ const ItemNewPage = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // 게임 목록 로드
+  // ✅ 게임 목록 — 백엔드 API 우선, 실패 시 Fallback(숫자 ID)
   useEffect(() => {
     let isMounted = true;
     ItemApi.getGames()
@@ -158,12 +76,8 @@ const ItemNewPage = () => {
         const list = r.data?.data ?? r.data ?? [];
         setGames(list.length > 0 ? list : FALLBACK_GAMES);
       })
-      .catch((err) => {
+      .catch(() => {
         if (!isMounted) return;
-        console.warn(
-          "게임 목록 API 미연결 (프론트 Fallback 데이터 적용):",
-          err.message,
-        );
         setGames(FALLBACK_GAMES);
       });
     return () => {
@@ -171,7 +85,7 @@ const ItemNewPage = () => {
     };
   }, []);
 
-  // 게임 선택 변경 시 서버/카테고리 동적 동기화
+  // ✅ 게임 선택 시 서버/카테고리 — 백엔드 숫자 ID로 호출
   useEffect(() => {
     if (!gameId) {
       setServers([]);
@@ -182,17 +96,8 @@ const ItemNewPage = () => {
     }
     setServerId("");
     setCategoryId("");
-
-    const fbServers = (FALLBACK_SERVERS[gameId] ?? []).map((name) => ({
-      serverId: name,
-      serverName: name,
-    }));
-    const fbCats = (FALLBACK_CATEGORIES[gameId] ?? []).map((name) => ({
-      categoryId: name,
-      categoryName: name,
-    }));
-    setServers(fbServers);
-    setCategories(fbCats);
+    setServers([]);
+    setCategories([]);
 
     let isMounted = true;
 
@@ -200,27 +105,17 @@ const ItemNewPage = () => {
       .then((r) => {
         if (!isMounted) return;
         const list = r.data?.data ?? r.data ?? [];
-        if (list.length > 0) setServers(list);
+        setServers(list);
       })
-      .catch((err) => {
-        console.warn(
-          `[${gameId}] 서버 목록 API 호출 무시 (기본 데이터 유지):`,
-          err.message,
-        );
-      });
+      .catch(() => {});
 
     ItemApi.getCategories(gameId)
       .then((r) => {
         if (!isMounted) return;
         const list = r.data?.data ?? r.data ?? [];
-        if (list.length > 0) setCategories(list);
+        setCategories(list);
       })
-      .catch((err) => {
-        console.warn(
-          `[${gameId}] 카테고리 목록 API 호출 무시 (기본 데이터 유지):`,
-          err.message,
-        );
-      });
+      .catch(() => {});
 
     return () => {
       isMounted = false;
@@ -248,50 +143,45 @@ const ItemNewPage = () => {
     if (!description.trim()) return setError("물품 설명을 입력해 주세요.");
     if (basePrice <= 0) return setError("올바른 가격을 입력해 주세요.");
 
-    setSaving(true);
-    try {
-      // ⚠️ 문자열과 숫자 판별 처리 (숫자 형태라면 확실하게 Number 타입으로 파싱하여 전송)
-      const parsedGameId =
-        gameId && !isNaN(Number(gameId)) ? Number(gameId) : gameId;
-      const parsedCategoryId =
-        categoryId && !isNaN(Number(categoryId))
-          ? Number(categoryId)
-          : categoryId;
-      const parsedServerId =
-        serverId && !isNaN(Number(serverId))
-          ? Number(serverId)
-          : serverId || null;
+    // ✅ NaN 방어
+    const parsedCategoryId = Number(categoryId);
+    const parsedServerId = serverId ? Number(serverId) : null;
+    if (isNaN(parsedCategoryId) || parsedCategoryId <= 0) {
+      return setError("카테고리를 다시 선택해 주세요.");
+    }
 
-      const payload = {
-        gameId: parsedGameId,
-        serverId: parsedServerId,
+    setSaving(true);
+    let payload = null;
+    try {
+      payload = {
         categoryId: parsedCategoryId,
+        serverId: parsedServerId,
+        basePrice: Number(basePrice),
         title: title.trim(),
         description: description.trim(),
-        basePrice: Number(basePrice), // 정수형 타입 검증 보강
-        uiCategory: uiCategory, // 아이템/게임머니/계정 탭 정보 구분용 추가
       };
 
-      console.log("🚀 경매등록 요청 데이터(Payload):", payload);
+      console.log("🚀 전송 payload:", JSON.stringify(payload, null, 2));
 
       const response = await ItemApi.createDirectItem(payload);
-      console.log("✅ 백엔드 응답 성공:", response.data);
+      console.log("✅ 등록 성공:", response.data);
 
-      alert("판매 물품이 경매서에 정상 등록되었습니다!");
-
-      // 입력 폼 클리어
+      alert("판매 물품이 정상 등록되었습니다!");
       setTitle("");
       setDescription("");
       setPrice("");
-
-      // 마이페이지 또는 경매 목록 페이지로 리다이렉트
-      navigate("/mypage");
+      navigate("/items");
     } catch (err) {
-      console.error("❌ 물품 등록 통신 에러 로그:", err);
+      console.error("❌ 물품 등록 에러:", err.message);
+      console.error(
+        "❌ 서버 응답:",
+        JSON.stringify(err.response?.data, null, 2),
+      );
+      console.error("❌ payload:", JSON.stringify(payload, null, 2));
       const msg =
         err.response?.data?.message ??
         err.response?.data?.error ??
-        "서버 연결에 실패했거나 등록 처리 중 내부 에러(500)가 발생했습니다.";
+        "등록 처리 중 오류가 발생했습니다.";
       setError(msg);
     } finally {
       setSaving(false);
