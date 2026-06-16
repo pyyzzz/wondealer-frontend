@@ -5,17 +5,6 @@ import { useAuth } from "../../context/AuthContext";
 import AuctionApi from "../../api/auction.api";
 import ItemApi from "../../api/item.api";
 
-const FALLBACK_GAMES = [
-  { id: null, name: "전체" },
-  { id: "lostark", name: "LOST ARK" },
-  { id: "maple", name: "MapleStory" },
-  { id: "dungeon", name: "Dungeon & Fighter" },
-  { id: "fc", name: "FC ONLINE" },
-  { id: "lineage", name: "Lineage" },
-  { id: "valorant", name: "Valorant" },
-  { id: "overwatch", name: "Overwatch 2" },
-];
-
 const DUMMY_BIDS = [
   {
     bidderNickname: "K-Gamer***",
@@ -25,11 +14,8 @@ const DUMMY_BIDS = [
   },
   { bidderNickname: "ShadowV***", amount: 2420000, time: "15분 전" },
   { bidderNickname: "Knight***", amount: 2380000, time: "28분 전" },
-  { bidderNickname: "ProTrad***", amount: 2350000, time: "46분 전" },
-  { bidderNickname: "LootHun***", amount: 2300000, time: "1시간 전" },
 ];
 
-/* ── timer hook ─────────────────────────────────────────── */
 function useTimer(endAt) {
   const [timeStr, setTimeStr] = useState("");
   useEffect(() => {
@@ -50,12 +36,10 @@ function useTimer(endAt) {
   }, [endAt]);
   return timeStr;
 }
-
 function AuctionTimer({ endAt }) {
   return <>{useTimer(endAt)}</>;
 }
 
-/* ── BidHistoryModal ─────────────────────────────────────── */
 function BidHistoryModal({ bids, startPrice, onClose }) {
   const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
   return (
@@ -64,7 +48,7 @@ function BidHistoryModal({ bids, startPrice, onClose }) {
         <ModalHeader>
           <ModalTitle>전체 입찰 내역</ModalTitle>
           <ModalMeta>
-            총 입찰자 수: <strong>{bids.length}명</strong> · 최고 입찰가 순 정렬
+            총 입찰자 수: <strong>{bids.length}명</strong>
           </ModalMeta>
           <ModalClose onClick={onClose}>✕</ModalClose>
         </ModalHeader>
@@ -114,9 +98,6 @@ function BidHistoryModal({ bids, startPrice, onClose }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   MAIN PAGE
-═══════════════════════════════════════════════════════════ */
 export default function AuctionListPage() {
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
@@ -150,12 +131,16 @@ export default function AuctionListPage() {
     ItemApi.getGames()
       .then((r) => {
         const list = r.data?.data || [];
+        console.log("[games] 응답:", list);
         setGames([
           { id: null, name: "전체" },
           ...list.map((g) => ({ id: g.gameId, name: g.gameName })),
         ]);
       })
-      .catch(() => setGames(FALLBACK_GAMES));
+      .catch((err) => {
+        console.error("[games] 에러:", err);
+        setGames([{ id: null, name: "전체" }]);
+      });
   }, []);
 
   /* 게임 선택 → 서버·카테고리 */
@@ -165,10 +150,14 @@ export default function AuctionListPage() {
     setServers([]);
     setCategories([]);
     setPage(1);
-    if (!gameId) return;
+
+    console.log("[gameId 변경됨]", gameId, typeof gameId);
+
+    if (gameId === null || gameId === undefined) return;
 
     ItemApi.getGameServers(gameId)
       .then((r) => {
+        console.log("[servers] 응답:", r.data);
         const list = r.data?.data ?? r.data ?? [];
         setServers([
           { id: null, name: "전체" },
@@ -178,10 +167,19 @@ export default function AuctionListPage() {
           })),
         ]);
       })
-      .catch(() => setServers([]));
+      .catch((err) => {
+        console.error(
+          "[servers] 에러:",
+          err.response?.status,
+          err.response?.data,
+          err.message,
+        );
+        setServers([]);
+      });
 
     ItemApi.getCategories(gameId)
       .then((r) => {
+        console.log("[categories] 응답:", r.data);
         const list = r.data?.data ?? r.data ?? [];
         setCategories([
           { id: null, name: "전체" },
@@ -191,7 +189,15 @@ export default function AuctionListPage() {
           })),
         ]);
       })
-      .catch(() => setCategories([]));
+      .catch((err) => {
+        console.error(
+          "[categories] 에러:",
+          err.response?.status,
+          err.response?.data,
+          err.message,
+        );
+        setCategories([]);
+      });
   }, [gameId]);
 
   /* 경매 목록 조회 */
@@ -201,16 +207,17 @@ export default function AuctionListPage() {
       const params = {
         page: page - 1,
         size: 12,
-        ...(gameId && { gameId }),
-        ...(serverId && { serverId }),
-        ...(categoryId && { categoryId }),
+        ...(gameId != null && { gameId }),
+        ...(serverId != null && { serverId }),
+        ...(categoryId != null && { categoryId }),
         ...(keyword && { keyword }),
       };
       const res = await AuctionApi.getAuctions(params);
       const data = res.data?.data ?? {};
       setAuctions(data.content ?? []);
       setTotalPages(data.totalPages ?? 1);
-    } catch {
+    } catch (err) {
+      console.error("[auctions] 에러:", err);
       setAuctions([]);
     } finally {
       setLoading(false);
@@ -221,7 +228,6 @@ export default function AuctionListPage() {
     fetchAuctions();
   }, [fetchAuctions]);
 
-  /* 상세 열기 */
   const openDetail = async (auction) => {
     setSelected(auction);
     setActiveImg(0);
@@ -240,7 +246,6 @@ export default function AuctionListPage() {
     }
   };
 
-  /* 입찰 */
   const handleBid = async () => {
     if (!isLoggedIn) return navigate("/login");
     const amount = Number(customBid);
@@ -264,7 +269,6 @@ export default function AuctionListPage() {
     }
   };
 
-  /* 즉시 낙찰 */
   const handleInstantBuy = async () => {
     if (!isLoggedIn) return navigate("/login");
     if (
@@ -282,7 +286,6 @@ export default function AuctionListPage() {
     }
   };
 
-  /* ───────────────── LIST VIEW ───────────────── */
   if (!selected)
     return (
       <PageWrap>
@@ -292,6 +295,7 @@ export default function AuctionListPage() {
               key={g.id ?? "all"}
               $active={gameId === g.id}
               onClick={() => {
+                console.log("[클릭] 게임 선택:", g.id, g.name);
                 setGameId(g.id);
                 setPage(1);
               }}
@@ -302,7 +306,6 @@ export default function AuctionListPage() {
         </TopGameBar>
 
         <ContentRow>
-          {/* 사이드바 */}
           <Sidebar>
             {servers.length > 0 && (
               <SideSection>
@@ -338,16 +341,24 @@ export default function AuctionListPage() {
                 ))}
               </SideSection>
             )}
-            {!gameId && (
+            {gameId == null && (
               <SideEmpty>
                 상단에서 게임을 선택하면
                 <br />
                 서버·카테고리 필터가 표시됩니다.
               </SideEmpty>
             )}
+            {gameId != null &&
+              servers.length === 0 &&
+              categories.length === 0 && (
+                <SideEmpty>
+                  필터를 불러오는 중이거나
+                  <br />
+                  해당 게임에 데이터가 없습니다.
+                </SideEmpty>
+              )}
           </Sidebar>
 
-          {/* 메인 */}
           <MainArea>
             <ListTopBar>
               <PageTitle>실시간 경매 아이템</PageTitle>
@@ -385,12 +396,9 @@ export default function AuctionListPage() {
                     key={item.auctionId}
                     onClick={() => openDetail(item)}
                   >
-                    {/* 타이머 배지 */}
                     <TimerBadge>
                       ⏱ <AuctionTimer endAt={item.endTime} />
                     </TimerBadge>
-
-                    {/* 이미지 영역 */}
                     <CardImgWrap>
                       {item.thumbnailImg ? (
                         <img
@@ -406,8 +414,6 @@ export default function AuctionListPage() {
                         <CardPlaceholder>⚔️</CardPlaceholder>
                       )}
                     </CardImgWrap>
-
-                    {/* 카드 본문 */}
                     <CardBody>
                       <CardGameTag>{item.gameName || "게임"}</CardGameTag>
                       <CardTitle>{item.itemTitle}</CardTitle>
@@ -416,7 +422,6 @@ export default function AuctionListPage() {
                           .filter(Boolean)
                           .join(" · ")}
                       </CardMeta>
-
                       <CardPriceRow>
                         <div>
                           <CardPriceLabel>현재가</CardPriceLabel>
@@ -434,7 +439,6 @@ export default function AuctionListPage() {
                           </div>
                         )}
                       </CardPriceRow>
-
                       <CardBtn>입찰 하러가기</CardBtn>
                     </CardBody>
                   </AuctionCard>
@@ -460,7 +464,6 @@ export default function AuctionListPage() {
       </PageWrap>
     );
 
-  /* ───────────────── DETAIL VIEW ───────────────── */
   const currentPrice = selected.currentPrice ?? selected.startPrice ?? 0;
   const minBid = currentPrice + (selected.minBidUnit || 100);
   const images =
@@ -475,7 +478,6 @@ export default function AuctionListPage() {
           onClose={() => setShowModal(false)}
         />
       )}
-
       <DetailWrap>
         <Breadcrumb>
           <BreadItem onClick={() => setSelected(null)}>경매 목록</BreadItem>
@@ -486,7 +488,6 @@ export default function AuctionListPage() {
         </Breadcrumb>
 
         <DetailGrid>
-          {/* LEFT */}
           <LeftCol>
             <ImgMain>
               {images[activeImg] ? (
@@ -505,7 +506,6 @@ export default function AuctionListPage() {
               )}
               <RarityBadge>전설</RarityBadge>
             </ImgMain>
-
             {images.length > 1 && (
               <ImgDots>
                 {images.map((_, i) => (
@@ -517,14 +517,12 @@ export default function AuctionListPage() {
                 ))}
               </ImgDots>
             )}
-
             {selected.description && (
               <DescBox>
                 <DescTitle>▸ 상세 설명</DescTitle>
                 <DescText>{selected.description}</DescText>
               </DescBox>
             )}
-
             {(
               selected.stats || [
                 { label: "공격력", val: "+2,580" },
@@ -540,13 +538,11 @@ export default function AuctionListPage() {
             ))}
           </LeftCol>
 
-          {/* RIGHT */}
           <RightCol>
             <StatusRow>
               <LivePill>진행 중</LivePill>
             </StatusRow>
             <DetailTitle>{selected.itemTitle}</DetailTitle>
-
             <MetaTable>
               {[
                 {
@@ -692,20 +688,14 @@ export default function AuctionListPage() {
   );
 }
 
-/* ════════════════════════════════════════════════════════════
-   STYLED COMPONENTS
-════════════════════════════════════════════════════════════ */
 const spin = keyframes`from{transform:rotate(0deg)}to{transform:rotate(360deg)}`;
 const pulse = keyframes`0%,100%{opacity:1}50%{opacity:.5}`;
-
 const PageWrap = styled.div`
   background: #090b12;
   color: #e8eaf0;
   min-height: 100vh;
   font-family: "Noto Sans KR", "Pretendard", sans-serif;
 `;
-
-/* top game bar */
 const TopGameBar = styled.div`
   display: flex;
   gap: 4px;
@@ -734,14 +724,10 @@ const TopGameTab = styled.button`
     color: #fff;
   }
 `;
-
-/* layout */
 const ContentRow = styled.div`
   display: flex;
   min-height: calc(100vh - 48px);
 `;
-
-/* sidebar */
 const Sidebar = styled.aside`
   width: 180px;
   flex-shrink: 0;
@@ -781,8 +767,6 @@ const SideEmpty = styled.div`
   line-height: 1.6;
   padding: 8px 4px;
 `;
-
-/* main area */
 const MainArea = styled.main`
   flex: 1;
   min-width: 0;
@@ -835,15 +819,11 @@ const AddBtn = styled.button`
     opacity: 0.88;
   }
 `;
-
-/* grid */
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
 `;
-
-/* ── 카드 (2번 사진 스타일) ── */
 const AuctionCard = styled.div`
   background: #12141f;
   border: 1px solid #1a1d2e;
@@ -958,8 +938,6 @@ const CardBtn = styled.button`
     border-color: #6c5ce7;
   }
 `;
-
-/* pagination */
 const Pagination = styled.div`
   display: flex;
   justify-content: center;
@@ -979,7 +957,6 @@ const PageBtn = styled.button`
     border-color: #6c5ce7;
   }
 `;
-
 const LoadingBox = styled.div`
   display: flex;
   flex-direction: column;
@@ -1008,8 +985,6 @@ const EmptyBox = styled.div`
 const EmptyIcon = styled.span`
   font-size: 40px;
 `;
-
-/* ════ DETAIL ════ */
 const DetailWrap = styled.div`
   max-width: 1100px;
   margin: 0 auto;
@@ -1037,7 +1012,6 @@ const BreadSep = styled.span`
 const BreadCurrent = styled.span`
   color: #e8eaf0;
 `;
-
 const DetailGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1046,7 +1020,6 @@ const DetailGrid = styled.div`
     grid-template-columns: 1fr;
   }
 `;
-
 const LeftCol = styled.div``;
 const ImgMain = styled.div`
   background: #12141f;
@@ -1127,7 +1100,6 @@ const StatVal = styled.span`
   font-weight: 700;
   color: #4edea3;
 `;
-
 const RightCol = styled.div`
   display: flex;
   flex-direction: column;
@@ -1153,7 +1125,6 @@ const DetailTitle = styled.h2`
   line-height: 1.3;
   margin: 0;
 `;
-
 const MetaTable = styled.div`
   background: #12141f;
   border: 1px solid #1a1d2e;
@@ -1181,7 +1152,6 @@ const MetaVal = styled.div`
   font-size: 13px;
   color: #e8eaf0;
 `;
-
 const SellerBadge = styled.div`
   display: flex;
   align-items: center;
@@ -1211,7 +1181,6 @@ const SellerChat = styled.div`
     opacity: 1;
   }
 `;
-
 const PriceBox = styled.div`
   background: #12141f;
   border: 1px solid #1a1d2e;
@@ -1253,7 +1222,6 @@ const MinBidNote = styled.div`
   font-size: 11px;
   color: #555a75;
 `;
-
 const TimerBox = styled.div`
   text-align: right;
 `;
@@ -1268,7 +1236,6 @@ const TimerVal = styled.div`
   color: #e63946;
   font-variant-numeric: tabular-nums;
 `;
-
 const BidSection = styled.div`
   background: #12141f;
   border: 1px solid #1a1d2e;
@@ -1355,7 +1322,6 @@ const SafeNote = styled.div`
   color: #3c4060;
   line-height: 1.5;
 `;
-
 const BidPanel = styled.div`
   background: #12141f;
   border: 1px solid #1a1d2e;
@@ -1440,8 +1406,6 @@ const ViewAllBtn = styled.button`
     border-color: #6c5ce7;
   }
 `;
-
-/* ════ MODAL ════ */
 const fadeIn = keyframes`from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}`;
 const ModalOverlay = styled.div`
   position: fixed;
