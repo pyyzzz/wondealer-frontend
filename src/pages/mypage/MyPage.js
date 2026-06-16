@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import WalletApi from "../../api/wallet.api";
 import headsetImg from "../../img/headset.JPG";
 import "./MyPage.css";
 
@@ -426,7 +427,7 @@ function ChargeTab({ balance, onSuccess, onBack }) {
       : Number(custom.replace(/\D/g, "") || 0);
   const krw = selected !== null ? CHARGE_PRESETS[selected].krw : mileage;
 
-  const handleCharge = () => {
+  const handleChargeLegacy = () => {
     if (mileage < 10000) {
       setError("최소 충전 금액은 10,000M 입니다.");
       return;
@@ -494,6 +495,67 @@ function ChargeTab({ balance, onSuccess, onBack }) {
         setLoading(false);
       }
     });
+  };
+
+  const handleCharge = async () => {
+    if (mileage < 10000) {
+      setError("최소 충전 금액은 10,000M 입니다.");
+      return;
+    }
+
+    if (!window.PortOne) {
+      setError("포트원 결제 모듈이 로드되지 않았습니다. 페이지를 새로고침 해주세요.");
+      return;
+    }
+
+    const storeId = process.env.REACT_APP_PORTONE_STORE_ID;
+    const channelKey = process.env.REACT_APP_PORTONE_CHANNEL_KEY;
+
+    if (!storeId || !channelKey) {
+      setError("포트원 storeId 또는 channelKey가 설정되어 있지 않습니다.");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      const readyResponse = await WalletApi.prepareCharge({ amount: mileage });
+      const ready = readyResponse.data?.data;
+
+      if (!ready?.paymentId) {
+        throw new Error("충전 준비 응답에서 paymentId를 찾을 수 없습니다.");
+      }
+
+      const paymentResponse = await window.PortOne.requestPayment({
+        storeId,
+        channelKey,
+        paymentId: ready.paymentId,
+        orderName: ready.orderName || `WonPay ${fmt(mileage)}M 충전`,
+        totalAmount: ready.amount,
+        currency: ready.currency || "CURRENCY_KRW",
+        payMethod: "CARD",
+      });
+
+      if (paymentResponse?.code) {
+        throw new Error(paymentResponse.message || "결제가 취소되었거나 실패했습니다.");
+      }
+
+      const completeResponse = await WalletApi.completeCharge({
+        paymentId: ready.paymentId,
+      });
+      const chargedAmount = completeResponse.data?.data?.chargedAmount ?? mileage;
+
+      onSuccess(chargedAmount);
+    } catch (err) {
+      const message =
+        err.response?.data?.message ||
+        err.message ||
+        "충전 처리 중 오류가 발생했습니다.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -1002,7 +1064,7 @@ function MileageTab({ onGoCharge, onGoWithdraw }) {
     const tk = token();
     try {
       const [balRes, txRes, statRes, actRes] = await Promise.allSettled([
-        fetch("/api/members/me/mileage", {
+        fetch("/api/wallet", {
           headers: { Authorization: `Bearer ${tk}` },
         }),
         fetch("/api/members/me/mileage/transactions?size=3", {
@@ -1736,7 +1798,7 @@ export default function MyPage() {
         setSidebarNickname(user?.nickname || "사용자");
       });
 
-    fetch("/api/members/me/mileage", {
+    fetch("/api/wallet", {
       headers: { Authorization: `Bearer ${token()}` },
     })
       .then((res) => res.json())
