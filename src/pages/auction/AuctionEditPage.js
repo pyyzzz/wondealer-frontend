@@ -1,3 +1,4 @@
+// AuctionEditPage.js - 수정된 전체 코드
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
@@ -47,13 +48,16 @@ const AuctionEditPage = () => {
     AuctionApi.getAuction(id)
       .then((r) => {
         const d = r.data?.data ?? r.data ?? {};
-        setGameId(d.gameId ?? d.game ?? "");
-        setServerId(d.serverId ?? d.gameServer ?? "");
-        setCategoryId(d.categoryId ?? d.category ?? "");
+        const rawGameId = d.gameId ?? "";
+        setGameId(rawGameId ? String(rawGameId) : "");
+        const rawServerId = d.serverId ?? null;
+        setServerId(rawServerId != null ? String(rawServerId) : "");
+        const rawCategoryId = d.categoryId ?? "";
+        setCategoryId(rawCategoryId ? String(rawCategoryId) : "");
         setTitle(d.title ?? "");
         setDescription(d.description ?? "");
         setBuyNowPrice(
-          d.buyNowPrice ? Number(d.buyNowPrice).toLocaleString() : "",
+          d.instantBuyPrice ? Number(d.instantBuyPrice).toLocaleString() : "",
         );
         setStartPrice(
           d.startPrice ? Number(d.startPrice).toLocaleString() : "",
@@ -130,7 +134,6 @@ const AuctionEditPage = () => {
     e.preventDefault();
     setError("");
 
-    if (!gameId) return setError("게임을 선택해 주세요.");
     if (!categoryId) return setError("카테고리를 선택해 주세요.");
     if (!title.trim()) return setError("물품 제목을 입력해 주세요.");
     if (!description.trim()) return setError("물품 설명을 입력해 주세요.");
@@ -141,17 +144,15 @@ const AuctionEditPage = () => {
     setLoading(true);
     try {
       const payload = {
-        gameId,
-        serverId: serverId || null,
-        categoryId,
-        title,
-        description,
-        buyNowPrice: buyNowPrice
+        categoryId: Number(categoryId),
+        serverId: serverId ? Number(serverId) : null,
+        title: title.trim(),
+        description: description.trim(),
+        instantBuyPrice: buyNowPrice
           ? Number(buyNowPrice.replace(/[^0-9]/g, ""))
           : null,
         startPrice: rawStart,
-        minBidUnit: Number(minBidUnit.replace(/[^0-9]/g, "")) || 1000,
-        durationHours: duration,
+        auctionDays: Math.round(duration / 24),
       };
       await AuctionApi.updateAuction(id, payload);
       alert("경매 수정이 완료되었습니다!");
@@ -191,7 +192,6 @@ const AuctionEditPage = () => {
       </HeaderSection>
 
       <form onSubmit={handleSubmit}>
-        {/* 01 기본 정보 */}
         <SectionContainer>
           <SectionTitle>
             <span>01</span> 기본 정보 입력
@@ -244,7 +244,6 @@ const AuctionEditPage = () => {
           </FormGroup>
         </SectionContainer>
 
-        {/* 02 물품 상세 */}
         <SectionContainer>
           <SectionTitle>
             <span>02</span> 물품 상세 정보
@@ -269,7 +268,6 @@ const AuctionEditPage = () => {
           </FormGroup>
         </SectionContainer>
 
-        {/* 03 경매 설정 + 04 이미지 */}
         <BottomGrid>
           <SectionContainer style={{ margin: 0 }}>
             <SectionTitle>
@@ -423,7 +421,7 @@ const AuctionEditPage = () => {
   );
 };
 
-// ── Styled Components (AuctionNewPage와 동일) ──────────────────
+// ── Styled Components ──────────────────────────────────────────
 const PageContainer = styled.div`
   background-color: #0b0c10;
   color: #fff;

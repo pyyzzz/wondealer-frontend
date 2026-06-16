@@ -1,112 +1,35 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import AuctionApi from "../../api/auction.api";
+import ItemApi from "../../api/item.api";
 
-// 1. 지원하는 게임 목록
-const GAMES = [
-  { key: "전체", label: "전체" },
-  { key: "lostark", label: "LOST ARK" },
-  { key: "maple", label: "MapleStory" },
-  { key: "dungeon", label: "Dungeon & Fighter" },
-  { key: "fc", label: "FC ONLINE" },
-  { key: "lineage", label: "Lineage" },
-  { key: "valorant", label: "Valorant" },
-  { key: "overwatch", label: "Overwatch 2" },
-];
-
-// 2. 게임별 선택 가능한 서버 리스트 정의
-const SERVER_LISTS = {
-  lostark: ["루페온", "아만", "카마인", "카단", "실리안", "아브렐슈드"],
-  maple: ["스카니아", "루나", "엘리시움", "크로아", "베라", "오로라"],
-  dungeon: ["카인", "디레지에", "시로코", "프레이", "카시야스", "바칼"],
-  fc: ["아시아", "유럽", "북미"],
-  lineage: ["데포로쥬", "켄라우헬", "질리언", "이실로테", "아툰"],
-  valorant: ["한국", "아시아", "북미", "유럽"],
-  overwatch: ["아시아", "아메리카", "유럽"],
-};
-
-// 3. 테스트용 다양한 게임의 더미 데이터
-const DUMMY_AUCTIONS = [
-  {
-    id: "auc-1",
-    title: "발할라의 심장: 고대 용의 숨결",
-    game: "lostark",
-    gameServer: "루페온",
-    currentBid: 2850000,
-    instantPrice: 5000000,
-    minIncrement: 28586,
-    startPrice: 1500000,
-    endAt: new Date(Date.now() + 14753000).toISOString(),
-    bidCount: 47,
-    imageUrl: null,
-  },
-  {
-    id: "auc-2",
-    title: "아케인셰이드 두손검 +22성",
-    game: "maple",
-    gameServer: "스카니아",
-    currentBid: 7500000,
-    instantPrice: 12000000,
-    minIncrement: 100000,
-    startPrice: 5000000,
-    endAt: new Date(Date.now() + 5712000).toISOString(),
-    bidCount: 12,
-    imageUrl: null,
-  },
-  {
-    id: "auc-3",
-    title: "+12 증폭 구원의 이기 - 도",
-    game: "dungeon",
-    gameServer: "카인",
-    currentBid: 1250000,
-    instantPrice: 2000000,
-    minIncrement: 15000,
-    startPrice: 800000,
-    endAt: new Date(Date.now() + 2193000).toISOString(),
-    bidCount: 31,
-    imageUrl: null,
-  },
-  {
-    id: "auc-4",
-    title: "240TOT 날두 5카 (강화완료)",
-    game: "fc",
-    gameServer: "아시아",
-    currentBid: 9500000,
-    instantPrice: 15000000,
-    minIncrement: 50000,
-    startPrice: 7000000,
-    endAt: new Date(Date.now() + 19913000).toISOString(),
-    bidCount: 8,
-    imageUrl: null,
-  },
-  {
-    id: "auc-5",
-    title: "집행자의 대검 (+9 제련)",
-    game: "lineage",
-    gameServer: "데포로쥬",
-    currentBid: 4500000,
-    instantPrice: 8000000,
-    minIncrement: 30000,
-    startPrice: 3000000,
-    endAt: new Date(Date.now() + 35000000).toISOString(),
-    bidCount: 15,
-    imageUrl: null,
-  },
+const FALLBACK_GAMES = [
+  { id: null, name: "전체" },
+  { id: "lostark", name: "LOST ARK" },
+  { id: "maple", name: "MapleStory" },
+  { id: "dungeon", name: "Dungeon & Fighter" },
+  { id: "fc", name: "FC ONLINE" },
+  { id: "lineage", name: "Lineage" },
+  { id: "valorant", name: "Valorant" },
+  { id: "overwatch", name: "Overwatch 2" },
 ];
 
 const DUMMY_BIDS = [
-  { bidder: "K-Gamer***", amount: 2850000, time: "방금 전", status: "최고가" },
   {
-    bidder: "ShadowV***",
-    amount: 2420000,
-    time: "15분 전",
-    status: "상위입찰",
+    bidderNickname: "K-Gamer***",
+    amount: 2850000,
+    time: "2분 전",
+    isBest: true,
   },
-  { bidder: "Knight***", amount: 2380000, time: "28분 전", status: "상위입찰" },
+  { bidderNickname: "ShadowV***", amount: 2420000, time: "15분 전" },
+  { bidderNickname: "Knight***", amount: 2380000, time: "28분 전" },
+  { bidderNickname: "ProTrad***", amount: 2350000, time: "46분 전" },
+  { bidderNickname: "LootHun***", amount: 2300000, time: "1시간 전" },
 ];
 
+/* ── timer hook ─────────────────────────────────────────── */
 function useTimer(endAt) {
   const [timeStr, setTimeStr] = useState("");
   useEffect(() => {
@@ -129,86 +52,187 @@ function useTimer(endAt) {
 }
 
 function AuctionTimer({ endAt }) {
-  const t = useTimer(endAt);
-  return <>{t}</>;
+  return <>{useTimer(endAt)}</>;
 }
 
+/* ── BidHistoryModal ─────────────────────────────────────── */
+function BidHistoryModal({ bids, startPrice, onClose }) {
+  const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalBox onClick={(e) => e.stopPropagation()}>
+        <ModalHeader>
+          <ModalTitle>전체 입찰 내역</ModalTitle>
+          <ModalMeta>
+            총 입찰자 수: <strong>{bids.length}명</strong> · 최고 입찰가 순 정렬
+          </ModalMeta>
+          <ModalClose onClick={onClose}>✕</ModalClose>
+        </ModalHeader>
+        <ModalTableWrap>
+          <ModalTable>
+            <thead>
+              <tr>
+                <th>입찰자</th>
+                <th>입찰 금액</th>
+                <th>입찰 시간</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bids.map((b, i) => (
+                <tr key={i} className={i === 0 ? "best" : ""}>
+                  <td>
+                    <BidderCell>
+                      <Avatar $color={i === 0 ? "#6c5ce7" : "#2d3050"}>
+                        {(b.bidderNickname || "?")[0]}
+                      </Avatar>
+                      {b.bidderNickname || "익명"}
+                    </BidderCell>
+                  </td>
+                  <td className="amount">{fmt(b.amount)} KRW</td>
+                  <td className="time">{b.time || "-"}</td>
+                  <td>
+                    {i === 0 ? (
+                      <StatusPill $type="best">최고가</StatusPill>
+                    ) : (
+                      <StatusPill $type="normal">입찰 중</StatusPill>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </ModalTable>
+        </ModalTableWrap>
+        <ModalFooter>
+          <span>
+            시작가 <strong>{fmt(startPrice)} KRW</strong>
+          </span>
+          <CloseBtn onClick={onClose}>닫기</CloseBtn>
+        </ModalFooter>
+      </ModalBox>
+    </ModalOverlay>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN PAGE
+═══════════════════════════════════════════════════════════ */
 export default function AuctionListPage() {
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
 
+  const [games, setGames] = useState([{ id: null, name: "전체" }]);
+  const [servers, setServers] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [game, setGame] = useState("전체"); // 기본값을 '전체'로 설정하여 모든 아이템이 먼저 보이도록 유도
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
 
-  // 상세 뷰 상태
+  const [gameId, setGameId] = useState(null);
+  const [serverId, setServerId] = useState(null);
+  const [categoryId, setCategoryId] = useState(null);
+  const [keyword, setKeyword] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
   const [selected, setSelected] = useState(null);
   const [bids, setBids] = useState([]);
   const [bidLoading, setBidLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
   const [customBid, setCustomBid] = useState("");
   const [bidding, setBidding] = useState(false);
-  const [buyingNow, setBuyingNow] = useState(false);
   const [bidError, setBidError] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [activeImg, setActiveImg] = useState(0);
 
   const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
 
-  // ── 데이터 호출 및 선택 게임 필터링 ──
+  /* 게임 목록 */
+  useEffect(() => {
+    ItemApi.getGames()
+      .then((r) => {
+        const list = r.data?.data || [];
+        setGames([
+          { id: null, name: "전체" },
+          ...list.map((g) => ({ id: g.gameId, name: g.gameName })),
+        ]);
+      })
+      .catch(() => setGames(FALLBACK_GAMES));
+  }, []);
+
+  /* 게임 선택 → 서버·카테고리 */
+  useEffect(() => {
+    setServerId(null);
+    setCategoryId(null);
+    setServers([]);
+    setCategories([]);
+    setPage(1);
+    if (!gameId) return;
+
+    ItemApi.getGameServers(gameId)
+      .then((r) => {
+        const list = r.data?.data ?? r.data ?? [];
+        setServers([
+          { id: null, name: "전체" },
+          ...list.map((s) => ({
+            id: s.serverId ?? s.id,
+            name: s.serverName ?? s.name,
+          })),
+        ]);
+      })
+      .catch(() => setServers([]));
+
+    ItemApi.getCategories(gameId)
+      .then((r) => {
+        const list = r.data?.data ?? r.data ?? [];
+        setCategories([
+          { id: null, name: "전체" },
+          ...list.map((c) => ({
+            id: c.categoryId ?? c.id,
+            name: c.categoryName ?? c.name,
+          })),
+        ]);
+      })
+      .catch(() => setCategories([]));
+  }, [gameId]);
+
+  /* 경매 목록 조회 */
   const fetchAuctions = useCallback(async () => {
     setLoading(true);
     try {
-      const params = { page, size: 12 };
-      if (game !== "전체") params.game = game;
-
+      const params = {
+        page: page - 1,
+        size: 12,
+        ...(gameId && { gameId }),
+        ...(serverId && { serverId }),
+        ...(categoryId && { categoryId }),
+        ...(keyword && { keyword }),
+      };
       const res = await AuctionApi.getAuctions(params);
-      const raw = res.data?.data ?? res.data ?? [];
-      const list = Array.isArray(raw) ? raw : (raw.content ?? []);
-
-      if (list.length > 0) {
-        setAuctions(list);
-        setTotal(res.data?.total ?? list.length);
-      } else {
-        // 백엔드 데이터가 없을 때 선택한 게임 탭에 맞게 필터링
-        const filtered =
-          game === "전체"
-            ? DUMMY_AUCTIONS
-            : DUMMY_AUCTIONS.filter((item) => item.game === game);
-        setAuctions(filtered);
-        setTotal(filtered.length);
-      }
+      const data = res.data?.data ?? {};
+      setAuctions(data.content ?? []);
+      setTotalPages(data.totalPages ?? 1);
     } catch {
-      // 에러 대피책: 선택한 게임 탭에 맞는 데이터만 바인딩
-      const filtered =
-        game === "전체"
-          ? DUMMY_AUCTIONS
-          : DUMMY_AUCTIONS.filter((item) => item.game === game);
-      setAuctions(filtered);
-      setTotal(filtered.length);
+      setAuctions([]);
     } finally {
       setLoading(false);
     }
-  }, [game, page]);
+  }, [gameId, serverId, categoryId, keyword, page]);
 
   useEffect(() => {
     fetchAuctions();
   }, [fetchAuctions]);
 
+  /* 상세 열기 */
   const openDetail = async (auction) => {
     setSelected(auction);
+    setActiveImg(0);
     setCustomBid(
-      String(
-        (auction.currentBid ?? auction.currentPrice ?? 0) +
-          (auction.minIncrement ?? 1000),
-      ),
+      String((auction.currentPrice ?? auction.startPrice ?? 0) + 100),
     );
     setBidError("");
     setBidLoading(true);
     try {
-      const res = await AuctionApi.getAuctionBids(auction.id);
-      const list = res.data?.data ?? res.data ?? [];
-      setBids(list.length > 0 ? list : DUMMY_BIDS);
+      const res = await AuctionApi.getBids(auction.auctionId);
+      setBids(res.data?.data ?? DUMMY_BIDS);
     } catch {
       setBids(DUMMY_BIDS);
     } finally {
@@ -216,690 +240,1344 @@ export default function AuctionListPage() {
     }
   };
 
-  // 서버 변경 시 호출되는 핸들러 함수
-  const handleServerChange = (e) => {
-    const nextServer = e.target.value;
-    setSelected((prev) => ({
-      ...prev,
-      gameServer: nextServer,
-    }));
-  };
-
+  /* 입찰 */
   const handleBid = async () => {
-    if (!isLoggedIn) {
-      alert("로그인이 필요합니다.");
-      return navigate("/login");
-    }
-    const amount = Number(String(customBid).replace(/,/g, ""));
-    const minBid =
-      (selected.currentBid ?? selected.currentPrice ?? 0) +
-      (selected.minIncrement ?? 1000);
-    if (amount < minBid)
-      return setBidError(`최소 입찰가는 ${fmt(minBid)}원입니다.`);
-
-    setBidding(true);
-    setBidError("");
-    try {
-      await AuctionApi.placeBid(selected.id, {
-        bidAmount: amount,
-        server: selected.gameServer,
-      });
-      alert("입찰이 완료되었습니다!");
-      setSelected((prev) => ({
-        ...prev,
-        currentBid: amount,
-        bidCount: (prev.bidCount ?? 0) + 1,
-      }));
-      setCustomBid(String(amount + (selected.minIncrement ?? 1000)));
-
-      const res = await AuctionApi.getAuctionBids(selected.id);
-      const list = res.data?.data ?? res.data ?? [];
-      setBids(list.length > 0 ? list : DUMMY_BIDS);
-    } catch (err) {
-      setBidError(
-        err.response?.data?.message ?? "입찰 중 오류가 발생했습니다.",
+    if (!isLoggedIn) return navigate("/login");
+    const amount = Number(customBid);
+    const currentPrice = selected.currentPrice ?? selected.startPrice ?? 0;
+    if (!amount || amount <= 0)
+      return setBidError("입찰 금액을 입력해 주세요.");
+    if (amount <= currentPrice)
+      return setBidError(
+        `현재 최고가(${fmt(currentPrice)}원)보다 높아야 합니다.`,
       );
+    setBidError("");
+    setBidding(true);
+    try {
+      await AuctionApi.placeBid(selected.auctionId, amount);
+      alert("입찰 완료!");
+      openDetail(selected);
+    } catch (err) {
+      setBidError(err.response?.data?.message ?? "입찰에 실패했습니다.");
     } finally {
       setBidding(false);
     }
   };
 
-  const handleBuyNow = async () => {
-    if (!isLoggedIn) {
-      alert("로그인이 필요합니다.");
-      return navigate("/login");
-    }
+  /* 즉시 낙찰 */
+  const handleInstantBuy = async () => {
+    if (!isLoggedIn) return navigate("/login");
     if (
       !window.confirm(
-        `${fmt(selected.instantPrice)}원에 즉시 낙찰하시겠습니까?`,
+        `${fmt(selected.instantBuyPrice)}원에 즉시 낙찰하시겠습니까?`,
       )
     )
       return;
-
-    setBuyingNow(true);
-    setBidError("");
     try {
-      await AuctionApi.buyNow(selected.id);
-      alert("즉시 낙찰이 완료되었습니다!");
-      navigate("/mypage");
+      await AuctionApi.instantBuy(selected.auctionId);
+      alert("즉시 낙찰 완료!");
+      navigate("/payment", { state: { item: selected } });
     } catch (err) {
-      setBidError(
-        err.response?.data?.message ?? "즉시 낙찰 중 오류가 발생했습니다.",
-      );
-    } finally {
-      setBuyingNow(false);
+      alert(err.response?.data?.message || "즉시 낙찰에 실패했습니다.");
     }
   };
 
-  const totalPages = Math.ceil(total / 12) || 1;
+  /* ───────────────── LIST VIEW ───────────────── */
+  if (!selected)
+    return (
+      <PageWrap>
+        <TopGameBar>
+          {games.map((g) => (
+            <TopGameTab
+              key={g.id ?? "all"}
+              $active={gameId === g.id}
+              onClick={() => {
+                setGameId(g.id);
+                setPage(1);
+              }}
+            >
+              {g.name}
+            </TopGameTab>
+          ))}
+        </TopGameBar>
 
-  // 현재 아이템에 매칭되는 게임 서버군 가져오기 (없으면 기본 배열 설정)
-  const availableServers = SERVER_LISTS[selected?.game] || ["기본 서버"];
+        <ContentRow>
+          {/* 사이드바 */}
+          <Sidebar>
+            {servers.length > 0 && (
+              <SideSection>
+                <SideLabel>서버</SideLabel>
+                {servers.map((s) => (
+                  <SideItem
+                    key={s.id ?? "all-s"}
+                    $active={serverId === s.id}
+                    onClick={() => {
+                      setServerId(s.id);
+                      setPage(1);
+                    }}
+                  >
+                    {s.name}
+                  </SideItem>
+                ))}
+              </SideSection>
+            )}
+            {categories.length > 0 && (
+              <SideSection>
+                <SideLabel>카테고리</SideLabel>
+                {categories.map((c) => (
+                  <SideItem
+                    key={c.id ?? "all-c"}
+                    $active={categoryId === c.id}
+                    onClick={() => {
+                      setCategoryId(c.id);
+                      setPage(1);
+                    }}
+                  >
+                    {c.name}
+                  </SideItem>
+                ))}
+              </SideSection>
+            )}
+            {!gameId && (
+              <SideEmpty>
+                상단에서 게임을 선택하면
+                <br />
+                서버·카테고리 필터가 표시됩니다.
+              </SideEmpty>
+            )}
+          </Sidebar>
+
+          {/* 메인 */}
+          <MainArea>
+            <ListTopBar>
+              <PageTitle>실시간 경매 아이템</PageTitle>
+              <ListTopRight>
+                <SearchBox
+                  placeholder="아이템, 키워드로 검색"
+                  value={keyword}
+                  onChange={(e) => {
+                    setKeyword(e.target.value);
+                    setPage(1);
+                  }}
+                />
+                <AddBtn onClick={() => navigate("/auctions/new")}>
+                  + 새 경매 등록
+                </AddBtn>
+              </ListTopRight>
+            </ListTopBar>
+
+            {loading ? (
+              <LoadingBox>
+                <LoadingSpinner />
+                <p style={{ marginTop: 16, color: "#555a75" }}>
+                  경매 아이템을 불러오는 중...
+                </p>
+              </LoadingBox>
+            ) : auctions.length === 0 ? (
+              <EmptyBox>
+                <EmptyIcon>🔍</EmptyIcon>
+                <p>등록된 경매 아이템이 없습니다.</p>
+              </EmptyBox>
+            ) : (
+              <Grid>
+                {auctions.map((item) => (
+                  <AuctionCard
+                    key={item.auctionId}
+                    onClick={() => openDetail(item)}
+                  >
+                    {/* 타이머 배지 */}
+                    <TimerBadge>
+                      ⏱ <AuctionTimer endAt={item.endTime} />
+                    </TimerBadge>
+
+                    {/* 이미지 영역 */}
+                    <CardImgWrap>
+                      {item.thumbnailImg ? (
+                        <img
+                          src={item.thumbnailImg}
+                          alt={item.itemTitle}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <CardPlaceholder>⚔️</CardPlaceholder>
+                      )}
+                    </CardImgWrap>
+
+                    {/* 카드 본문 */}
+                    <CardBody>
+                      <CardGameTag>{item.gameName || "게임"}</CardGameTag>
+                      <CardTitle>{item.itemTitle}</CardTitle>
+                      <CardMeta>
+                        {[item.serverName, item.categoryName]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </CardMeta>
+
+                      <CardPriceRow>
+                        <div>
+                          <CardPriceLabel>현재가</CardPriceLabel>
+                          <CardPrice>
+                            {fmt(item.currentPrice ?? item.startPrice)}
+                            <span>원</span>
+                          </CardPrice>
+                        </div>
+                        {item.instantBuyPrice && (
+                          <div style={{ textAlign: "right" }}>
+                            <CardPriceLabel>즉시낙찰</CardPriceLabel>
+                            <CardInstant>
+                              {fmt(item.instantBuyPrice)}원
+                            </CardInstant>
+                          </div>
+                        )}
+                      </CardPriceRow>
+
+                      <CardBtn>입찰 하러가기</CardBtn>
+                    </CardBody>
+                  </AuctionCard>
+                ))}
+              </Grid>
+            )}
+
+            {totalPages > 1 && (
+              <Pagination>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <PageBtn
+                    key={i + 1}
+                    $active={page === i + 1}
+                    onClick={() => setPage(i + 1)}
+                  >
+                    {i + 1}
+                  </PageBtn>
+                ))}
+              </Pagination>
+            )}
+          </MainArea>
+        </ContentRow>
+      </PageWrap>
+    );
+
+  /* ───────────────── DETAIL VIEW ───────────────── */
+  const currentPrice = selected.currentPrice ?? selected.startPrice ?? 0;
+  const minBid = currentPrice + (selected.minBidUnit || 100);
+  const images =
+    selected.images ?? (selected.thumbnailImg ? [selected.thumbnailImg] : []);
 
   return (
     <PageWrap>
-      {!selected ? (
-        /* ── [1] 목록 화면 ── */
-        <>
-          <TitleBar>
-            <PageTitle>실시간 경매 아이템</PageTitle>
-            <AddBtn onClick={() => navigate("/auctions/new")}>
-              + 새 경매 등록
-            </AddBtn>
-          </TitleBar>
-
-          {/* 게임 필터 탭 */}
-          <GameTabRow>
-            {GAMES.map((g) => (
-              <GameTab
-                key={g.key}
-                $active={game === g.key}
-                onClick={() => {
-                  setGame(g.key);
-                  setPage(1);
-                }}
-              >
-                {g.label}
-              </GameTab>
-            ))}
-          </GameTabRow>
-
-          {loading ? (
-            <LoadingBox>경매 데이터 파싱 중...</LoadingBox>
-          ) : (
-            <Grid>
-              {auctions.map((item) => (
-                <AuctionCard key={item.id} onClick={() => openDetail(item)}>
-                  <TimerTag>
-                    ⏰ <AuctionTimer endAt={item.endAt} />
-                  </TimerTag>
-                  <CardImg>
-                    {item.imageUrl ? (
-                      <img
-                        src={item.imageUrl}
-                        alt={item.title}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          borderRadius: 8,
-                        }}
-                      />
-                    ) : (
-                      <span style={{ fontSize: 52 }}>⚔️</span>
-                    )}
-                  </CardImg>
-                  <CardTitle>{item.title}</CardTitle>
-                  <ServerBadge>{item.gameServer || "전체서버"}</ServerBadge>
-                  <CardPrice>
-                    {fmt(item.currentBid ?? item.currentPrice)} 원
-                  </CardPrice>
-                  <CardBidCount>
-                    {item.bidCount ?? 0}명 입찰 참여 중
-                  </CardBidCount>
-                  <CardBtn>입찰 하러가기</CardBtn>
-                </AuctionCard>
-              ))}
-              {!loading && auctions.length === 0 && (
-                <LoadingBox style={{ gridColumn: "1 / -1" }}>
-                  등록된 경매 아이템이 없습니다.
-                </LoadingBox>
-              )}
-            </Grid>
-          )}
-
-          {totalPages > 1 && (
-            <Pagination>
-              <PageArrow
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                ‹
-              </PageArrow>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <PageBtn
-                  key={i + 1}
-                  $active={page === i + 1}
-                  onClick={() => setPage(i + 1)}
-                >
-                  {i + 1}
-                </PageBtn>
-              ))}
-              <PageArrow
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                ›
-              </PageArrow>
-            </Pagination>
-          )}
-        </>
-      ) : (
-        /* ── [2] 상세 화면 ── */
-        <DetailWrap>
-          <BackLink onClick={() => setSelected(null)}>
-            ← 목록으로 돌아가기
-          </BackLink>
-
-          <DetailGrid>
-            <MediaCol>
-              <DetailImgBox>
-                {selected.imageUrl ? (
-                  <img
-                    src={selected.imageUrl}
-                    alt={selected.title}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      borderRadius: 12,
-                    }}
-                  />
-                ) : (
-                  <BigIcon>⚔️</BigIcon>
-                )}
-              </DetailImgBox>
-              <DescBar>
-                • 공격력 고정 수치 반영 • 고대 등급 옵션 귀속 • 치명타 특화 스탯
-                최상위
-              </DescBar>
-            </MediaCol>
-
-            <InfoCol>
-              <DetailTitle>{selected.title}</DetailTitle>
-
-              {/* 서버 선택 드롭다운 폼 제어 */}
-              <ServerSelectBox>
-                <label htmlFor="server-select">🎯 거래 대상 서버 선택 : </label>
-                <StyledSelect
-                  id="server-select"
-                  value={selected.gameServer || ""}
-                  onChange={handleServerChange}
-                >
-                  {availableServers.map((srv) => (
-                    <option key={srv} value={srv}>
-                      {srv}
-                    </option>
-                  ))}
-                </StyledSelect>
-              </ServerSelectBox>
-
-              <CountdownStrip>
-                ⏳ 남은 시간 :{" "}
-                <strong>
-                  <AuctionTimer endAt={selected.endAt} />
-                </strong>
-              </CountdownStrip>
-
-              <FinanceBox>
-                <FinRow>
-                  <FinLabel>즉시 낙찰 금액</FinLabel>
-                  <FinInstant>{fmt(selected.instantPrice)} KRW</FinInstant>
-                </FinRow>
-                <FinRow>
-                  <FinLabel>현재 최고 입찰가</FinLabel>
-                  <FinCurrent>
-                    {fmt(selected.currentBid ?? selected.currentPrice)} KRW
-                  </FinCurrent>
-                </FinRow>
-                <FinRow>
-                  <FinLabel>최소 입찰 증액</FinLabel>
-                  <FinStep>+ {fmt(selected.minIncrement)} KRW</FinStep>
-                </FinRow>
-
-                <BidInputWrap>
-                  <BidInputLabel>입찰가 입력</BidInputLabel>
-                  <BidInput
-                    type="number"
-                    value={customBid}
-                    onChange={(e) => setCustomBid(e.target.value)}
-                  />
-                  <BidUnit>KRW</BidUnit>
-                </BidInputWrap>
-
-                {bidError && <BidErrorBox>{bidError}</BidErrorBox>}
-
-                <ActionBtns>
-                  <BidBtn disabled={bidding} onClick={handleBid}>
-                    {bidding ? "입찰 중..." : "🔨 입찰하기"}
-                  </BidBtn>
-                  {selected.instantPrice && (
-                    <InstantBtn disabled={buyingNow} onClick={handleBuyNow}>
-                      {buyingNow ? "처리 중..." : "⚡ 즉시 낙찰"}
-                    </InstantBtn>
-                  )}
-                </ActionBtns>
-              </FinanceBox>
-
-              <BidHistoryPanel>
-                <HistoryHeader>
-                  <span style={{ fontWeight: 700 }}>실시간 입찰 현황</span>
-                  <LiveBadge>LIVE</LiveBadge>
-                </HistoryHeader>
-                {bidLoading ? (
-                  <div
-                    style={{
-                      color: "#888da8",
-                      fontSize: 13,
-                      padding: "10px 0",
-                    }}
-                  >
-                    로딩 중...
-                  </div>
-                ) : (
-                  bids.slice(0, 3).map((b, i) => (
-                    <TopBidRow key={i}>
-                      <span>👑 {b.bidder ?? b.bidderNickname}</span>
-                      <span style={{ fontWeight: 700, color: "#b76eff" }}>
-                        {fmt(b.amount ?? b.bidAmount)} KRW
-                      </span>
-                    </TopBidRow>
-                  ))
-                )}
-                <ModalLink onClick={() => setShowModal(true)}>
-                  전체 내역 보기
-                </ModalLink>
-              </BidHistoryPanel>
-            </InfoCol>
-          </DetailGrid>
-        </DetailWrap>
+      {showModal && (
+        <BidHistoryModal
+          bids={bids}
+          startPrice={selected.startPrice}
+          onClose={() => setShowModal(false)}
+        />
       )}
 
-      {/* ── [3] 전체 입찰 내역 모달 생략 (동작 유지됨) ── */}
+      <DetailWrap>
+        <Breadcrumb>
+          <BreadItem onClick={() => setSelected(null)}>경매 목록</BreadItem>
+          <BreadSep>/</BreadSep>
+          <BreadItem>{selected.gameName || "경매"}</BreadItem>
+          <BreadSep>/</BreadSep>
+          <BreadCurrent>{selected.itemTitle}</BreadCurrent>
+        </Breadcrumb>
+
+        <DetailGrid>
+          {/* LEFT */}
+          <LeftCol>
+            <ImgMain>
+              {images[activeImg] ? (
+                <img
+                  src={images[activeImg]}
+                  alt="item"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    borderRadius: 12,
+                  }}
+                />
+              ) : (
+                <BigEmoji>⚔️</BigEmoji>
+              )}
+              <RarityBadge>전설</RarityBadge>
+            </ImgMain>
+
+            {images.length > 1 && (
+              <ImgDots>
+                {images.map((_, i) => (
+                  <ImgDot
+                    key={i}
+                    $active={i === activeImg}
+                    onClick={() => setActiveImg(i)}
+                  />
+                ))}
+              </ImgDots>
+            )}
+
+            {selected.description && (
+              <DescBox>
+                <DescTitle>▸ 상세 설명</DescTitle>
+                <DescText>{selected.description}</DescText>
+              </DescBox>
+            )}
+
+            {(
+              selected.stats || [
+                { label: "공격력", val: "+2,580" },
+                { label: "명중률", val: "92%" },
+                { label: "치명타 확률", val: "+15%" },
+                { label: "공격 속도", val: "+10%" },
+              ]
+            ).map((s) => (
+              <StatRow key={s.label}>
+                <StatLabel>{s.label}</StatLabel>
+                <StatVal>{s.val}</StatVal>
+              </StatRow>
+            ))}
+          </LeftCol>
+
+          {/* RIGHT */}
+          <RightCol>
+            <StatusRow>
+              <LivePill>진행 중</LivePill>
+            </StatusRow>
+            <DetailTitle>{selected.itemTitle}</DetailTitle>
+
+            <MetaTable>
+              {[
+                {
+                  label: "서버",
+                  val: selected.serverName || selected.gameServer,
+                },
+                { label: "게임", val: selected.gameName || selected.game },
+                {
+                  label: "카테고리",
+                  val: selected.categoryName || selected.category,
+                },
+                {
+                  label: "판매자",
+                  val: selected.sellerNickname || selected.seller,
+                },
+                {
+                  label: "입찰 수",
+                  val:
+                    selected.bidCount != null ? `${selected.bidCount}회` : null,
+                },
+                {
+                  label: "등록일",
+                  val: selected.createdAt
+                    ? selected.createdAt.split("T")[0]
+                    : null,
+                },
+              ]
+                .filter((m) => m.val)
+                .map((m) => (
+                  <MetaRow key={m.label}>
+                    <MetaLabel>{m.label}</MetaLabel>
+                    <MetaVal>{m.val}</MetaVal>
+                  </MetaRow>
+                ))}
+            </MetaTable>
+
+            {(selected.sellerNickname || selected.seller) && (
+              <SellerBadge>
+                <SellerIcon>🛡</SellerIcon>
+                <div>
+                  <SellerName>
+                    {selected.sellerNickname || selected.seller}
+                  </SellerName>
+                  <SellerSub>프리미엄 프로바이더</SellerSub>
+                </div>
+                <SellerChat>💬</SellerChat>
+              </SellerBadge>
+            )}
+
+            <PriceBox>
+              <PriceRow>
+                <div>
+                  <PriceBoxLabel>즉시 낙찰가</PriceBoxLabel>
+                  <PriceInstant>
+                    {selected.instantBuyPrice > 0
+                      ? `${fmt(selected.instantBuyPrice)} KRW`
+                      : "미설정"}
+                  </PriceInstant>
+                </div>
+                <TimerBox>
+                  <TimerLabel>⏱ 남은 시간</TimerLabel>
+                  <TimerVal>
+                    <AuctionTimer endAt={selected.endTime} />
+                  </TimerVal>
+                </TimerBox>
+              </PriceRow>
+              <Divider />
+              <PriceBoxLabel>현재 최고 입찰가</PriceBoxLabel>
+              <CurrentBidRow>
+                <CurrentBid>{fmt(currentPrice)} KRW</CurrentBid>
+                <MinBidNote>
+                  최소 입찰 금액 {fmt(selected.minBidUnit || 1000)} KRW
+                </MinBidNote>
+              </CurrentBidRow>
+            </PriceBox>
+
+            <BidSection>
+              <BidLabel>입찰가 입력</BidLabel>
+              <BidInputRow>
+                <BidInput
+                  type="number"
+                  step={100}
+                  min={minBid}
+                  value={customBid}
+                  onChange={(e) => setCustomBid(e.target.value)}
+                  placeholder={`최소 ${fmt(minBid)}`}
+                />
+              </BidInputRow>
+              {bidError && <BidError>{bidError}</BidError>}
+              <BidBtns>
+                <BidBtnPrimary disabled={bidding} onClick={handleBid}>
+                  🔨 {bidding ? "입찰 중..." : "입찰하기"}
+                </BidBtnPrimary>
+                {selected.instantBuyPrice && (
+                  <BidBtnSecondary onClick={handleInstantBuy}>
+                    ⚡ 낙찰하기
+                  </BidBtnSecondary>
+                )}
+              </BidBtns>
+              <SafeNote>
+                🔒 안전한 거래가 보장됩니다. 거래 완료 후 에스크로 방식으로
+                정산됩니다.
+              </SafeNote>
+            </BidSection>
+
+            <BidPanel>
+              <BidPanelHeader>
+                <BidPanelTitle>입찰 내역</BidPanelTitle>
+                <LiveTag>진행 중</LiveTag>
+              </BidPanelHeader>
+              {bidLoading ? (
+                <p
+                  style={{
+                    color: "#555a75",
+                    fontSize: 13,
+                    textAlign: "center",
+                    padding: "12px 0",
+                  }}
+                >
+                  불러오는 중...
+                </p>
+              ) : (
+                bids.slice(0, 3).map((b, i) => (
+                  <BidRow key={i} $best={i === 0}>
+                    <BidAvatar $best={i === 0}>
+                      {(b.bidderNickname || "?")[0]}
+                    </BidAvatar>
+                    <BidNick>{b.bidderNickname}</BidNick>
+                    <BidTime>{b.time || ""}</BidTime>
+                    {i === 0 && <BestTag>최고가</BestTag>}
+                    <BidAmt $best={i === 0}>{fmt(b.amount)} KRW</BidAmt>
+                  </BidRow>
+                ))
+              )}
+              <ViewAllBtn onClick={() => setShowModal(true)}>
+                전체 내역 보기
+              </ViewAllBtn>
+            </BidPanel>
+          </RightCol>
+        </DetailGrid>
+      </DetailWrap>
     </PageWrap>
   );
 }
 
-// ── Styled Components 추가 및 보완 ──────────────────────────────────────────
+/* ════════════════════════════════════════════════════════════
+   STYLED COMPONENTS
+════════════════════════════════════════════════════════════ */
+const spin = keyframes`from{transform:rotate(0deg)}to{transform:rotate(360deg)}`;
+const pulse = keyframes`0%,100%{opacity:1}50%{opacity:.5}`;
+
 const PageWrap = styled.div`
-  background: #090a0f;
-  color: #f8f9fa;
+  background: #090b12;
+  color: #e8eaf0;
   min-height: 100vh;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: "Noto Sans KR", "Pretendard", sans-serif;
 `;
-const TitleBar = styled.div`
+
+/* top game bar */
+const TopGameBar = styled.div`
+  display: flex;
+  gap: 4px;
+  padding: 0 32px;
+  background: #0d0f1a;
+  border-bottom: 1px solid #1a1d2e;
+  overflow-x: auto;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+`;
+const TopGameTab = styled.button`
+  padding: 14px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: ${(p) => (p.$active ? "#fff" : "#555a75")};
+  background: none;
+  border: none;
+  border-bottom: 2px solid ${(p) => (p.$active ? "#6c5ce7" : "transparent")};
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+  &:hover {
+    color: #fff;
+  }
+`;
+
+/* layout */
+const ContentRow = styled.div`
+  display: flex;
+  min-height: calc(100vh - 48px);
+`;
+
+/* sidebar */
+const Sidebar = styled.aside`
+  width: 180px;
+  flex-shrink: 0;
+  background: #0d0f1a;
+  border-right: 1px solid #1a1d2e;
+  padding: 24px 16px;
+`;
+const SideSection = styled.div`
+  margin-bottom: 28px;
+`;
+const SideLabel = styled.div`
+  font-size: 12px;
+  font-weight: 700;
+  color: #6c5ce7;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+`;
+const SideItem = styled.div`
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  color: ${(p) => (p.$active ? "#fff" : "#555a75")};
+  background: ${(p) => (p.$active ? "rgba(108,92,231,.15)" : "transparent")};
+  font-weight: ${(p) => (p.$active ? 600 : 400)};
+  margin-bottom: 2px;
+  transition: all 0.15s;
+  &:hover {
+    color: #fff;
+    background: rgba(108, 92, 231, 0.1);
+  }
+`;
+const SideEmpty = styled.div`
+  font-size: 11px;
+  color: #3c4060;
+  line-height: 1.6;
+  padding: 8px 4px;
+`;
+
+/* main area */
+const MainArea = styled.main`
+  flex: 1;
+  min-width: 0;
+  padding: 24px 28px 40px;
+`;
+const ListTopBar = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 40px 40px 10px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
 `;
 const PageTitle = styled.h1`
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
 `;
-const AddBtn = styled.button`
-  background: linear-gradient(135deg, #7209b7, #f72585);
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-`;
-const GameTabRow = styled.div`
+const ListTopRight = styled.div`
   display: flex;
   gap: 10px;
-  padding: 10px 40px 20px;
-  border-bottom: 1px solid #1a1d29;
-  overflow-x: auto;
+  align-items: center;
 `;
-const GameTab = styled.button`
-  background: ${(p) => (p.$active ? "#7209b7" : "#11131a")};
-  color: ${(p) => (p.$active ? "#fff" : "#6f768a")};
-  border: 1px solid ${(p) => (p.$active ? "#7209b7" : "#222636")};
-  padding: 8px 18px;
-  border-radius: 20px;
-  cursor: pointer;
+const SearchBox = styled.input`
+  background: #12141f;
+  border: 1px solid #1e2133;
+  color: #e8eaf0;
+  padding: 9px 14px;
+  border-radius: 8px;
   font-size: 13px;
-  white-space: nowrap;
+  width: 220px;
+  outline: none;
+  &::placeholder {
+    color: #3c4060;
+  }
+  &:focus {
+    border-color: #6c5ce7;
+  }
 `;
+const AddBtn = styled.button`
+  background: #6c5ce7;
+  color: #fff;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    opacity: 0.88;
+  }
+`;
+
+/* grid */
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 28px;
-  padding: 30px 40px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
 `;
+
+/* ── 카드 (2번 사진 스타일) ── */
 const AuctionCard = styled.div`
-  background: #12141c;
-  border: 1px solid #1f2333;
-  border-radius: 16px;
-  padding: 20px;
-  position: relative;
+  background: #12141f;
+  border: 1px solid #1a1d2e;
+  border-radius: 14px;
+  overflow: hidden;
   cursor: pointer;
+  position: relative;
+  transition:
+    border-color 0.2s,
+    transform 0.2s,
+    box-shadow 0.2s;
   &:hover {
-    border-color: #7209b7;
-    transform: translateY(-2px);
+    border-color: #6c5ce7;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(108, 92, 231, 0.18);
   }
-  transition: all 0.2s;
 `;
-const TimerTag = styled.div`
+const TimerBadge = styled.div`
   position: absolute;
-  top: 16px;
-  left: 16px;
-  background: #e63946;
+  top: 10px;
+  left: 10px;
+  background: rgba(230, 57, 70, 0.92);
   color: #fff;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  z-index: 2;
+  backdrop-filter: blur(4px);
+  letter-spacing: 0.3px;
 `;
-const CardImg = styled.div`
-  height: 150px;
-  background: #090a0f;
-  border-radius: 12px;
+const CardImgWrap = styled.div`
+  height: 170px;
+  background: linear-gradient(145deg, #0d0f1a, #13162a);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 14px;
+  overflow: hidden;
 `;
-const CardTitle = styled.div`
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 4px;
+const CardPlaceholder = styled.span`
+  font-size: 56px;
 `;
-const ServerBadge = styled.div`
+const CardBody = styled.div`
+  padding: 14px 14px 16px;
+`;
+const CardGameTag = styled.div`
   display: inline-block;
-  background: #222636;
-  color: #b76eff;
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6c5ce7;
+  background: rgba(108, 92, 231, 0.12);
   padding: 2px 8px;
   border-radius: 4px;
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+`;
+const CardTitle = styled.div`
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #e8eaf0;
+`;
+const CardMeta = styled.div`
+  font-size: 11px;
+  color: #3c4060;
   margin-bottom: 10px;
-  font-weight: 600;
+`;
+const CardPriceRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 10px;
+`;
+const CardPriceLabel = styled.div`
+  font-size: 10px;
+  color: #555a75;
+  margin-bottom: 2px;
 `;
 const CardPrice = styled.div`
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 800;
-  color: #b76eff;
+  color: #c0c1ff;
+  span {
+    font-size: 11px;
+    font-weight: 400;
+    margin-left: 2px;
+  }
 `;
-const CardBidCount = styled.div`
-  font-size: 12px;
-  color: #6f768a;
-  margin-top: 6px;
-  margin-bottom: 14px;
+const CardInstant = styled.div`
+  font-size: 11px;
+  color: #4edea3;
+  font-weight: 600;
 `;
 const CardBtn = styled.button`
   width: 100%;
-  background: #1f2333;
-  border: none;
-  color: #fff;
-  padding: 10px;
+  background: #1a1d2e;
+  border: 1px solid #252840;
+  color: #e8eaf0;
+  padding: 9px;
   border-radius: 8px;
-  cursor: pointer;
+  font-size: 12px;
   font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
   &:hover {
-    background: #7209b7;
+    background: #6c5ce7;
+    border-color: #6c5ce7;
   }
 `;
+
+/* pagination */
 const Pagination = styled.div`
   display: flex;
   justify-content: center;
   gap: 8px;
-  padding: 24px;
-`;
-const PageArrow = styled.button`
-  background: #11131a;
-  border: 1px solid #1e2230;
-  color: #fff;
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
+  padding: 32px 0 0;
 `;
 const PageBtn = styled.button`
-  background: ${(p) => (p.$active ? "#7209b7" : "#11131a")};
-  border: 1px solid ${(p) => (p.$active ? "#7209b7" : "#1e2230")};
-  color: #fff;
   width: 34px;
   height: 34px;
   border-radius: 6px;
-`;
-const LoadingBox = styled.div`
-  text-align: center;
-  padding: 80px;
-  color: #6f768a;
-`;
-const DetailWrap = styled.div`
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 40px 20px;
-`;
-const BackLink = styled.div`
-  color: #b76eff;
+  background: ${(p) => (p.$active ? "#6c5ce7" : "#12141f")};
+  border: 1px solid ${(p) => (p.$active ? "#6c5ce7" : "#1a1d2e")};
+  color: #fff;
+  font-size: 13px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 24px;
-  display: inline-block;
+  &:hover {
+    border-color: #6c5ce7;
+  }
 `;
+
+const LoadingBox = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px;
+`;
+const LoadingSpinner = styled.div`
+  width: 36px;
+  height: 36px;
+  border: 3px solid #1a1d2e;
+  border-top-color: #6c5ce7;
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
+`;
+const EmptyBox = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px;
+  color: #555a75;
+  font-size: 14px;
+  gap: 12px;
+`;
+const EmptyIcon = styled.span`
+  font-size: 40px;
+`;
+
+/* ════ DETAIL ════ */
+const DetailWrap = styled.div`
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 28px 60px;
+`;
+const Breadcrumb = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #555a75;
+  margin-bottom: 28px;
+`;
+const BreadItem = styled.span`
+  cursor: pointer;
+  color: #6c5ce7;
+  font-weight: 600;
+  &:hover {
+    opacity: 0.8;
+  }
+`;
+const BreadSep = styled.span`
+  color: #252840;
+`;
+const BreadCurrent = styled.span`
+  color: #e8eaf0;
+`;
+
 const DetailGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 45px;
+  gap: 40px;
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 `;
-const MediaCol = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-`;
-const DetailImgBox = styled.div`
-  background: #12141c;
-  border: 1px solid #1f2333;
+
+const LeftCol = styled.div``;
+const ImgMain = styled.div`
+  background: #12141f;
+  border: 1px solid #1a1d2e;
   border-radius: 16px;
-  height: 380px;
+  height: 340px;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 12px;
 `;
-const BigIcon = styled.span`
-  font-size: 110px;
-  filter: drop-shadow(0 0 25px rgba(183, 110, 255, 0.4));
+const BigEmoji = styled.span`
+  font-size: 100px;
 `;
-const DescBar = styled.div`
-  background: #12141c;
-  border: 1px solid #1f2333;
-  border-radius: 10px;
+const RarityBadge = styled.div`
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 6px;
+`;
+const ImgDots = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 16px;
+`;
+const ImgDot = styled.div`
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: ${(p) => (p.$active ? "#6c5ce7" : "#252840")};
+  cursor: pointer;
+  transition: background 0.15s;
+`;
+const DescBox = styled.div`
+  background: #12141f;
+  border: 1px solid #1a1d2e;
+  border-radius: 12px;
   padding: 16px;
-  font-size: 13px;
-  color: #a0a5b5;
-  text-align: center;
+  margin-bottom: 14px;
 `;
-const InfoCol = styled.div`
+const DescTitle = styled.div`
+  font-size: 12px;
+  font-weight: 700;
+  color: #6c5ce7;
+  margin-bottom: 8px;
+`;
+const DescText = styled.p`
+  font-size: 13px;
+  color: #888ea8;
+  line-height: 1.6;
+  margin: 0;
+`;
+const StatRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #1a1d2e;
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+const StatLabel = styled.span`
+  font-size: 12px;
+  color: #555a75;
+`;
+const StatVal = styled.span`
+  font-size: 13px;
+  font-weight: 700;
+  color: #4edea3;
+`;
+
+const RightCol = styled.div`
   display: flex;
   flex-direction: column;
   gap: 16px;
 `;
+const StatusRow = styled.div`
+  display: flex;
+  gap: 8px;
+  align-items: center;
+`;
+const LivePill = styled.span`
+  background: rgba(78, 222, 163, 0.1);
+  color: #4edea3;
+  border: 1px solid rgba(78, 222, 163, 0.25);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+`;
 const DetailTitle = styled.h2`
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
+  line-height: 1.3;
+  margin: 0;
 `;
 
-// 서버 셀렉트 스타일 컴포넌트
-const ServerSelectBox = styled.div`
+const MetaTable = styled.div`
+  background: #12141f;
+  border: 1px solid #1a1d2e;
+  border-radius: 12px;
+  overflow: hidden;
+`;
+const MetaRow = styled.div`
+  display: flex;
+  border-bottom: 1px solid #1a1d2e;
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+const MetaLabel = styled.div`
+  width: 90px;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #555a75;
+  background: #0d0f1a;
+  border-right: 1px solid #1a1d2e;
+`;
+const MetaVal = styled.div`
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #e8eaf0;
+`;
+
+const SellerBadge = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 14px;
-  color: #a0a5b5;
+  background: #12141f;
+  border: 1px solid #1a1d2e;
+  border-radius: 12px;
+  padding: 14px 16px;
 `;
-const StyledSelect = styled.select`
-  background: #12141c;
-  color: #fff;
-  border: 1px solid #2d334a;
-  padding: 8px 14px;
-  border-radius: 6px;
-  outline: none;
-  font-weight: 600;
+const SellerIcon = styled.span`
+  font-size: 20px;
+`;
+const SellerName = styled.div`
+  font-size: 14px;
+  font-weight: 700;
+`;
+const SellerSub = styled.div`
+  font-size: 11px;
+  color: #555a75;
+`;
+const SellerChat = styled.div`
+  margin-left: auto;
+  font-size: 18px;
   cursor: pointer;
-  &:focus {
-    border-color: #7209b7;
+  opacity: 0.7;
+  &:hover {
+    opacity: 1;
   }
 `;
 
-const CountdownStrip = styled.div`
-  background: rgba(230, 57, 70, 0.12);
-  color: #ff6b6b;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-size: 14px;
-  strong {
-    font-weight: 800;
-  }
+const PriceBox = styled.div`
+  background: #12141f;
+  border: 1px solid #1a1d2e;
+  border-radius: 14px;
+  padding: 20px;
 `;
-const FinanceBox = styled.div`
-  background: #12141c;
-  border: 1px solid #1f2333;
-  border-radius: 16px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-`;
-const FinRow = styled.div`
+const PriceRow = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #1f2333;
+  align-items: flex-start;
+  margin-bottom: 14px;
 `;
-const FinLabel = styled.span`
-  color: #888e9e;
-  font-size: 14px;
+const PriceBoxLabel = styled.div`
+  font-size: 11px;
+  color: #555a75;
+  margin-bottom: 4px;
 `;
-const FinInstant = styled.span`
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-`;
-const FinCurrent = styled.span`
+const PriceInstant = styled.div`
   font-size: 22px;
   font-weight: 800;
-  color: #b76eff;
+  color: #4edea3;
 `;
-const FinStep = styled.span`
-  font-size: 14px;
-  color: #a0a5b5;
+const Divider = styled.div`
+  height: 1px;
+  background: #1a1d2e;
+  margin: 0 0 14px;
 `;
-const BidInputWrap = styled.div`
-  position: relative;
-  margin-top: 8px;
+const CurrentBidRow = styled.div`
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
 `;
-const BidInputLabel = styled.label`
-  position: absolute;
-  left: 16px;
-  top: 12px;
+const CurrentBid = styled.div`
+  font-size: 26px;
+  font-weight: 800;
+  color: #c0c1ff;
+`;
+const MinBidNote = styled.div`
   font-size: 11px;
-  color: #545a6e;
-  font-weight: 700;
+  color: #555a75;
+`;
+
+const TimerBox = styled.div`
+  text-align: right;
+`;
+const TimerLabel = styled.div`
+  font-size: 11px;
+  color: #e63946;
+  margin-bottom: 4px;
+`;
+const TimerVal = styled.div`
+  font-size: 18px;
+  font-weight: 800;
+  color: #e63946;
+  font-variant-numeric: tabular-nums;
+`;
+
+const BidSection = styled.div`
+  background: #12141f;
+  border: 1px solid #1a1d2e;
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+const BidLabel = styled.div`
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8eaf0;
+`;
+const BidInputRow = styled.div`
+  display: flex;
+  gap: 8px;
 `;
 const BidInput = styled.input`
-  width: 100%;
-  background: #090a0f;
-  border: 1px solid #2d334a;
-  border-radius: 8px;
-  padding: 28px 70px 12px 16px;
+  flex: 1;
+  background: #090b12;
+  border: 1px solid #252840;
+  border-radius: 9px;
+  padding: 12px 16px;
   color: #fff;
-  font-size: 20px;
-  font-weight: 800;
-  outline: none;
-  box-sizing: border-box;
-`;
-const BidUnit = styled.span`
-  position: absolute;
-  right: 18px;
-  top: 50%;
-  transform: translateY(-10%);
-  color: #545a6e;
+  font-size: 16px;
   font-weight: 700;
+  outline: none;
+  &:focus {
+    border-color: #6c5ce7;
+  }
+  &::placeholder {
+    color: #3c4060;
+    font-size: 13px;
+    font-weight: 400;
+  }
 `;
-const BidErrorBox = styled.div`
-  padding: 10px 14px;
+const BidError = styled.div`
+  font-size: 12px;
+  color: #ef4444;
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: 8px;
-  font-size: 12px;
-  color: #ef4444;
+  padding: 8px 12px;
 `;
-const ActionBtns = styled.div`
+const BidBtns = styled.div`
   display: flex;
-  gap: 12px;
-  margin-top: 4px;
+  gap: 10px;
 `;
-const BidBtn = styled.button`
+const BidBtnPrimary = styled.button`
   flex: 1;
-  background: #7209b7;
+  background: #6c5ce7;
   color: #fff;
   border: none;
-  padding: 14px;
-  border-radius: 8px;
-  font-size: 15px;
+  padding: 13px;
+  border-radius: 9px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  &:hover:not(:disabled) {
+    opacity: 0.88;
+  }
 `;
-const InstantBtn = styled.button`
+const BidBtnSecondary = styled.button`
   flex: 1;
-  background: #2d334a;
-  color: #fff;
-  border: none;
-  padding: 14px;
-  border-radius: 8px;
-  font-size: 15px;
+  background: rgba(78, 222, 163, 0.1);
+  color: #4edea3;
+  border: 1px solid rgba(78, 222, 163, 0.3);
+  padding: 13px;
+  border-radius: 9px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  &:hover {
+    background: rgba(78, 222, 163, 0.18);
+  }
 `;
-const BidHistoryPanel = styled.div`
-  background: #12141c;
-  border: 1px solid #1f2333;
-  border-radius: 16px;
-  padding: 20px;
+const SafeNote = styled.div`
+  font-size: 11px;
+  color: #3c4060;
+  line-height: 1.5;
 `;
-const HistoryHeader = styled.div`
+
+const BidPanel = styled.div`
+  background: #12141f;
+  border: 1px solid #1a1d2e;
+  border-radius: 14px;
+  padding: 18px;
+`;
+const BidPanelHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 14px;
 `;
-const LiveBadge = styled.span`
-  background: #06d6a0;
-  color: #fff;
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 4px;
+const BidPanelTitle = styled.div`
+  font-size: 14px;
   font-weight: 700;
 `;
-const TopBidRow = styled.div`
+const LiveTag = styled.span`
+  background: rgba(78, 222, 163, 0.1);
+  color: #4edea3;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  animation: ${pulse} 2s ease-in-out infinite;
+`;
+const BidRow = styled.div`
   display: flex;
-  justify-content: space-between;
-  background: #1c1f2c;
-  padding: 10px 14px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: ${(p) => (p.$best ? "rgba(108,92,231,.12)" : "#0d0f1a")};
+  border: 1px solid ${(p) => (p.$best ? "rgba(108,92,231,.3)" : "#1a1d2e")};
+  margin-bottom: 6px;
+`;
+const BidAvatar = styled.div`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: ${(p) => (p.$best ? "#6c5ce7" : "#252840")};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+`;
+const BidNick = styled.span`
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+`;
+const BidTime = styled.span`
+  font-size: 11px;
+  color: #555a75;
+`;
+const BestTag = styled.span`
+  font-size: 10px;
+  font-weight: 700;
+  color: #6c5ce7;
+  background: rgba(108, 92, 231, 0.15);
+  padding: 2px 7px;
+  border-radius: 4px;
+`;
+const BidAmt = styled.span`
+  font-size: 13px;
+  font-weight: 800;
+  color: ${(p) => (p.$best ? "#c0c1ff" : "#888ea8")};
+`;
+const ViewAllBtn = styled.button`
+  width: 100%;
+  margin-top: 8px;
+  background: #0d0f1a;
+  border: 1px solid #1a1d2e;
+  color: #6c5ce7;
+  padding: 10px;
   border-radius: 8px;
   font-size: 13px;
-`;
-const ModalLink = styled.div`
-  text-align: center;
-  color: #b76eff;
-  font-size: 13px;
-  margin-top: 14px;
+  font-weight: 600;
   cursor: pointer;
+  &:hover {
+    border-color: #6c5ce7;
+  }
+`;
+
+/* ════ MODAL ════ */
+const fadeIn = keyframes`from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}`;
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+`;
+const ModalBox = styled.div`
+  background: #12141f;
+  border: 1px solid #252840;
+  border-radius: 16px;
+  width: 520px;
+  max-width: 95vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: ${fadeIn} 0.2s ease;
+  overflow: hidden;
+`;
+const ModalHeader = styled.div`
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid #1a1d2e;
+  position: relative;
+`;
+const ModalTitle = styled.div`
+  font-size: 16px;
   font-weight: 700;
+`;
+const ModalMeta = styled.div`
+  font-size: 12px;
+  color: #555a75;
+  margin-top: 4px;
+`;
+const ModalClose = styled.button`
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #555a75;
+  font-size: 18px;
+  cursor: pointer;
+  &:hover {
+    color: #fff;
+  }
+`;
+const ModalTableWrap = styled.div`
+  overflow-y: auto;
+  flex: 1;
+`;
+const ModalTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  thead tr {
+    background: #0d0f1a;
+  }
+  thead th {
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #555a75;
+    text-align: left;
+  }
+  tbody tr {
+    border-bottom: 1px solid #1a1d2e;
+    transition: background 0.1s;
+  }
+  tbody tr:hover {
+    background: rgba(108, 92, 231, 0.06);
+  }
+  tbody tr.best {
+    background: rgba(108, 92, 231, 0.1);
+  }
+  tbody td {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+  tbody td.amount {
+    font-weight: 700;
+    color: #c0c1ff;
+  }
+  tbody td.time {
+    color: #555a75;
+  }
+`;
+const BidderCell = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+const Avatar = styled.div`
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: ${(p) => p.$color};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+`;
+const StatusPill = styled.span`
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: ${(p) =>
+    p.$type === "best" ? "rgba(108,92,231,.15)" : "rgba(78,222,163,.1)"};
+  color: ${(p) => (p.$type === "best" ? "#c0c1ff" : "#4edea3")};
+`;
+const ModalFooter = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-top: 1px solid #1a1d2e;
+  font-size: 13px;
+  color: #555a75;
+  strong {
+    color: #e8eaf0;
+  }
+`;
+const CloseBtn = styled.button`
+  background: #6c5ce7;
+  color: #fff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover {
+    opacity: 0.88;
+  }
 `;

@@ -6,15 +6,12 @@ import Common from "../utils/Common";
 const publicApi = axios.create({ baseURL: Common.API_URL });
 
 const ItemApi = {
-  // 공개 API — 토큰 불필요
-  getGames: () => publicApi.get("/api/games"),
+  getGames: () => AxiosInstance.get("/api/games"),
 
-  getGameServers: (gameId) => publicApi.get(`/api/games/${gameId}/servers`),
+  getGameServers: (gameId) => AxiosInstance.get(`/api/games/${gameId}/servers`),
 
-  getCategories: (gameId) => publicApi.get(`/api/games/${gameId}/categories`),
-
-  // 인증 필요 — AxiosInstance 사용
-  getItems: (params) => AxiosInstance.get("/api/items", { params }),
+  getCategories: (gameId) =>
+    AxiosInstance.get(`/api/games/${gameId}/categories`),
 
   getItem: (itemId) => AxiosInstance.get(`/api/items/${itemId}`),
 

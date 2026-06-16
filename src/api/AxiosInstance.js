@@ -2,7 +2,7 @@ import axios from "axios";
 import Common from "../utils/Common";
 
 const AxiosInstance = axios.create({
-  baseURL: "http://localhost:8111",
+  baseURL: "http://localhost:8111/api",
 });
 
 // 요청 인터셉터 — Access Token 자동 첨부

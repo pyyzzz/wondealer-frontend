@@ -9,95 +9,37 @@ import clock from "../../img/clock.svg";
 import imgsc from "../../img/imgsc.svg";
 import imgsc2 from "../../img/imgsc2.svg";
 
-// ── Fallback 데이터 (백엔드 미구현 게임 목록 API 대비) ──────────
 const FALLBACK_GAMES = [
-  { gameId: "lostark", gameName: "로스트아크" },
-  { gameId: "maple", gameName: "메이플스토리" },
-  { gameId: "dungeon", gameName: "던전앤파이터" },
-  { gameId: "lineage", gameName: "리니지M" },
-  { gameId: "fc", gameName: "FC온라인" },
-  { gameId: "battle", gameName: "배틀그라운드" },
-  { gameId: "valorant", gameName: "발로란트" },
-  { gameId: "overwatch", gameName: "오버워치2" },
+  { gameId: 1, gameName: "로스트아크" },
+  { gameId: 2, gameName: "메이플스토리" },
 ];
 
 const FALLBACK_SERVERS = {
-  lostark: [
-    "루페온",
-    "카마인",
-    "아브렐슈드",
-    "카단",
-    "아만",
-    "실리안",
-    "카제로스",
-    "니나브",
-    "북미",
-    "유럽",
+  1: [
+    { serverId: 1, serverName: "아브렐슈드" },
+    { serverId: 2, serverName: "카단" },
+    { serverId: 3, serverName: "니나브" },
+    { serverId: 4, serverName: "루페온" },
   ],
-  maple: [
-    "스카니아",
-    "루나",
-    "엘리시움",
-    "크로아",
-    "베라",
-    "오로라",
-    "유니온",
-    "이노시스",
-    "제니스",
-    "RED",
-    "아케인",
-    "노바",
-    "에오스",
-    "헬리오스",
-    "챌린저스1",
-    "챌린저스2",
-    "챌린저스3",
-    "챌린저스4",
+  2: [
+    { serverId: 5, serverName: "리부트" },
+    { serverId: 6, serverName: "일반" },
   ],
-  dungeon: [
-    "통합서버",
-    "카인",
-    "디레지에",
-    "바칼",
-    "프레이",
-    "시로코",
-    "안톤",
-    "카시야스",
-    "힐더",
-    "스타트",
-    "이벤트(시즌)서버",
-  ],
-  lineage: [
-    "데포로쥬",
-    "판도라",
-    "듀크데필",
-    "파푸리온",
-    "린드비오르",
-    "군터",
-    "하딘",
-    "아툰",
-    "케레니스",
-    "이실로테",
-    "안타라스",
-    "발라카스",
-    "사이하",
-    "블루디카",
-  ],
-  fc: ["서버전체"],
-  battle: ["서버전체", "스팀서버", "카카오서버"],
-  valorant: ["서버전체"],
-  overwatch: ["전체"],
 };
 
 const FALLBACK_CATEGORIES = {
-  lostark: ["장비", "각인서", "재료", "펫/탈것", "기타"],
-  maple: ["장비", "소비", "펫", "기타"],
-  dungeon: ["장비", "아바타", "강화재료", "기타"],
-  lineage: ["무기", "방어구", "재료", "기타"],
-  fc: ["선수권", "강화", "기타"],
-  battle: ["스킨", "기타"],
-  valorant: ["스킨", "포인트", "기타"],
-  overwatch: ["스킨", "기타"],
+  1: [
+    { categoryId: 1, categoryName: "아이템" },
+    { categoryId: 2, categoryName: "게임머니" },
+    { categoryId: 3, categoryName: "계정" },
+    { categoryId: 4, categoryName: "기타" },
+  ],
+  2: [
+    { categoryId: 5, categoryName: "아이템" },
+    { categoryId: 6, categoryName: "게임머니" },
+    { categoryId: 7, categoryName: "계정" },
+    { categoryId: 8, categoryName: "기타" },
+  ],
 };
 
 const AuctionNewPage = () => {
@@ -115,7 +57,6 @@ const AuctionNewPage = () => {
   const [games, setGames] = useState([]);
   const [servers, setServers] = useState([]);
   const [categories, setCategories] = useState([]);
-
   const [gameId, setGameId] = useState("");
   const [serverId, setServerId] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -130,7 +71,6 @@ const AuctionNewPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 게임 목록 로드
   useEffect(() => {
     ItemApi.getGames()
       .then((r) => {
@@ -140,7 +80,6 @@ const AuctionNewPage = () => {
       .catch(() => setGames(FALLBACK_GAMES));
   }, []);
 
-  // 게임 선택 시 서버·카테고리 로드
   useEffect(() => {
     if (!gameId) {
       setServers([]);
@@ -152,15 +91,9 @@ const AuctionNewPage = () => {
     setServerId("");
     setCategoryId("");
 
-    // fallback 즉시 세팅
-    const fbServers = (FALLBACK_SERVERS[gameId] ?? []).map((name) => ({
-      serverId: name,
-      serverName: name,
-    }));
-    const fbCats = (FALLBACK_CATEGORIES[gameId] ?? []).map((name) => ({
-      categoryId: name,
-      categoryName: name,
-    }));
+    // fallback 먼저 세팅
+    const fbServers = FALLBACK_SERVERS[Number(gameId)] ?? [];
+    const fbCats = FALLBACK_CATEGORIES[Number(gameId)] ?? [];
     setServers(fbServers);
     setCategories(fbCats);
 
@@ -170,6 +103,7 @@ const AuctionNewPage = () => {
         if (l.length > 0) setServers(l);
       })
       .catch(() => {});
+
     ItemApi.getCategories(gameId)
       .then((r) => {
         const l = r.data?.data ?? r.data ?? [];
@@ -178,7 +112,6 @@ const AuctionNewPage = () => {
       .catch(() => {});
   }, [gameId]);
 
-  // 종료 시간 계산
   useEffect(() => {
     const now = new Date();
     now.setHours(now.getHours() + Number(duration));
@@ -228,49 +161,31 @@ const AuctionNewPage = () => {
 
     setLoading(true);
     try {
-      // ⚠️ Multipart 데이터 전송을 위한 FormData 선언
-      const formData = new FormData();
-
       const payload = {
-        gameId: isNaN(Number(gameId)) ? gameId : Number(gameId),
-        serverId: serverId
-          ? isNaN(Number(serverId))
-            ? serverId
-            : Number(serverId)
-          : null,
-        categoryId: isNaN(Number(categoryId)) ? categoryId : Number(categoryId),
+        categoryId: Number(categoryId),
+        serverId: serverId ? Number(serverId) : null,
         title: title.trim(),
         description: description.trim(),
-        buyNowPrice: buyNowPrice
+        instantBuyPrice: buyNowPrice
           ? Number(buyNowPrice.replace(/[^0-9]/g, ""))
           : null,
         startPrice: rawStart,
         minBidUnit: Number(minBidUnit.replace(/[^0-9]/g, "")) || 1000,
-        durationHours: duration,
+        auctionDays: Math.round(duration / 24),
       };
 
-      // 1. DTO 데이터를 JSON Blob 형태로 래핑하여 추가 (Spring 415/400 에러 방지)
-      formData.append(
-        "auction",
-        new Blob([JSON.stringify(payload)], { type: "application/json" }),
-      );
-
-      // 2. 선택된 이미지 파일들을 MultipartFile 배열에 맞게 순차 매핑
-      images.forEach((imgObj) => {
-        formData.append("images", imgObj.file);
-      });
-
-      // API 호출 실행
-      await AuctionApi.createAuction(formData);
+      // 이미지 파일 배열 분리해서 전달
+      const imageFiles = images.map((img) => img.file);
+      await AuctionApi.createAuction(payload, imageFiles);
 
       alert("경매 물품 등록이 완료되었습니다!");
-      navigate("/auction"); // 라우터 규칙에 맞춰 /auction 으로 이동
+      navigate("/auctions");
     } catch (err) {
-      console.error("경매등록 에러 원인 확인:", err);
+      console.error("경매 등록 오류:", err.response ?? err);
       const msg =
         err.response?.data?.message ??
         err.response?.data?.error ??
-        "등록 중 오류가 발생했습니다.";
+        `등록 중 오류가 발생했습니다. (${err.response?.status ?? "네트워크 오류"})`;
       setError(msg);
     } finally {
       setLoading(false);
@@ -282,15 +197,15 @@ const AuctionNewPage = () => {
   return (
     <PageContainer>
       <HeaderSection>
-        <Breadcrumb onClick={() => navigate("/")}>
+        <Breadcrumb onClick={() => navigate("/auctions")}>
           MARKET &gt; AUCTION REGISTRATION
         </Breadcrumb>
         <PageTitle>경매 등록</PageTitle>
         <PageDesc>
           당신의 소중한 자산을 경매를 통해 합리적인 가격에 판매하세요.
           <br />
-          투명한 시세 데이터와 최첨단 보안 거래 시스템을 통해 최적의 거래 경험을
-          제공합니다.
+          투명한 시세 데이터와 안전한 에스크로 거래 시스템을 통해 최적의 거래
+          경험을 제공합니다.
         </PageDesc>
       </HeaderSection>
 
@@ -320,7 +235,7 @@ const AuctionNewPage = () => {
               <Select
                 value={serverId}
                 onChange={(e) => setServerId(e.target.value)}
-                disabled={!gameId}
+                disabled={!gameId || servers.length === 0}
               >
                 <option value="">서버를 선택하세요</option>
                 {servers.map((s) => (
@@ -336,7 +251,7 @@ const AuctionNewPage = () => {
             <Select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              disabled={!gameId}
+              disabled={!gameId || categories.length === 0}
             >
               <option value="">카테고리를 선택하세요</option>
               {categories.map((c) => (
@@ -373,8 +288,8 @@ const AuctionNewPage = () => {
           </FormGroup>
         </SectionContainer>
 
-        {/* 03 경매 설정 + 04 이미지 */}
         <BottomGrid>
+          {/* 03 경매 설정 */}
           <SectionContainer style={{ margin: 0 }}>
             <SectionTitle>
               <span>03</span> 경매 설정
@@ -451,6 +366,7 @@ const AuctionNewPage = () => {
             </AuctionBox>
           </SectionContainer>
 
+          {/* 04 이미지 등록 */}
           <SectionContainer style={{ margin: 0 }}>
             <SectionTitle>
               <span>04</span> 이미지 등록
@@ -512,7 +428,7 @@ const AuctionNewPage = () => {
         {error && <ErrorBox>{error}</ErrorBox>}
 
         <ButtonGroup>
-          <CancelButton type="button" onClick={() => navigate("/auction")}>
+          <CancelButton type="button" onClick={() => navigate("/auctions")}>
             취소
           </CancelButton>
           <SubmitButton type="submit" disabled={loading}>
@@ -524,7 +440,7 @@ const AuctionNewPage = () => {
   );
 };
 
-// ── Styled Components ──────────────────────────────────────────
+/* ── Styled Components ─────────────────────────────────────── */
 const PageContainer = styled.div`
   background-color: #0b0c10;
   color: #fff;
@@ -650,6 +566,9 @@ const Select = styled.select`
     opacity: 0.5;
     cursor: not-allowed;
   }
+  &:focus {
+    border-color: #6c5ce7;
+  }
   @media (max-width: 480px) {
     padding: 10px;
     font-size: 12px;
@@ -667,6 +586,9 @@ const Input = styled.input`
   box-sizing: border-box;
   &::placeholder {
     color: #4e5161;
+  }
+  &:focus {
+    border-color: #6c5ce7;
   }
   @media (max-width: 480px) {
     padding: 10px;
@@ -687,6 +609,9 @@ const TextArea = styled.textarea`
   box-sizing: border-box;
   &::placeholder {
     color: #4e5161;
+  }
+  &:focus {
+    border-color: #6c5ce7;
   }
   @media (max-width: 480px) {
     padding: 10px;
@@ -726,6 +651,9 @@ const PriceInputWrapper = styled.div`
   padding: 10px 12px;
   width: 100%;
   box-sizing: border-box;
+  &:focus-within {
+    border-color: #6c5ce7;
+  }
   input {
     background: transparent;
     border: none;
@@ -765,6 +693,7 @@ const TabButton = styled.button`
   }
   &:hover {
     border-color: #6c5ce7;
+    color: #fff;
   }
 `;
 const TimeNotice = styled.div`
@@ -817,6 +746,7 @@ const UploadMainZone = styled.div`
   justify-content: center;
   text-align: center;
   flex: 1;
+  transition: border-color 0.2s;
   &:hover {
     border-color: #6c5ce7;
   }
@@ -943,9 +873,13 @@ const SubmitButton = styled.button`
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: opacity 0.2s;
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+  &:hover:not(:disabled) {
+    opacity: 0.9;
   }
   @media (max-width: 640px) {
     width: 160px;

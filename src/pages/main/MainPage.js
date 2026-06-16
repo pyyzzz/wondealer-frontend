@@ -725,7 +725,7 @@ const MainPage = () => {
           <ItemTable>
             <thead>
               <tr>
-                <th style={{ width: "40%" }}>商品정보</th>
+                <th style={{ width: "40%" }}>상품 정보</th>
                 <th>서버</th>
                 <th>가격</th>
                 <th>등록시간</th>

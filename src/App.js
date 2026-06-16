@@ -36,7 +36,6 @@ function App() {
   return (
     <Routes>
       <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
-      {/* 이메일 인증 링크 — Layout 밖(Navbar/Footer 없어도 무관하나 Layout 안에 넣어도 OK) */}
       <Route path="/verify-email" element={<EmailVerifyPage />} />
 
       <Route element={<Layout />}>
