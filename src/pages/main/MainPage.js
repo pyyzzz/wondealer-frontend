@@ -585,7 +585,12 @@ const MainPage = () => {
             params: { page: 0, size: 5 },
             headers,
           });
-          const itemList = itemRes.data?.data || itemRes.data || [];
+          const itemList =
+            itemRes.data?.data?.content ||
+            itemRes.data?.content ||
+            itemRes.data?.data ||
+            itemRes.data ||
+            [];
           setRecentItems(Array.isArray(itemList) ? itemList : []);
         } catch (itemErr) {
           console.warn("최근 매물 리스트 바인딩 실패", itemErr);
@@ -613,11 +618,10 @@ const MainPage = () => {
   const handleGameClick = (gameName) => {
     navigate(`/items?keyword=${encodeURIComponent(gameName)}`);
   };
-
   const handleBuyClick = (itemId) => {
-    navigate(`/item/${itemId}`);
+    if (!itemId) return;
+    navigate(`/items/${itemId}`);
   };
-
   return (
     <PageContainer>
       {/* 상단 히어로 배너 */}
@@ -734,37 +738,52 @@ const MainPage = () => {
             </thead>
             <tbody>
               {recentItems.length > 0 ? (
-                recentItems.map((item) => (
-                  <tr key={item.itemId}>
-                    <td>
-                      <ItemInfoCell>
-                        <ItemImgPlaceholder>
-                          {item.imageUrl ? (
-                            <img src={item.imageUrl} alt={item.title} />
-                          ) : (
-                            "📦"
-                          )}
-                        </ItemImgPlaceholder>
-                        <div>
-                          <ItemTitle>{item.title}</ItemTitle>
-                          <ItemGameCategory>{item.gameName}</ItemGameCategory>
-                        </div>
-                      </ItemInfoCell>
-                    </td>
-                    <td className="gray-text">{item.server}</td>
-                    <td className="price-text">
-                      {Number(item.price).toLocaleString()}원
-                    </td>
-                    <td className="gray-text">
-                      {formatRelativeTime(item.createdAt)}
-                    </td>
-                    <td>
-                      <BuyButton onClick={() => handleBuyClick(item.itemId)}>
-                        구매하기
-                      </BuyButton>
-                    </td>
-                  </tr>
-                ))
+                recentItems.map((item) => {
+                  const id = item.itemId ?? item.id;
+
+                  const title = item.title;
+                  const price = item.basePrice;
+                  const server = item.serverName;
+                  const category = item.categoryName;
+                  const createdAt = item.createdAt;
+                  const thumbnail = item.thumbnailImg;
+
+                  return (
+                    <tr key={id}>
+                      <td>
+                        <ItemInfoCell>
+                          <ItemImgPlaceholder>
+                            {thumbnail ? (
+                              <img src={thumbnail} alt={title} />
+                            ) : (
+                              "📦"
+                            )}
+                          </ItemImgPlaceholder>
+                          <div>
+                            <ItemTitle>{title}</ItemTitle>
+                            <ItemGameCategory>{category}</ItemGameCategory>
+                          </div>
+                        </ItemInfoCell>
+                      </td>
+
+                      <td className="gray-text">{server || "전체"}</td>
+
+                      <td className="price-text">
+                        {price ? Number(price).toLocaleString() : 0}원
+                      </td>
+
+                      <td className="gray-text">
+                        {formatRelativeTime(createdAt)}
+                      </td>
+
+                      <td>
+                        <BuyButton onClick={() => handleBuyClick(id)}>
+                          구매하기
+                        </BuyButton>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td
