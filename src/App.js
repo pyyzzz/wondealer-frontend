@@ -42,13 +42,13 @@ function App() {
         <Route path="/" element={<MainPage />} />
         <Route path="/items" element={<ItemListPage />} />
         <Route path="/items/:itemId" element={<ItemDetailPage />} />
+        <Route path="/item/:itemId" element={<ItemDetailPage />} />
         <Route path="/auctions" element={<AuctionListPage />} />
         <Route path="/auctions/:auctionId" element={<AuctionDetailPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/find-id" element={<FindIdPage />} />
         <Route path="/reset-password" element={<FindPasswordPage />} />
-
         <Route
           path="/items/new"
           element={
@@ -105,7 +105,6 @@ function App() {
             </PrivateRoute>
           }
         />
-
         <Route path="/admin/*" element={<AdminPage />} />
       </Route>
     </Routes>

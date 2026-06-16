@@ -15,14 +15,18 @@ const useWebSocket = (subscribeTopic, sendDestination, onMessage) => {
     if (!subscribeTopic) return;
 
     const token = Common.getAccessToken();
-    if (!token) return; // 비로그인 시 연결 시도 안 함
+    if (!token) return;
+
+    // ⭐ .env가 안 먹힐 때를 대비해 하드코딩으로 백엔드 주소 확인
+    const BACKEND_URL = "http://localhost:8111"; // 백엔드 포트로 직접 지정
+    const socketUrl = `${BACKEND_URL}/ws`;
 
     const client = new Client({
-      webSocketFactory: () =>
-        new SockJS(`${Common.API_URL || "http://localhost:8111"}/ws`),
+      webSocketFactory: () => new SockJS(socketUrl),
       connectHeaders: { Authorization: `Bearer ${token}` },
       reconnectDelay: 5000,
       onConnect: () => {
+        console.log("WebSocket 연결 성공:", subscribeTopic); // 디버깅용
         client.subscribe(subscribeTopic, (message) => {
           try {
             const body = JSON.parse(message.body);
@@ -33,10 +37,10 @@ const useWebSocket = (subscribeTopic, sendDestination, onMessage) => {
         });
       },
       onStompError: (frame) => {
-        console.warn("STOMP error:", frame);
+        console.error("STOMP error:", frame);
       },
-      onWebSocketError: () => {
-        console.warn("WebSocket 연결 실패 — 백엔드 서버를 확인하세요.");
+      onWebSocketError: (event) => {
+        console.warn("WebSocket 연결 실패 — 서버 주소 확인:", socketUrl);
       },
       onDisconnect: () => {
         console.warn("WebSocket 연결 종료");
@@ -47,7 +51,9 @@ const useWebSocket = (subscribeTopic, sendDestination, onMessage) => {
     clientRef.current = client;
 
     return () => {
-      client.deactivate();
+      if (clientRef.current) {
+        clientRef.current.deactivate();
+      }
       clientRef.current = null;
     };
   }, [subscribeTopic]);

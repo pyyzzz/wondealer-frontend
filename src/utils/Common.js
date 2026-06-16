@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const Common = {
-  API_URL: process.env.REACT_APP_API_URL || "",
+  API_URL: "http://localhost:8111",
   TOSS_CLIENT_KEY: process.env.REACT_APP_TOSS_CLIENT_KEY || "",
 
   getAccessToken: () => localStorage.getItem("accessToken"),

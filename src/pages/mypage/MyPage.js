@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import WalletApi from "../../api/wallet.api";
+import Common from "../../utils/Common";
 import headsetImg from "../../img/headset.JPG";
 import "./MyPage.css";
-
 // ── 아이콘 ──────────────────────────────────────────────────────
 const Icon = {
   Coins: () => (
@@ -413,7 +414,7 @@ const CHARGE_PRESETS = [
   { m: 500000, krw: 550000 },
 ];
 
-// ── 마일리지 충전 탭 콘텐츠 ─────────────────────────────────────
+// ── 마일리지 충전 탭 (포트원 V2 연동) ────────────────────────────
 function ChargeTab({ balance, onSuccess, onBack }) {
   const [selected, setSelected] = useState(0);
   const [custom, setCustom] = useState("");
@@ -431,24 +432,70 @@ function ChargeTab({ balance, onSuccess, onBack }) {
       setError("최소 충전 금액은 10,000M 입니다.");
       return;
     }
+
+    // window.PortOne 직접 확인 (대기 로직 없이 즉시 확인)
+    const portOne = window.PortOne;
+
+    if (!portOne) {
+      setError(
+        "결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도하거나 광고 차단 프로그램을 꺼주세요.",
+      );
+      // 만약 로드가 안되었다면 수동으로 스크립트 다시 한번 주입 시도
+      if (!document.querySelector('script[src*="portone.io"]')) {
+        const s = document.createElement("script");
+        s.src = "https://cdn.portone.io/v2/browser-sdk.js";
+        document.head.appendChild(s);
+      }
+      return;
+    }
+
+    const storeId = process.env.REACT_APP_PORTONE_STORE_ID;
+    const channelKey = process.env.REACT_APP_PORTONE_CHANNEL_KEY;
+
+    if (!storeId || !channelKey) {
+      setError(".env 파일에 storeId 또는 channelKey 설정이 누락되었습니다.");
+      console.error("Store ID:", storeId, "Channel Key:", channelKey);
+      return;
+    }
+
     setError("");
     setLoading(true);
+
     try {
-      const res = await fetch("/api/mileage/charge", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token()}`,
-        },
-        body: JSON.stringify({ amount: mileage }),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.message || "충전에 실패했습니다.");
+      const readyResponse = await WalletApi.prepareCharge({ amount: mileage });
+      const ready = readyResponse.data?.data;
+
+      if (!ready?.paymentId) {
+        throw new Error("충전 준비 응답에서 paymentId를 찾을 수 없습니다.");
       }
-      onSuccess(mileage);
+
+      const paymentResponse = await PortOne.requestPayment({
+        storeId,
+        channelKey,
+        paymentId: ready.paymentId,
+        orderName: ready.orderName || `WONDEALER ${fmt(mileage)}M 충전`,
+        totalAmount: ready.amount,
+        currency: "CURRENCY_KRW",
+        payMethod: "CARD",
+      });
+
+      // 결제창이 닫혔을 때 오류가 있는지 확인
+      if (paymentResponse?.code != null) {
+        // 결제 실패/취소 시 code값이 돌아옵니다.
+        throw new Error(paymentResponse.message || "결제가 취소되었습니다.");
+      }
+
+      // 서버에 결제 완료 검증 요청
+      const completeResponse = await WalletApi.completeCharge({
+        paymentId: ready.paymentId,
+      });
+
+      const chargedAmount =
+        completeResponse.data?.data?.chargedAmount ?? mileage;
+      onSuccess(chargedAmount);
     } catch (err) {
-      setError(err.message);
+      console.error("결제 오류 발생:", err);
+      setError(err.message || "결제 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -456,7 +503,6 @@ function ChargeTab({ balance, onSuccess, onBack }) {
 
   return (
     <div>
-      {/* 뒤로가기 */}
       <div className="mp-support-back" onClick={onBack}>
         <Icon.ChevronLeft /> 마일리지 조회로 돌아가기
       </div>
@@ -466,7 +512,6 @@ function ChargeTab({ balance, onSuccess, onBack }) {
         보유하신 마일리지를 안전하게 충전하고 특별한 아이템들을 만나보세요.
       </div>
 
-      {/* 현재 보유 마일리지 */}
       <div className="mp-card mp-charge-balance-card">
         <div className="mp-mileage-label">현재 보유 마일리지</div>
         <div className="mp-charge-balance-amount">
@@ -474,9 +519,7 @@ function ChargeTab({ balance, onSuccess, onBack }) {
         </div>
       </div>
 
-      {/* 2단 그리드 */}
       <div className="mp-charge-grid">
-        {/* 왼쪽: 프리셋 */}
         <div className="mp-card">
           <div className="mp-card-title" style={{ marginBottom: 16 }}>
             충전 금액 선택
@@ -496,7 +539,6 @@ function ChargeTab({ balance, onSuccess, onBack }) {
                 <span className="mp-charge-preset-krw">{fmt(p.krw)} KRW</span>
               </button>
             ))}
-            {/* 직접 입력 */}
             <div
               className={`mp-charge-preset-btn mp-charge-custom${selected === null ? " active" : ""}`}
             >
@@ -515,7 +557,6 @@ function ChargeTab({ balance, onSuccess, onBack }) {
           </div>
         </div>
 
-        {/* 오른쪽: 요약 */}
         <div className="mp-card mp-charge-summary">
           <div className="mp-card-title" style={{ marginBottom: 20 }}>
             충전 요약
@@ -575,7 +616,7 @@ function ChargeTab({ balance, onSuccess, onBack }) {
   );
 }
 
-// ── 마일리지 출금 탭 콘텐츠 ─────────────────────────────────────
+// ── 마일리지 출금 탭 ─────────────────────────────────────────────
 function WithdrawTab({
   balance,
   bankName,
@@ -635,7 +676,6 @@ function WithdrawTab({
 
   return (
     <div>
-      {/* 뒤로가기 */}
       <div className="mp-support-back" onClick={onBack}>
         <Icon.ChevronLeft /> 마일리지 조회로 돌아가기
       </div>
@@ -645,7 +685,6 @@ function WithdrawTab({
         보유하신 마일리지를 등록된 계좌로 안전하게 출금 신청하실 수 있습니다.
       </div>
 
-      {/* 잔액 2열 카드 */}
       <div className="mp-withdraw-balance-row">
         <div className="mp-card mp-withdraw-balance-card">
           <div className="mp-mileage-label">전체 보유 마일리지</div>
@@ -663,11 +702,8 @@ function WithdrawTab({
         </div>
       </div>
 
-      {/* 하단 2단 */}
       <div className="mp-withdraw-grid">
-        {/* 왼쪽: 입력 폼 */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* 출금 금액 */}
           <div className="mp-card">
             <label
               className="mp-form-label"
@@ -695,7 +731,6 @@ function WithdrawTab({
             </div>
           </div>
 
-          {/* 계좌 정보 */}
           <div className="mp-card">
             <label
               className="mp-form-label"
@@ -720,7 +755,6 @@ function WithdrawTab({
             </div>
           </div>
 
-          {/* 영수증 */}
           <div className="mp-card mp-withdraw-receipt">
             <div className="mp-charge-summary-row">
               <span>예상 수수료 (2%)</span>
@@ -736,7 +770,6 @@ function WithdrawTab({
           </div>
         </div>
 
-        {/* 오른쪽: 주의사항 + 버튼 */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="mp-card mp-withdraw-notice">
             <div className="mp-card-title" style={{ marginBottom: 14 }}>
@@ -943,7 +976,7 @@ function DeleteAccountModal({ onConfirm, onClose }) {
   );
 }
 
-// ── 마일리지 탭 ────────────────────────────────────────────────
+// ── 마일리지 탭 ─────────────────────────────────────────────────
 function MileageTab({ onGoCharge, onGoWithdraw }) {
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState([]);
@@ -960,16 +993,16 @@ function MileageTab({ onGoCharge, onGoWithdraw }) {
     const tk = token();
     try {
       const [balRes, txRes, statRes, actRes] = await Promise.allSettled([
-        fetch("/api/members/me/mileage", {
+        fetch(`${Common.API_URL}/api/members/me/mileage`, {
           headers: { Authorization: `Bearer ${tk}` },
         }),
-        fetch("/api/members/me/mileage/transactions?size=3", {
+        fetch(`${Common.API_URL}/api/members/me/mileage/transactions?size=3`, {
           headers: { Authorization: `Bearer ${tk}` },
         }),
-        fetch("/api/members/me/stats", {
+        fetch(`${Common.API_URL}/api/members/me/stats`, {
           headers: { Authorization: `Bearer ${tk}` },
         }),
-        fetch("/api/members/me/activities?size=3", {
+        fetch(`${Common.API_URL}/api/members/me/activities?size=3`, {
           headers: { Authorization: `Bearer ${tk}` },
         }),
       ]);
@@ -1040,7 +1073,6 @@ function MileageTab({ onGoCharge, onGoWithdraw }) {
 
   return (
     <div>
-      {/* 잔액 + 최근 거래 */}
       <div className="mp-mileage-top">
         <div className="mp-card mp-mileage-balance">
           <div className="mp-mileage-label">보유 마일리지</div>
@@ -1107,7 +1139,6 @@ function MileageTab({ onGoCharge, onGoWithdraw }) {
         </div>
       </div>
 
-      {/* 통계 */}
       <div className="mp-stats-grid">
         {STAT_ITEMS.map((s) => (
           <div key={s.type} className="mp-stat-card">
@@ -1118,7 +1149,6 @@ function MileageTab({ onGoCharge, onGoWithdraw }) {
         ))}
       </div>
 
-      {/* 최근 활동 */}
       <div
         style={{
           display: "flex",
@@ -1134,6 +1164,7 @@ function MileageTab({ onGoCharge, onGoWithdraw }) {
           전체보기
         </button>
       </div>
+
       <div className="mp-activity-list">
         {recentActivity.length === 0 ? (
           <div className="mp-empty">활동 내역이 없습니다.</div>
@@ -1290,6 +1321,7 @@ function ProfileTab({
           onProfileImgSaved(uploaded);
         }
       }
+
       const infoRes = await fetch("/api/members/me", {
         method: "PATCH",
         headers: {
@@ -1302,6 +1334,7 @@ function ProfileTab({
         const j = await infoRes.json().catch(() => ({}));
         throw new Error(j.message || "정보 수정 실패");
       }
+
       if (wantsPwChange) {
         const pwRes = await fetch("/api/members/me/password", {
           method: "PATCH",
@@ -1319,6 +1352,7 @@ function ProfileTab({
           throw new Error(j.message || "비밀번호 변경 실패");
         }
       }
+
       const bankRes = await fetch("/api/members/me/bank", {
         method: "PATCH",
         headers: {
@@ -1335,6 +1369,7 @@ function ProfileTab({
         const j = await bankRes.json().catch(() => ({}));
         throw new Error(j.message || "계좌 수정 실패");
       }
+
       updateUser({ nickname });
       onNicknameSaved(nickname);
       setCurrentPw("");
@@ -1419,7 +1454,7 @@ function ProfileTab({
         </div>
 
         <div className="mp-profile-fields">
-          {/* 기본 정보 */}
+          {/* 기본 정보 - 2번 레이아웃: 아이디/성함, 이메일, 닉네임/전화번호 */}
           <div className="mp-card">
             <div className="mp-card-title">
               <Icon.User /> 기본 정보
@@ -1475,7 +1510,7 @@ function ProfileTab({
             </div>
           </div>
 
-          {/* 비밀번호 */}
+          {/* 비밀번호 변경 */}
           <div className="mp-card">
             <div className="mp-card-title">
               <Icon.ShieldSm /> 비밀번호 변경
@@ -1597,7 +1632,6 @@ function ProfileTab({
         </div>
       </div>
 
-      {/* 탈퇴 */}
       <div className="mp-danger-zone">
         <div className="mp-danger-row">
           <div>
@@ -2724,7 +2758,7 @@ const SIDEBAR_ITEMS = [
   { key: "support", label: "고객센터", Icon: Icon.Headphones },
 ];
 
-// charge/withdraw는 mileage의 서브뷰이므로 사이드바에서는 mileage를 active로 표시
+// charge/withdraw는 mileage 서브뷰이므로 사이드바 active는 mileage로 표시
 const TAB_TO_SIDEBAR_KEY = { charge: "mileage", withdraw: "mileage" };
 
 // ── 메인 ──────────────────────────────────────────────────────
@@ -2737,7 +2771,6 @@ export default function MyPage({ tab: defaultTab }) {
   );
   const [sidebarProfileImg, setSidebarProfileImg] = useState(null);
 
-  // 충전/출금에서 balance 공유
   const [sharedBalance, setSharedBalance] = useState(0);
   const [bankInfo, setBankInfo] = useState({
     bankName: "",
@@ -2748,6 +2781,7 @@ export default function MyPage({ tab: defaultTab }) {
   useEffect(() => {
     const tk = token();
     Promise.allSettled([
+      // 잔액: 2번 기준 /api/members/me/mileage 사용
       fetch("/api/members/me/mileage", {
         headers: { Authorization: `Bearer ${tk}` },
       }),
