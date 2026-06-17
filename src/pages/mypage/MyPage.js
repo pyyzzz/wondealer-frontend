@@ -976,9 +976,8 @@ function DeleteAccountModal({ onConfirm, onClose }) {
   );
 }
 
-// ── 마일리지 탭 ─────────────────────────────────────────────────
-function MileageTab({ onGoCharge, onGoWithdraw }) {
-  const [balance, setBalance] = useState(0);
+// ── 마일리지 탭 (balance를 prop으로 받음, 자체 잔액 fetch 제거) ──────
+function MileageTab({ balance, onGoCharge, onGoWithdraw }) {
   const [transactions, setTransactions] = useState([]);
   const [stats, setStats] = useState({
     items: 0,
@@ -992,10 +991,7 @@ function MileageTab({ onGoCharge, onGoWithdraw }) {
   const fetchData = useCallback(async () => {
     const tk = token();
     try {
-      const [balRes, txRes, statRes, actRes] = await Promise.allSettled([
-        fetch(`${Common.API_URL}/api/members/me/mileage`, {
-          headers: { Authorization: `Bearer ${tk}` },
-        }),
+      const [txRes, statRes, actRes] = await Promise.allSettled([
         fetch(`${Common.API_URL}/api/members/me/mileage/transactions?size=3`, {
           headers: { Authorization: `Bearer ${tk}` },
         }),
@@ -1007,10 +1003,6 @@ function MileageTab({ onGoCharge, onGoWithdraw }) {
         }),
       ]);
 
-      if (balRes.status === "fulfilled" && balRes.value.ok) {
-        const d = await balRes.value.json();
-        setBalance(d?.data?.balance ?? d?.balance ?? 0);
-      }
       if (txRes.status === "fulfilled" && txRes.value.ok) {
         const d = await txRes.value.json();
         const list = d?.data?.content ?? d?.content ?? d?.data ?? [];
@@ -2933,6 +2925,7 @@ const SIDEBAR_ITEMS = [
 const TAB_TO_SIDEBAR_KEY = { charge: "mileage", withdraw: "mileage" };
 
 // ── 메인 ──────────────────────────────────────────────────────
+// ── 메인 ──────────────────────────────────────────────────────
 export default function MyPage({ tab: defaultTab }) {
   const { user, logout, isLoggedIn } = useAuth();
   const navigate = useNavigate();
@@ -2949,32 +2942,39 @@ export default function MyPage({ tab: defaultTab }) {
     accountHolder: "",
   });
 
-  useEffect(() => {
-    const tk = token();
-    Promise.allSettled([
-      // 잔액: 2번 기준 /api/members/me/mileage 사용
-      fetch("/api/members/me/mileage", {
-        headers: { Authorization: `Bearer ${tk}` },
-      }),
-      fetch("/api/members/me", { headers: { Authorization: `Bearer ${tk}` } }),
-    ]).then(([balRes, profileRes]) => {
-      if (balRes.status === "fulfilled" && balRes.value.ok) {
-        balRes.value
-          .json()
-          .then((d) => setSharedBalance(d?.data?.balance ?? d?.balance ?? 0));
+  // 잔액은 이 함수가 유일한 출처. 충전/출금 직후에도 이걸로 서버와 재동기화한다.
+  const fetchBalance = useCallback(async () => {
+    try {
+      const res = await fetch(`${Common.API_URL}/api/members/me/mileage`, {
+        headers: { Authorization: `Bearer ${token()}` },
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setSharedBalance(d?.data?.balance ?? d?.balance ?? 0);
       }
-      if (profileRes.status === "fulfilled" && profileRes.value.ok) {
-        profileRes.value.json().then((d) => {
-          const p = d?.data ?? d;
-          setBankInfo({
-            bankName: p.bankName ?? "",
-            accountNumber: p.accountNumber ?? "",
-            accountHolder: p.accountHolder ?? "",
-          });
-        });
-      }
-    });
+    } catch (e) {
+      console.error("잔액 조회 오류:", e);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchBalance();
+
+    fetch(`${Common.API_URL}/api/members/me`, {
+      headers: { Authorization: `Bearer ${token()}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((d) => {
+        if (!d) return;
+        const p = d?.data ?? d;
+        setBankInfo({
+          bankName: p.bankName ?? "",
+          accountNumber: p.accountNumber ?? "",
+          accountHolder: p.accountHolder ?? "",
+        });
+      })
+      .catch((e) => console.error("계좌 정보 조회 오류:", e));
+  }, [fetchBalance]);
 
   if (!isLoggedIn) {
     navigate("/login");
@@ -2993,6 +2993,7 @@ export default function MyPage({ tab: defaultTab }) {
       case "mileage":
         return (
           <MileageTab
+            balance={sharedBalance}
             onGoCharge={() => setActiveTab("charge")}
             onGoWithdraw={() => setActiveTab("withdraw")}
           />
@@ -3003,9 +3004,10 @@ export default function MyPage({ tab: defaultTab }) {
             balance={sharedBalance}
             onBack={() => setActiveTab("mileage")}
             onSuccess={(amt) => {
-              setSharedBalance((prev) => prev + amt);
+              setSharedBalance((prev) => prev + amt); // 낙관적 업데이트로 즉시 반영
               setActiveTab("mileage");
               alert(`${fmt(amt)}M 충전이 완료되었습니다.`);
+              fetchBalance(); // 서버 기준 값으로 재확인
             }}
           />
         );
@@ -3021,6 +3023,7 @@ export default function MyPage({ tab: defaultTab }) {
               setSharedBalance((prev) => Math.max(0, prev - amt));
               setActiveTab("mileage");
               alert(`${fmt(amt)}M 출금 신청이 완료되었습니다.`);
+              fetchBalance();
             }}
           />
         );
