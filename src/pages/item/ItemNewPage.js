@@ -8,7 +8,6 @@ import item from "../../img/item.svg";
 import gameMoney from "../../img/gamemoney.svg";
 import account from "../../img/account.svg";
 
-// ✅ 백엔드 실제 DB ID로 맞춤 (GET /api/games 응답 기준)
 const FALLBACK_GAMES = [
   { gameId: 1, gameName: "로스트아크" },
   { gameId: 2, gameName: "메이플스토리" },
