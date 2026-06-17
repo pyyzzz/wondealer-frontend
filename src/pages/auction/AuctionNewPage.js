@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import ItemApi from "../../api/item.api";
-import { AuctionApi } from "../../api/auction.api";
+import AuctionApi from "../../api/auction.api";
 
 import clock from "../../img/clock.svg";
 import imgsc from "../../img/imgsc.svg";
@@ -91,7 +91,6 @@ const AuctionNewPage = () => {
     setServerId("");
     setCategoryId("");
 
-    // fallback 먼저 세팅
     const fbServers = FALLBACK_SERVERS[Number(gameId)] ?? [];
     const fbCats = FALLBACK_CATEGORIES[Number(gameId)] ?? [];
     setServers(fbServers);
@@ -161,6 +160,9 @@ const AuctionNewPage = () => {
 
     setLoading(true);
     try {
+      // 백엔드 AuctionCreateReqDto 필드: title, description, categoryId,
+      // serverId, startPrice, instantBuyPrice, auctionDays
+      // (gameId, minBidUnit은 DTO에 없으므로 전송하지 않음)
       const payload = {
         categoryId: Number(categoryId),
         serverId: serverId ? Number(serverId) : null,
@@ -170,13 +172,11 @@ const AuctionNewPage = () => {
           ? Number(buyNowPrice.replace(/[^0-9]/g, ""))
           : null,
         startPrice: rawStart,
-        minBidUnit: Number(minBidUnit.replace(/[^0-9]/g, "")) || 1000,
         auctionDays: Math.round(duration / 24),
       };
 
-      // 이미지 파일 배열 분리해서 전달
-      const imageFiles = images.map((img) => img.file);
-      await AuctionApi.createAuction(payload, imageFiles);
+      // 백엔드가 @RequestBody(JSON)만 받으므로 이미지는 현재 전송 불가
+      await AuctionApi.createAuction(payload);
 
       alert("경매 물품 등록이 완료되었습니다!");
       navigate("/auctions");
@@ -210,7 +210,6 @@ const AuctionNewPage = () => {
       </HeaderSection>
 
       <form onSubmit={handleSubmit}>
-        {/* 01 기본 정보 */}
         <SectionContainer>
           <SectionTitle>
             <span>01</span> 기본 정보 입력
@@ -263,7 +262,6 @@ const AuctionNewPage = () => {
           </FormGroup>
         </SectionContainer>
 
-        {/* 02 물품 상세 */}
         <SectionContainer>
           <SectionTitle>
             <span>02</span> 물품 상세 정보
@@ -289,7 +287,6 @@ const AuctionNewPage = () => {
         </SectionContainer>
 
         <BottomGrid>
-          {/* 03 경매 설정 */}
           <SectionContainer style={{ margin: 0 }}>
             <SectionTitle>
               <span>03</span> 경매 설정
@@ -366,7 +363,6 @@ const AuctionNewPage = () => {
             </AuctionBox>
           </SectionContainer>
 
-          {/* 04 이미지 등록 */}
           <SectionContainer style={{ margin: 0 }}>
             <SectionTitle>
               <span>04</span> 이미지 등록
@@ -440,7 +436,6 @@ const AuctionNewPage = () => {
   );
 };
 
-/* ── Styled Components ─────────────────────────────────────── */
 const PageContainer = styled.div`
   background-color: #0b0c10;
   color: #fff;

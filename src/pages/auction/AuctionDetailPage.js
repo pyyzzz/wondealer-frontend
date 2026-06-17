@@ -127,7 +127,7 @@ export default function AuctionDetailPage() {
             </tbody>
           </table>
 
-          {/* 가격 정보 */}
+          {/* 가격 정보 */}Q
           <div className="detail-price-box">
             <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>현재 최고가</div>
             <div className="detail-price-main">{fmt(currentBid)}원</div>

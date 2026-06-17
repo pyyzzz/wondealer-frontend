@@ -100,7 +100,7 @@ function BidHistoryModal({ bids, startPrice, onClose }) {
 
 export default function AuctionListPage() {
   const navigate = useNavigate();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth(); // user 추가
 
   const [games, setGames] = useState([{ id: null, name: "전체" }]);
   const [servers, setServers] = useState([]);
@@ -126,38 +126,27 @@ export default function AuctionListPage() {
 
   const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
 
-  /* 게임 목록 */
   useEffect(() => {
     ItemApi.getGames()
       .then((r) => {
         const list = r.data?.data || [];
-        console.log("[games] 응답:", list);
         setGames([
           { id: null, name: "전체" },
           ...list.map((g) => ({ id: g.gameId, name: g.gameName })),
         ]);
       })
-      .catch((err) => {
-        console.error("[games] 에러:", err);
-        setGames([{ id: null, name: "전체" }]);
-      });
+      .catch(() => setGames([{ id: null, name: "전체" }]));
   }, []);
 
-  /* 게임 선택 → 서버·카테고리 */
   useEffect(() => {
     setServerId(null);
     setCategoryId(null);
     setServers([]);
     setCategories([]);
     setPage(1);
-
-    console.log("[gameId 변경됨]", gameId, typeof gameId);
-
     if (gameId === null || gameId === undefined) return;
-
     ItemApi.getGameServers(gameId)
       .then((r) => {
-        console.log("[servers] 응답:", r.data);
         const list = r.data?.data ?? r.data ?? [];
         setServers([
           { id: null, name: "전체" },
@@ -167,19 +156,9 @@ export default function AuctionListPage() {
           })),
         ]);
       })
-      .catch((err) => {
-        console.error(
-          "[servers] 에러:",
-          err.response?.status,
-          err.response?.data,
-          err.message,
-        );
-        setServers([]);
-      });
-
+      .catch(() => setServers([]));
     ItemApi.getCategories(gameId)
       .then((r) => {
-        console.log("[categories] 응답:", r.data);
         const list = r.data?.data ?? r.data ?? [];
         setCategories([
           { id: null, name: "전체" },
@@ -189,35 +168,30 @@ export default function AuctionListPage() {
           })),
         ]);
       })
-      .catch((err) => {
-        console.error(
-          "[categories] 에러:",
-          err.response?.status,
-          err.response?.data,
-          err.message,
-        );
-        setCategories([]);
-      });
+      .catch(() => setCategories([]));
   }, [gameId]);
 
-  /* 경매 목록 조회 */
   const fetchAuctions = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {
-        page: page - 1,
-        size: 12,
-        ...(gameId != null && { gameId }),
-        ...(serverId != null && { serverId }),
-        ...(categoryId != null && { categoryId }),
-        ...(keyword && { keyword }),
-      };
+      const params = { page: page - 1, size: 12 };
+      if (gameId != null) params.gameId = gameId;
+      if (serverId != null) params.serverId = serverId;
+      if (categoryId != null) params.categoryId = categoryId;
+      if (keyword?.trim()) params.keyword = keyword.trim();
       const res = await AuctionApi.getAuctions(params);
-      const data = res.data?.data ?? {};
-      setAuctions(data.content ?? []);
-      setTotalPages(data.totalPages ?? 1);
-    } catch (err) {
-      console.error("[auctions] 에러:", err);
+      const body = res.data;
+      const pageData =
+        body?.data?.content !== undefined
+          ? body.data
+          : body?.content !== undefined
+            ? body
+            : body?.data !== undefined && Array.isArray(body.data)
+              ? { content: body.data, totalPages: 1 }
+              : { content: [], totalPages: 1 };
+      setAuctions(Array.isArray(pageData.content) ? pageData.content : []);
+      setTotalPages(pageData.totalPages ?? 1);
+    } catch {
       setAuctions([]);
     } finally {
       setLoading(false);
@@ -295,7 +269,6 @@ export default function AuctionListPage() {
               key={g.id ?? "all"}
               $active={gameId === g.id}
               onClick={() => {
-                console.log("[클릭] 게임 선택:", g.id, g.name);
                 setGameId(g.id);
                 setPage(1);
               }}
@@ -304,7 +277,6 @@ export default function AuctionListPage() {
             </TopGameTab>
           ))}
         </TopGameBar>
-
         <ContentRow>
           <Sidebar>
             {servers.length > 0 && (
@@ -348,17 +320,7 @@ export default function AuctionListPage() {
                 서버·카테고리 필터가 표시됩니다.
               </SideEmpty>
             )}
-            {gameId != null &&
-              servers.length === 0 &&
-              categories.length === 0 && (
-                <SideEmpty>
-                  필터를 불러오는 중이거나
-                  <br />
-                  해당 게임에 데이터가 없습니다.
-                </SideEmpty>
-              )}
           </Sidebar>
-
           <MainArea>
             <ListTopBar>
               <PageTitle>실시간 경매 아이템</PageTitle>
@@ -376,7 +338,6 @@ export default function AuctionListPage() {
                 </AddBtn>
               </ListTopRight>
             </ListTopBar>
-
             {loading ? (
               <LoadingBox>
                 <LoadingSpinner />
@@ -391,61 +352,81 @@ export default function AuctionListPage() {
               </EmptyBox>
             ) : (
               <Grid>
-                {auctions.map((item) => (
-                  <AuctionCard
-                    key={item.auctionId}
-                    onClick={() => openDetail(item)}
-                  >
-                    <TimerBadge>
-                      ⏱ <AuctionTimer endAt={item.endTime} />
-                    </TimerBadge>
-                    <CardImgWrap>
-                      {item.thumbnailImg ? (
-                        <img
-                          src={item.thumbnailImg}
-                          alt={item.itemTitle}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                        />
+                {auctions.map((item) => {
+                  const isOngoing = item.status === "ONGOING";
+                  const isCompleted =
+                    item.status === "COMPLETED" ||
+                    item.status === "SOLD" ||
+                    item.status === "AUCTION_COMPLETED";
+                  return (
+                    <AuctionCard
+                      key={item.auctionId}
+                      onClick={() => (isOngoing ? openDetail(item) : null)}
+                      $ended={!isOngoing}
+                      $completed={isCompleted}
+                    >
+                      {isOngoing ? (
+                        <TimerBadge>
+                          ⏱ <AuctionTimer endAt={item.endTime} />
+                        </TimerBadge>
+                      ) : isCompleted ? (
+                        <CompletedBadge>🏆 낙찰 완료</CompletedBadge>
                       ) : (
-                        <CardPlaceholder>⚔️</CardPlaceholder>
+                        <EndedBadge>경매 종료</EndedBadge>
                       )}
-                    </CardImgWrap>
-                    <CardBody>
-                      <CardGameTag>{item.gameName || "게임"}</CardGameTag>
-                      <CardTitle>{item.itemTitle}</CardTitle>
-                      <CardMeta>
-                        {[item.serverName, item.categoryName]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </CardMeta>
-                      <CardPriceRow>
-                        <div>
-                          <CardPriceLabel>현재가</CardPriceLabel>
-                          <CardPrice>
-                            {fmt(item.currentPrice ?? item.startPrice)}
-                            <span>원</span>
-                          </CardPrice>
-                        </div>
-                        {item.instantBuyPrice && (
-                          <div style={{ textAlign: "right" }}>
-                            <CardPriceLabel>즉시낙찰</CardPriceLabel>
-                            <CardInstant>
-                              {fmt(item.instantBuyPrice)}원
-                            </CardInstant>
-                          </div>
+                      <CardImgWrap>
+                        {item.thumbnailImg ? (
+                          <img
+                            src={item.thumbnailImg}
+                            alt={item.itemTitle}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        ) : (
+                          <CardPlaceholder>⚔️</CardPlaceholder>
                         )}
-                      </CardPriceRow>
-                      <CardBtn>입찰 하러가기</CardBtn>
-                    </CardBody>
-                  </AuctionCard>
-                ))}
+                      </CardImgWrap>
+                      <CardBody>
+                        <CardGameTag>{item.gameName || "게임"}</CardGameTag>
+                        <CardTitle>{item.itemTitle}</CardTitle>
+                        <CardMeta>
+                          {[item.serverName, item.categoryName]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </CardMeta>
+                        <CardPriceRow>
+                          <div>
+                            <CardPriceLabel>현재가</CardPriceLabel>
+                            <CardPrice>
+                              {fmt(item.currentPrice ?? item.startPrice)}
+                              <span>원</span>
+                            </CardPrice>
+                          </div>
+                          {item.instantBuyPrice && (
+                            <div style={{ textAlign: "right" }}>
+                              <CardPriceLabel>즉시낙찰</CardPriceLabel>
+                              <CardInstant>
+                                {fmt(item.instantBuyPrice)}원
+                              </CardInstant>
+                            </div>
+                          )}
+                        </CardPriceRow>
+                        <CardBtn disabled={!isOngoing}>
+                          {isOngoing
+                            ? "입찰 하러가기"
+                            : isCompleted
+                              ? "낙찰 완료"
+                              : "종료된 경매"}
+                        </CardBtn>
+                      </CardBody>
+                    </AuctionCard>
+                  );
+                })}
               </Grid>
             )}
-
             {totalPages > 1 && (
               <Pagination>
                 {Array.from({ length: totalPages }, (_, i) => (
@@ -469,6 +450,10 @@ export default function AuctionListPage() {
   const images =
     selected.images ?? (selected.thumbnailImg ? [selected.thumbnailImg] : []);
 
+  // 본인 물품 확인
+  const isSeller =
+    user?.nickname === (selected.sellerNickname || selected.seller);
+
   return (
     <PageWrap>
       {showModal && (
@@ -486,7 +471,6 @@ export default function AuctionListPage() {
           <BreadSep>/</BreadSep>
           <BreadCurrent>{selected.itemTitle}</BreadCurrent>
         </Breadcrumb>
-
         <DetailGrid>
           <LeftCol>
             <ImgMain>
@@ -537,7 +521,6 @@ export default function AuctionListPage() {
               </StatRow>
             ))}
           </LeftCol>
-
           <RightCol>
             <StatusRow>
               <LivePill>진행 중</LivePill>
@@ -578,26 +561,22 @@ export default function AuctionListPage() {
                   </MetaRow>
                 ))}
             </MetaTable>
-
-            {(selected.sellerNickname || selected.seller) && (
-              <SellerBadge>
-                <SellerIcon>🛡</SellerIcon>
-                <div>
-                  <SellerName>
-                    {selected.sellerNickname || selected.seller}
-                  </SellerName>
-                  <SellerSub>프리미엄 프로바이더</SellerSub>
-                </div>
-                <SellerChat>💬</SellerChat>
-              </SellerBadge>
-            )}
-
+            <SellerBadge>
+              <SellerIcon>🛡</SellerIcon>
+              <div>
+                <SellerName>
+                  {selected.sellerNickname || selected.seller}
+                </SellerName>
+                <SellerSub>프리미엄 프로바이더</SellerSub>
+              </div>
+              <SellerChat>💬</SellerChat>
+            </SellerBadge>
             <PriceBox>
               <PriceRow>
                 <div>
                   <PriceBoxLabel>즉시 낙찰가</PriceBoxLabel>
                   <PriceInstant>
-                    {selected.instantBuyPrice > 0
+                    {(selected.instantBuyPrice ?? 0) > 0
                       ? `${fmt(selected.instantBuyPrice)} KRW`
                       : "미설정"}
                   </PriceInstant>
@@ -621,27 +600,46 @@ export default function AuctionListPage() {
 
             <BidSection>
               <BidLabel>입찰가 입력</BidLabel>
-              <BidInputRow>
-                <BidInput
-                  type="number"
-                  step={100}
-                  min={minBid}
-                  value={customBid}
-                  onChange={(e) => setCustomBid(e.target.value)}
-                  placeholder={`최소 ${fmt(minBid)}`}
-                />
-              </BidInputRow>
-              {bidError && <BidError>{bidError}</BidError>}
-              <BidBtns>
-                <BidBtnPrimary disabled={bidding} onClick={handleBid}>
-                  🔨 {bidding ? "입찰 중..." : "입찰하기"}
-                </BidBtnPrimary>
-                {selected.instantBuyPrice && (
-                  <BidBtnSecondary onClick={handleInstantBuy}>
-                    ⚡ 낙찰하기
-                  </BidBtnSecondary>
-                )}
-              </BidBtns>
+              {isSeller ? (
+                <div
+                  style={{
+                    padding: "14px",
+                    background: "rgba(108, 92, 231, 0.08)",
+                    borderRadius: "10px",
+                    textAlign: "center",
+                    color: "#6c5ce7",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    border: "1px dashed #6c5ce7",
+                  }}
+                >
+                  본인이 등록한 물품은 입찰할 수 없습니다.
+                </div>
+              ) : (
+                <>
+                  <BidInputRow>
+                    <BidInput
+                      type="number"
+                      step={100}
+                      min={minBid}
+                      value={customBid}
+                      onChange={(e) => setCustomBid(e.target.value)}
+                      placeholder={`최소 ${fmt(minBid)}`}
+                    />
+                  </BidInputRow>
+                  {bidError && <BidError>{bidError}</BidError>}
+                  <BidBtns>
+                    <BidBtnPrimary disabled={bidding} onClick={handleBid}>
+                      🔨 {bidding ? "입찰 중..." : "입찰하기"}
+                    </BidBtnPrimary>
+                    {selected.instantBuyPrice > 0 && (
+                      <BidBtnSecondary onClick={handleInstantBuy}>
+                        ⚡ 낙찰하기
+                      </BidBtnSecondary>
+                    )}
+                  </BidBtns>
+                </>
+              )}
               <SafeNote>
                 🔒 안전한 거래가 보장됩니다. 거래 완료 후 에스크로 방식으로
                 정산됩니다.
@@ -690,6 +688,8 @@ export default function AuctionListPage() {
 
 const spin = keyframes`from{transform:rotate(0deg)}to{transform:rotate(360deg)}`;
 const pulse = keyframes`0%,100%{opacity:1}50%{opacity:.5}`;
+const fadeIn = keyframes`from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}`;
+
 const PageWrap = styled.div`
   background: #090b12;
   color: #e8eaf0;
@@ -826,19 +826,24 @@ const Grid = styled.div`
 `;
 const AuctionCard = styled.div`
   background: #12141f;
-  border: 1px solid #1a1d2e;
+  border: 1px solid
+    ${(p) => (p.$completed ? "rgba(250,176,5,0.35)" : "#1a1d2e")};
   border-radius: 14px;
   overflow: hidden;
-  cursor: pointer;
+  cursor: ${(p) => (p.$ended ? "default" : "pointer")};
   position: relative;
+  opacity: ${(p) =>
+    p.$ended && !p.$completed ? 0.55 : p.$completed ? 0.85 : 1};
   transition:
     border-color 0.2s,
     transform 0.2s,
     box-shadow 0.2s;
   &:hover {
-    border-color: #6c5ce7;
-    transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(108, 92, 231, 0.18);
+    border-color: ${(p) =>
+      p.$completed ? "rgba(250,176,5,0.6)" : p.$ended ? "#1a1d2e" : "#6c5ce7"};
+    transform: ${(p) => (p.$ended ? "none" : "translateY(-3px)")};
+    box-shadow: ${(p) =>
+      p.$ended ? "none" : "0 8px 24px rgba(108, 92, 231, 0.18)"};
   }
 `;
 const TimerBadge = styled.div`
@@ -847,6 +852,34 @@ const TimerBadge = styled.div`
   left: 10px;
   background: rgba(230, 57, 70, 0.92);
   color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  z-index: 2;
+  backdrop-filter: blur(4px);
+  letter-spacing: 0.3px;
+`;
+const EndedBadge = styled.div`
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(100, 100, 100, 0.92);
+  color: #aaa;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  z-index: 2;
+  backdrop-filter: blur(4px);
+  letter-spacing: 0.3px;
+`;
+const CompletedBadge = styled.div`
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(250, 176, 5, 0.92);
+  color: #1a1200;
   font-size: 11px;
   font-weight: 700;
   padding: 3px 9px;
@@ -924,18 +957,18 @@ const CardBtn = styled.button`
   width: 100%;
   background: #1a1d2e;
   border: 1px solid #252840;
-  color: #e8eaf0;
+  color: ${(p) => (p.disabled ? "#555a75" : "#e8eaf0")};
   padding: 9px;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
+  cursor: ${(p) => (p.disabled ? "default" : "pointer")};
   transition:
     background 0.15s,
     border-color 0.15s;
   &:hover {
-    background: #6c5ce7;
-    border-color: #6c5ce7;
+    background: ${(p) => (p.disabled ? "#1a1d2e" : "#6c5ce7")};
+    border-color: ${(p) => (p.disabled ? "#252840" : "#6c5ce7")};
   }
 `;
 const Pagination = styled.div`
@@ -1406,7 +1439,6 @@ const ViewAllBtn = styled.button`
     border-color: #6c5ce7;
   }
 `;
-const fadeIn = keyframes`from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}`;
 const ModalOverlay = styled.div`
   position: fixed;
   inset: 0;
