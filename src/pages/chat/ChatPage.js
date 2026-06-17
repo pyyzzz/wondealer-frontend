@@ -1,31 +1,116 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import styled, { keyframes } from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import ChatApi from "../../api/chat.api";
 import useWebSocket from "../../hooks/useWebSocket";
 
-// ── 색상 토큰 ─────────────────────────────────────────────────
-const C = {
-  bg: "#0a0a0f",
-  bgPanel: "#0d0d14",
-  bgCard: "#13131c",
-  bgItem: "#1a1a26",
-  border: "#2a2a3e",
-  borderFaint: "#1e1e2a",
-  violet: "#7c3aed",
-  violetDim: "rgba(124,58,237,.15)",
-  violetBorder: "rgba(124,58,237,.4)",
-  indigo: "#6366f1",
-  emerald: "#10b981",
-  amber: "#f59e0b",
-  red: "#ef4444",
-  text: "#f1f1f5",
-  textSub: "#a1a1b5",
-  textMuted: "#71717a",
-  textFaint: "#52525b",
-  white: "#ffffff",
-  online: "#22c55e",
-};
+// ── 결제 모달 ─────────────────────────────────────────────────
+function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
+  const [method, setMethod] = useState("mileage"); // mileage | card
+  const price = room?.itemPrice ?? room?.basePrice ?? room?.price ?? 0;
+  const fee = Math.floor(price * 0.05);
+  const total = price + fee;
+  const lack = method === "mileage" && (myMileage ?? 0) < total;
+  const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
+
+  return (
+    <Overlay>
+      <PayBox>
+        {/* 상품 정보 */}
+        <PaySection>
+          <PaySectionTitle>나의 화재매역 현황</PaySectionTitle>
+          <PayItemRow>
+            <PayItemIcon>📦</PayItemIcon>
+            <PayItemInfo>
+              <PayItemName>
+                {room?.itemTitle ?? room?.itemName ?? "거래 아이템"}
+              </PayItemName>
+              <PayItemSub>
+                {room?.gameName ?? ""}{" "}
+                {room?.serverName ? `· ${room.serverName}` : ""}
+              </PayItemSub>
+            </PayItemInfo>
+            <PayItemPrice>{fmt(price)} 원</PayItemPrice>
+          </PayItemRow>
+        </PaySection>
+
+        {/* 결제 수단 */}
+        <PaySection>
+          <PaySectionTitle>결제 수단 선택</PaySectionTitle>
+          <PayMethodRow>
+            <PayMethod
+              $active={method === "mileage"}
+              onClick={() => setMethod("mileage")}
+            >
+              <span>🪙</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>
+                  원페이 (마일리지)
+                </div>
+                <div style={{ fontSize: 11, color: "#888da8", marginTop: 2 }}>
+                  보유: {fmt(myMileage ?? 0)} M
+                </div>
+              </div>
+              {method === "mileage" && <CheckDot />}
+            </PayMethod>
+            <PayMethod
+              $active={method === "card"}
+              onClick={() => setMethod("card")}
+            >
+              <span>💳</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>카드 결제</div>
+                <div style={{ fontSize: 11, color: "#888da8", marginTop: 2 }}>
+                  포트원 연동
+                </div>
+              </div>
+              {method === "card" && <CheckDot />}
+            </PayMethod>
+          </PayMethodRow>
+        </PaySection>
+
+        {/* 최종 결제 금액 */}
+        <PaySection>
+          <PaySectionTitle>최종 결제 금액</PaySectionTitle>
+          <PriceBreakdown>
+            <PriceRow2>
+              <span>상품 금액</span>
+              <span>{fmt(price)} 원</span>
+            </PriceRow2>
+            <PriceRow2>
+              <span>에스크로 수수료 (5%)</span>
+              <span style={{ color: "#ef4444" }}>+{fmt(fee)} 원</span>
+            </PriceRow2>
+            <Divider />
+            <PriceRow2 $total>
+              <span>총 결제 금액</span>
+              <span style={{ color: "#c0c1ff", fontSize: 18, fontWeight: 800 }}>
+                {fmt(total)} 원
+              </span>
+            </PriceRow2>
+          </PriceBreakdown>
+          {lack && (
+            <LackNotice>
+              마일리지가 부족합니다. 카드 결제를 이용하거나 마일리지를 충전해
+              주세요.
+            </LackNotice>
+          )}
+          <EscrowNote>
+            🔒 결제 금액은 거래 완료 전까지 에스크로에 안전 보관됩니다.
+          </EscrowNote>
+        </PaySection>
+
+        <PayBtns>
+          <PayCancel onClick={onCancel}>취소</PayCancel>
+          <PayConfirm onClick={() => onConfirm(method)} disabled={lack}>
+            {method === "mileage" ? "🪙 마일리지로 결제" : "💳 카드로 결제"}
+          </PayConfirm>
+        </PayBtns>
+      </PayBox>
+    </Overlay>
+  );
+}
 
 // ── 유틸 ─────────────────────────────────────────────────────
 function fmtTime(iso) {
@@ -39,7 +124,6 @@ function fmtTime(iso) {
     return "";
   }
 }
-
 function fmtDate(iso) {
   if (!iso) return "";
   try {
@@ -56,43 +140,16 @@ function fmtDate(iso) {
   }
 }
 
-function nowTime() {
-  return new Date().toLocaleTimeString("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-// 백엔드 tradeStatus 값 → 스텝 인덱스 매핑
-// 백엔드 enum: CONSULTING / PAID / TRANSFER_PENDING / COMPLETED
-const STATUS_STEP = {
-  CONSULTING: 0,
-  상담진행: 0,
-  PAID: 1,
-  대금보관: 1,
-  TRANSFER_PENDING: 1,
-  인수대기: 1,
-  COMPLETED: 2,
-  거래완료: 2,
-};
-const TRADE_STEPS = ["거래 대기", "결제 완료", "거래 완료"];
-
-function getStepIdx(status) {
-  return STATUS_STEP[status] ?? 0;
-}
-
-// 백엔드에서 내려주는 채팅방 필드 정규화
-// GET /api/chat/rooms 응답 필드명이 다를 수 있으므로 단일 접근자로 통일
 function roomId(r) {
   return r.chatRoomId ?? r.id;
 }
-function roomPartnerName(r) {
+function roomPartner(r) {
   return r.partnerNickname ?? r.partnerName ?? "상대방";
 }
-function roomItemTitle(r) {
+function roomItem(r) {
   return r.itemName ?? r.itemTitle ?? "거래 아이템";
 }
-function roomLastMsg(r) {
+function roomLast(r) {
   return r.lastMessage ?? "";
 }
 function roomLastTime(r) {
@@ -108,8 +165,6 @@ function roomSellerId(r) {
   return r.sellerId ?? r.sellerMemberId ?? null;
 }
 
-// 메시지 필드 정규화
-// GET /api/chat/rooms/:id/messages 응답 필드명 통일
 function msgId(m) {
   return m.chatMessageId ?? m.id ?? null;
 }
@@ -129,1105 +184,209 @@ function msgType(m) {
   return m.messageType ?? m.type ?? "CHAT";
 }
 
-const txt = (size, weight = "400", color = C.text) => ({
-  fontSize: size,
-  fontWeight: weight,
-  color,
-  margin: 0,
-  padding: 0,
-});
-
-// ── 스켈레톤 ────────────────────────────────────────────────
-function Skeleton({ w = "100%", h = 14, r = 6, mb = 0 }) {
-  return (
-    <div
-      style={{
-        width: w,
-        height: h,
-        borderRadius: r,
-        marginBottom: mb,
-        background: `linear-gradient(90deg,${C.bgItem} 25%,${C.bgCard} 50%,${C.bgItem} 75%)`,
-        backgroundSize: "200% 100%",
-        animation: "shimmer 1.4s infinite",
-      }}
-    />
-  );
+const STEPS = ["거래 대기", "결제 완료", "거래 완료"];
+const STATUS_STEP = {
+  CONSULTING: 0,
+  PAID: 1,
+  TRANSFER_PENDING: 1,
+  COMPLETED: 2,
+};
+function getStep(status) {
+  return STATUS_STEP[status] ?? 0;
 }
 
-// ── 결제 완료 인라인 카드 ─────────────────────────────────────
-// PAYMENT_CARD 타입은 백엔드에서 안 내려오므로 프론트 로컬 생성
-function PaymentCard({ msg }) {
+const STATUS_LABEL = {
+  CONSULTING: "거래대기",
+  PAID: "결제완료",
+  TRANSFER_PENDING: "인수대기",
+  COMPLETED: "거래완료",
+};
+
+// ── 채팅 목록 패널 ─────────────────────────────────────────────
+function RoomList({ rooms, loading, selectedId, onSelect, search, onSearch }) {
   return (
-    <div style={{ display: "flex", justifyContent: "center", margin: "8px 0" }}>
-      <div
-        style={{
-          width: 260,
-          background: C.bgCard,
-          border: `1px solid ${C.border}`,
-          borderRadius: 14,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            padding: "12px 16px",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            borderBottom: `1px solid ${C.borderFaint}`,
-          }}
-        >
-          <div
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 99,
-              background: "rgba(16,185,129,.15)",
-              border: "1px solid rgba(16,185,129,.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 12,
-              color: C.emerald,
-              fontWeight: 700,
-            }}
-          >
-            ✓
-          </div>
-          <div>
-            <div style={txt(12, 700)}>결제 완료되었습니다.</div>
-            <div style={txt(10, 400, C.textMuted)}>
-              안전하게 거래를 진행해 주세요.
-            </div>
-          </div>
-        </div>
-        <div style={{ padding: "10px 16px" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: 6,
-            }}
-          >
-            <span style={txt(10, 400, C.textMuted)}>거래 캐릭터</span>
-            <span style={txt(11, 600)}>{msg.tradeChar ?? "—"}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={txt(10, 400, C.textMuted)}>총 결제금액</span>
-            <span
-              style={{ ...txt(13, 800, C.indigo), fontFamily: "monospace" }}
-            >
-              {(msg.totalAmount ?? 0).toLocaleString()} KRW
-            </span>
-          </div>
-        </div>
-        <div
-          style={{
-            padding: "8px 16px",
-            borderTop: `1px solid ${C.borderFaint}`,
-            background: "rgba(59,130,246,.04)",
-            fontSize: 10,
-            color: "rgba(147,197,253,.7)",
-          }}
-        >
-          🔒 결제 완료 후 물품을 상대방에게 전달해 주세요.
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── 채팅 메시지 ──────────────────────────────────────────────
-function ChatMessage({ msg, myUserId, partnerAvatar }) {
-  // 로컬 결제 카드
-  if (msgType(msg) === "PAYMENT_CARD") return <PaymentCard msg={msg} />;
-
-  // 백엔드 SYSTEM 메시지 (messageType: "SYSTEM")
-  if (msgType(msg) === "SYSTEM") {
-    return (
-      <div
-        style={{ display: "flex", justifyContent: "center", margin: "4px 0" }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            background: C.bgItem,
-            border: `1px solid ${C.border}`,
-            borderRadius: 14,
-            padding: "6px 14px",
-            fontSize: 11,
-            color: C.textSub,
-            maxWidth: 420,
-            textAlign: "center",
-          }}
-        >
-          <span>🔒</span>
-          <span>{msgContent(msg)}</span>
-        </div>
-      </div>
-    );
-  }
-
-  const isMe = msgSender(msg) === String(myUserId);
-  const content = msgContent(msg);
-  const time = msgTime(msg) ? fmtTime(msgTime(msg)) : (msg.timestamp ?? "");
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: isMe ? "row-reverse" : "row",
-        alignItems: "flex-end",
-        gap: 8,
-      }}
-    >
-      {!isMe && (
-        <div
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 8,
-            flexShrink: 0,
-            background: C.bgItem,
-            border: `1px solid ${C.border}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 15,
-            marginBottom: 2,
-          }}
-        >
-          {partnerAvatar || "👤"}
-        </div>
-      )}
-      <div
-        style={{
-          maxWidth: "65%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: isMe ? "flex-end" : "flex-start",
-          gap: 3,
-        }}
-      >
-        <div
-          style={{
-            padding: "9px 14px",
-            lineHeight: 1.6,
-            fontSize: 12,
-            borderRadius: 16,
-            borderBottomRightRadius: isMe ? 4 : 16,
-            borderBottomLeftRadius: isMe ? 16 : 4,
-            background: isMe ? C.violet : C.bgItem,
-            color: isMe ? C.white : C.text,
-            border: isMe ? "none" : `1px solid ${C.border}`,
-          }}
-        >
-          {content}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            flexDirection: isMe ? "row-reverse" : "row",
-          }}
-        >
-          <span style={txt(10, 400, C.textFaint)}>{time}</span>
-          {isMe && (
-            <span
-              style={{
-                fontSize: 10,
-                color: msgRead(msg) ? "#818cf8" : C.textFaint,
-              }}
-            >
-              {msgRead(msg) ? "읽음" : "전송"}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── 채팅 목록 모달 ────────────────────────────────────────────
-function ChatListModal({
-  rooms,
-  loading,
-  selectedId,
-  onSelect,
-  onClose,
-  search,
-  onSearch,
-}) {
-  const [tab, setTab] = useState(0);
-
-  const filtered = rooms
-    .filter((r) => {
-      const name = roomPartnerName(r);
-      const title = roomItemTitle(r);
-      return name.includes(search) || title.includes(search);
-    })
-    .sort(
-      tab === 1
-        ? (a, b) => roomUnread(b) - roomUnread(a)
-        : (a, b) => {
-            const ta = roomLastTime(a) ? new Date(roomLastTime(a)) : 0;
-            const tb = roomLastTime(b) ? new Date(roomLastTime(b)) : 0;
-            return tb - ta;
-          },
-    );
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 900,
-        background: "rgba(0,0,0,.6)",
-        backdropFilter: "blur(4px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          width: 340,
-          maxHeight: "75vh",
-          background: C.bgPanel,
-          border: `1px solid ${C.border}`,
-          borderRadius: 16,
-          overflow: "hidden",
-          boxShadow: "0 20px 60px rgba(0,0,0,.8)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          style={{
-            padding: "14px 16px 0",
-            borderBottom: `1px solid ${C.borderFaint}`,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 12,
-            }}
-          >
-            <span style={txt(14, 800)}>WONDEALER</span>
-            <button
-              onClick={onClose}
-              style={{
-                background: "none",
-                border: "none",
-                color: C.textMuted,
-                cursor: "pointer",
-                fontSize: 18,
-                lineHeight: 1,
-                padding: 0,
-              }}
-            >
-              ✕
-            </button>
-          </div>
-          <div style={{ position: "relative", marginBottom: 10 }}>
-            <span
-              style={{
-                position: "absolute",
-                left: 10,
-                top: "50%",
-                transform: "translateY(-50%)",
-                fontSize: 12,
-                pointerEvents: "none",
-                color: C.textFaint,
-              }}
-            >
-              🔍
-            </span>
-            <input
-              value={search}
-              onChange={(e) => onSearch(e.target.value)}
-              placeholder="채팅방 또는 품목별 검색"
-              style={{
-                width: "100%",
-                background: C.bgCard,
-                border: `1px solid ${C.border}`,
-                borderRadius: 8,
-                padding: "7px 10px 7px 30px",
-                fontSize: 11,
-                color: C.text,
-                outline: "none",
-              }}
-            />
-          </div>
-          <div style={{ display: "flex" }}>
-            {["최신순", "미읽음"].map((t, i) => (
-              <button
-                key={t}
-                onClick={() => setTab(i)}
-                style={{
-                  flex: 1,
-                  padding: "8px 0",
-                  background: "none",
-                  border: "none",
-                  borderBottom: `2px solid ${tab === i ? C.violet : "transparent"}`,
-                  color: tab === i ? C.text : C.textFaint,
-                  fontSize: 12,
-                  fontWeight: tab === i ? 700 : 400,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div
-          style={{
-            padding: "6px 16px",
-            display: "flex",
-            justifyContent: "space-between",
-            borderBottom: `1px solid ${C.borderFaint}`,
-          }}
-        >
-          <span style={txt(10, 600, C.textFaint)}>
-            {tab === 0 ? "최신순" : "미읽음"}
-          </span>
-          <span style={txt(10, 400, C.textFaint)}>전체 {rooms.length}개</span>
-        </div>
-
-        <div style={{ flex: 1, overflowY: "auto" }}>
-          {loading ? (
-            <div
-              style={{
-                padding: 16,
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}
-            >
-              {[1, 2, 3].map((i) => (
-                <div key={i} style={{ display: "flex", gap: 10 }}>
-                  <Skeleton w={40} h={40} r={10} />
-                  <div style={{ flex: 1 }}>
-                    <Skeleton h={11} mb={5} />
-                    <Skeleton h={9} w="75%" mb={4} />
-                    <Skeleton h={8} w="50%" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div
-              style={{
-                padding: 40,
-                textAlign: "center",
-                color: C.textFaint,
-                fontSize: 12,
-              }}
-            >
-              채팅방이 없습니다
-            </div>
-          ) : (
-            filtered.map((room) => {
-              const id = roomId(room);
-              const isActive = String(id) === String(selectedId);
-              const unread = roomUnread(room);
-              const status = roomStatus(room);
+    <ListPanel>
+      <ListHeader>
+        <ListTitle>채팅</ListTitle>
+      </ListHeader>
+      <SearchWrap>
+        <SearchIcon>🔍</SearchIcon>
+        <SearchInput
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder="채팅방 검색"
+        />
+      </SearchWrap>
+      <RoomScroll>
+        {loading ? (
+          <EmptyMsg>로딩 중...</EmptyMsg>
+        ) : rooms.length === 0 ? (
+          <EmptyMsg>채팅방이 없습니다</EmptyMsg>
+        ) : (
+          rooms
+            .filter(
+              (r) =>
+                roomPartner(r).includes(search) || roomItem(r).includes(search),
+            )
+            .map((r) => {
+              const rid = roomId(r);
+              const active = String(rid) === String(selectedId);
+              const unread = roomUnread(r);
+              const status = roomStatus(r);
+              const stepIdx = getStep(status);
               const statusColor =
-                {
-                  COMPLETED: C.emerald,
-                  거래완료: C.emerald,
-                  PAID: "#60a5fa",
-                  대금보관: "#60a5fa",
-                  TRANSFER_PENDING: C.amber,
-                  인수대기: C.amber,
-                }[status] ?? C.textFaint;
-              const statusLabel =
-                {
-                  CONSULTING: "상담진행",
-                  PAID: "대금보관",
-                  TRANSFER_PENDING: "인수대기",
-                  COMPLETED: "거래완료",
-                }[status] ?? status;
-
+                stepIdx === 2
+                  ? "#10b981"
+                  : stepIdx === 1
+                    ? "#6c5ce7"
+                    : "#888da8";
               return (
-                <button
-                  key={id}
-                  onClick={() => {
-                    onSelect(id);
-                    onClose();
-                  }}
-                  style={{
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "11px 14px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    background: isActive ? C.bgItem : "transparent",
-                    border: "none",
-                    borderBottom: `1px solid ${C.borderFaint}`,
-                    cursor: "pointer",
-                  }}
+                <RoomItem
+                  key={rid}
+                  $active={active}
+                  onClick={() => onSelect(rid)}
                 >
-                  <div style={{ position: "relative", flexShrink: 0 }}>
-                    <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 10,
-                        background: C.bgCard,
-                        border: `1px solid ${C.border}`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 18,
-                      }}
-                    >
-                      {room.partnerAvatar ?? "👤"}
-                    </div>
-                    {room.partnerOnline && (
-                      <span
-                        style={{
-                          position: "absolute",
-                          bottom: -1,
-                          right: -1,
-                          width: 10,
-                          height: 10,
-                          borderRadius: 99,
-                          background: C.online,
-                          border: `2px solid ${C.bgPanel}`,
-                        }}
-                      />
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginBottom: 2,
-                      }}
-                    >
-                      <span style={txt(12, 700)}>{roomPartnerName(room)}</span>
-                      <span style={txt(10, 400, C.textFaint)}>
-                        {roomLastTime(room) ? fmtDate(roomLastTime(room)) : ""}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: C.textSub,
-                        fontWeight: 500,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        marginBottom: 3,
-                      }}
-                    >
-                      {roomItemTitle(room)}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        color: C.textFaint,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        marginBottom: 4,
-                      }}
-                    >
-                      {roomLastMsg(room)}
-                    </div>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        padding: "1px 7px",
-                        borderRadius: 99,
-                        fontSize: 9,
-                        fontWeight: 700,
-                        color: statusColor,
-                        background: "rgba(99,102,241,.08)",
-                        border: "1px solid rgba(99,102,241,.2)",
-                      }}
-                    >
-                      {statusLabel}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: 6,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {unread > 0 && (
-                      <span
-                        style={{
-                          width: 18,
-                          height: 18,
-                          borderRadius: 99,
-                          background: C.violet,
-                          color: C.white,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 9,
-                          fontWeight: 900,
-                        }}
-                      >
-                        {unread}
-                      </span>
-                    )}
-                    <button
-                      onClick={(e) => e.stopPropagation()}
-                      style={{
-                        width: 24,
-                        height: 24,
-                        borderRadius: 6,
-                        background: C.bgItem,
-                        border: `1px solid ${C.border}`,
-                        color: C.textFaint,
-                        fontSize: 11,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      🗑
-                    </button>
-                  </div>
-                </button>
+                  <RoomAvatar>
+                    {(roomPartner(r)[0] || "?").toUpperCase()}
+                  </RoomAvatar>
+                  <RoomInfo>
+                    <RoomTop>
+                      <RoomName>{roomPartner(r)}</RoomName>
+                      <RoomTime>
+                        {roomLastTime(r) ? fmtDate(roomLastTime(r)) : ""}
+                      </RoomTime>
+                    </RoomTop>
+                    <RoomItemName>{roomItem(r)}</RoomItemName>
+                    <RoomBottom>
+                      <RoomLastMsg>{roomLast(r)}</RoomLastMsg>
+                      <RoomStatusBadge style={{ color: statusColor }}>
+                        {STATUS_LABEL[status] ?? status}
+                      </RoomStatusBadge>
+                      {unread > 0 && <UnreadBadge>{unread}</UnreadBadge>}
+                    </RoomBottom>
+                  </RoomInfo>
+                </RoomItem>
               );
             })
-          )}
-        </div>
-      </div>
-    </div>
+        )}
+      </RoomScroll>
+    </ListPanel>
   );
 }
 
-// ── 우측 사이드바: 상대방 정보 ────────────────────────────────
-function PartnerSidebar({ room, myUserId, onPayment, onChatList }) {
+// ── 우측 사이드바 ─────────────────────────────────────────────
+function Sidebar({ room, myNickname, onPay, onComplete }) {
   if (!room) return null;
-  const stepIdx = getStepIdx(roomStatus(room));
-  const isSeller = String(roomSellerId(room)) === String(myUserId);
+  const status = roomStatus(room);
+  const stepIdx = getStep(status);
   const isDone = stepIdx >= 2;
-
-  const statusLabel =
-    {
-      CONSULTING: "상담진행",
-      PAID: "대금보관",
-      TRANSFER_PENDING: "인수대기",
-      COMPLETED: "거래완료",
-    }[roomStatus(room)] ?? roomStatus(room);
+  const isSeller = room.sellerNickname === myNickname;
 
   return (
-    <div
-      style={{
-        width: 180,
-        flexShrink: 0,
-        background: C.bgPanel,
-        borderLeft: `1px solid ${C.borderFaint}`,
-        display: "flex",
-        flexDirection: "column",
-        padding: "14px 12px",
-        gap: 14,
-        overflowY: "auto",
-      }}
-    >
-      <div style={txt(10, 700, C.textFaint)}>상대방 정보</div>
-
-      {/* 프로필 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ position: "relative" }}>
-          <div
+    <SidePanel>
+      <SideSection>
+        <SideSectionTitle>상대방 정보</SideSectionTitle>
+        <PartnerRow>
+          <PartnerAvatar>
+            {(roomPartner(room)[0] || "?").toUpperCase()}
+          </PartnerAvatar>
+          <PartnerDetail>
+            <PartnerName>{roomPartner(room)}</PartnerName>
+            <PartnerSub>
+              Verified Dealer · {room.partnerOnline ? "Online" : "Offline"}
+            </PartnerSub>
+          </PartnerDetail>
+          {room.partnerOnline && <OnlineDot />}
+        </PartnerRow>
+        <VerifyRow>
+          <span style={{ fontSize: 12, color: "#888da8" }}>본인인증</span>
+          <span
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              background: C.bgCard,
-              border: `1px solid ${C.border}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 18,
+              color: room.partnerVerified ? "#10b981" : "#555",
+              fontSize: 16,
             }}
           >
-            {room.partnerAvatar ?? "👤"}
-          </div>
-          {room.partnerOnline && (
-            <span
-              style={{
-                position: "absolute",
-                bottom: -1,
-                right: -1,
-                width: 9,
-                height: 9,
-                borderRadius: 99,
-                background: C.online,
-                border: `2px solid ${C.bgPanel}`,
-              }}
-            />
-          )}
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: C.text,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {roomPartnerName(room)}
-          </div>
-          <div
-            style={{
-              fontSize: 9,
-              color: room.partnerOnline ? C.online : C.textFaint,
-              marginTop: 2,
-            }}
-          >
-            {room.partnerOnline ? "• Online" : "• Offline"}
-          </div>
-        </div>
-      </div>
+            {room.partnerVerified ? "✓" : "○"}
+          </span>
+        </VerifyRow>
+        <ActionBtns>
+          <ActionBtn $warn>
+            <span>⚠</span>신고하기
+          </ActionBtn>
+          <ActionBtn>
+            <span>🚫</span>차단하기
+          </ActionBtn>
+        </ActionBtns>
+      </SideSection>
 
-      {/* 본인인증 */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "8px 10px",
-          background: C.bgCard,
-          border: `1px solid ${C.border}`,
-          borderRadius: 8,
-        }}
-      >
-        <span style={txt(10, 500, C.textSub)}>본인인증</span>
-        <span
-          style={{
-            fontSize: 14,
-            color: room.partnerVerified ? C.emerald : C.textFaint,
-          }}
-        >
-          {room.partnerVerified ? "✓" : "○"}
-        </span>
-      </div>
-
-      {/* 신고 / 차단 */}
-      <div style={{ display: "flex", gap: 6 }}>
-        {[
-          { label: "신고하기", icon: "⚠" },
-          { label: "차단하기", icon: "🚫" },
-        ].map(({ label, icon }) => (
-          <button
-            key={label}
-            style={{
-              flex: 1,
-              padding: "7px 0",
-              background: C.bgCard,
-              border: `1px solid ${C.border}`,
-              borderRadius: 8,
-              cursor: "pointer",
-              color: C.textSub,
-              fontSize: 9,
-              fontWeight: 600,
-              fontFamily: "inherit",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 3,
-            }}
-          >
-            <span style={{ fontSize: 13 }}>{icon}</span>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ height: 1, background: C.borderFaint }} />
-
-      {/* 거래 현황 */}
-      <div>
-        <div style={{ ...txt(10, 700, C.textFaint), marginBottom: 10 }}>
-          거래 현황
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {TRADE_STEPS.map((label, i) => {
-            const done = stepIdx > i;
-            const active = stepIdx === i;
-            return (
-              <div
-                key={label}
+      <SideSection>
+        <SideSectionTitle>거래 현황</SideSectionTitle>
+        {STEPS.map((label, i) => {
+          const done = stepIdx > i;
+          const active = stepIdx === i;
+          return (
+            <StepItem key={label} $active={active}>
+              <StepDot $done={done} $active={active}>
+                {done ? "✓" : i + 1}
+              </StepDot>
+              <span
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "7px 10px",
-                  background: active ? C.violetDim : C.bgCard,
-                  border: `1px solid ${active ? C.violetBorder : C.borderFaint}`,
-                  borderRadius: 8,
+                  fontSize: 12,
+                  color: active ? "#fff" : done ? "#888da8" : "#555",
                 }}
               >
-                <div
-                  style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: 99,
-                    flexShrink: 0,
-                    background: done
-                      ? C.violet
-                      : active
-                        ? C.violetDim
-                        : C.bgItem,
-                    border: `1px solid ${done || active ? C.violet : C.border}`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 9,
-                    color: done ? C.white : active ? C.violet : C.textFaint,
-                    fontWeight: 700,
-                  }}
-                >
-                  {done ? "✓" : i + 1}
-                </div>
-                <span
-                  style={txt(
-                    10,
-                    active ? 700 : 400,
-                    active ? C.text : done ? C.textSub : C.textFaint,
-                  )}
-                >
-                  {label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 결제하기 — 구매자이고 미완료일 때 */}
-      {!isSeller && !isDone && (
-        <button
-          onClick={onPayment}
-          style={{
-            width: "100%",
-            padding: "10px 0",
-            background: C.violet,
-            border: "none",
-            borderRadius: 10,
-            color: C.white,
-            fontSize: 11,
-            fontWeight: 700,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-          }}
-        >
-          💳 결제하기
-        </button>
-      )}
-
-      {/* 채팅목록 */}
-      <button
-        onClick={onChatList}
-        style={{
-          width: "100%",
-          padding: "9px 0",
-          background: C.bgCard,
-          border: `1px solid ${C.border}`,
-          borderRadius: 10,
-          color: C.textSub,
-          fontSize: 11,
-          fontWeight: 600,
-          cursor: "pointer",
-          fontFamily: "inherit",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-        }}
-      >
-        💬 채팅목록
-      </button>
-    </div>
-  );
-}
-
-// ── 마일리지 결제 모달 ────────────────────────────────────────
-function MileageModal({ room, myMileage, onConfirm, onCancel }) {
-  const price = room?.itemPrice ?? room?.price ?? 0;
-  const fee = Math.floor(price * 0.015);
-  const total = price + fee;
-  const lack = (myMileage ?? 0) < total;
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 999,
-        background: "rgba(0,0,0,.75)",
-        backdropFilter: "blur(6px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 360,
-          background: C.bgCard,
-          border: `1px solid ${C.border}`,
-          borderRadius: 18,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            padding: "14px 18px",
-            borderBottom: `1px solid ${C.borderFaint}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 16 }}>🪙</span>
-            <span style={txt(13, 700)}>마일리지 결제</span>
-          </div>
-          <button
-            onClick={onCancel}
-            style={{
-              background: "none",
-              border: "none",
-              color: C.textMuted,
-              cursor: "pointer",
-              fontSize: 16,
-              lineHeight: 1,
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div
-          style={{
-            padding: "10px 18px",
-            background: C.bgPanel,
-            borderBottom: `1px solid ${C.borderFaint}`,
-          }}
-        >
-          <div style={txt(9, 400, C.textMuted)}>
-            {room?.gameServer ?? room?.gameName}
-          </div>
-          <div style={{ ...txt(12, 700), marginTop: 3 }}>
-            {room?.itemIcon} {roomItemTitle(room)}
-          </div>
-        </div>
-
-        <div
-          style={{
-            padding: "14px 18px",
-            borderBottom: `1px solid ${C.borderFaint}`,
-          }}
-        >
-          {[
-            ["상품 금액", `${price.toLocaleString()} M`],
-            ["에스크로 수수료 (1.5%)", `${fee.toLocaleString()} M`],
-          ].map(([label, val]) => (
-            <div
-              key={label}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 8,
-              }}
-            >
-              <span style={txt(11, 400, C.textSub)}>{label}</span>
-              <span style={txt(11, 600)}>{val}</span>
-            </div>
-          ))}
-          <div style={{ height: 1, background: C.border, margin: "8px 0" }} />
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: 8,
-            }}
-          >
-            <span style={txt(12, 700)}>총 결제 마일리지</span>
-            <span style={txt(14, 800, C.violet)}>
-              {total.toLocaleString()} M
-            </span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={txt(10, 400, C.textMuted)}>보유 마일리지</span>
-            <span style={txt(11, 600, lack ? C.red : C.emerald)}>
-              {(myMileage ?? 0).toLocaleString()} M
-            </span>
-          </div>
-          {lack && (
-            <div
-              style={{
-                marginTop: 8,
-                padding: "7px 10px",
-                borderRadius: 8,
-                background: "rgba(239,68,68,.08)",
-                border: "1px solid rgba(239,68,68,.2)",
-              }}
-            >
-              <span style={txt(10, 500, C.red)}>
-                마일리지가 부족합니다. 충전 후 이용해 주세요.
+                {label}
               </span>
-            </div>
-          )}
-        </div>
+            </StepItem>
+          );
+        })}
+      </SideSection>
 
-        <div
-          style={{
-            padding: "8px 18px",
-            background: "rgba(59,130,246,.04)",
-            borderBottom: `1px solid ${C.borderFaint}`,
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 7,
-            fontSize: 10,
-            color: "rgba(147,197,253,.8)",
-          }}
-        >
-          <span style={{ flexShrink: 0 }}>🔒</span>
-          결제 마일리지는 거래 완료 전까지 에스크로에 안전 보관됩니다.
-        </div>
-
-        <div style={{ padding: "12px 18px", display: "flex", gap: 8 }}>
-          <button
-            onClick={onCancel}
-            style={{
-              flex: 1,
-              padding: "9px 0",
-              borderRadius: 10,
-              cursor: "pointer",
-              background: C.bgItem,
-              border: `1px solid ${C.border}`,
-              color: C.textSub,
-              fontSize: 11,
-              fontWeight: 600,
-              fontFamily: "inherit",
-            }}
-          >
-            취소
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={lack}
-            style={{
-              flex: 2,
-              padding: "9px 0",
-              borderRadius: 10,
-              cursor: lack ? "not-allowed" : "pointer",
-              background: lack ? C.bgItem : C.violet,
-              border: "none",
-              color: lack ? C.textFaint : C.white,
-              fontSize: 11,
-              fontWeight: 700,
-              fontFamily: "inherit",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 5,
-            }}
-          >
-            <span>🪙</span> 마일리지로 결제
-          </button>
-        </div>
-      </div>
-    </div>
+      {/* 구매자: 결제하기 버튼 */}
+      {!isSeller && !isDone && stepIdx === 0 && (
+        <PayBtn onClick={onPay}>💳 결제하기</PayBtn>
+      )}
+      {/* 구매자: 인수하기 버튼 */}
+      {!isSeller && !isDone && stepIdx === 1 && (
+        <CompleteBtn onClick={onComplete}>✅ 인수하기</CompleteBtn>
+      )}
+    </SidePanel>
   );
 }
 
 // ── 메인 ChatPage ─────────────────────────────────────────────
 export default function ChatPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
-
-  // 백엔드 Member 응답 필드: id / memberId / userId 모두 대응
-  const myUserId = user?.memberId ?? user?.id ?? user?.userId;
-  const myMileage = user?.mileage ?? user?.point ?? user?.balance ?? 0;
+  const myNickname = user?.nickname ?? "";
+  const myMileage = user?.mileage ?? 0;
 
   const [rooms, setRooms] = useState([]);
   const [roomsLoad, setRoomsLoad] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [msgLoad, setMsgLoad] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [page, setPage] = useState(0);
-  const [search, setSearch] = useState("");
   const [input, setInput] = useState("");
-  const [showPayModal, setShowPayModal] = useState(false);
-  const [showListModal, setShowListModal] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showPay, setShowPay] = useState(false);
 
   const endRef = useRef(null);
-  const listRef = useRef(null);
-
   const activeRoom =
     rooms.find((r) => String(roomId(r)) === String(selectedId)) ?? null;
-  const isDone = getStepIdx(roomStatus(activeRoom ?? {})) >= 2;
-  const isSeller = String(roomSellerId(activeRoom ?? {})) === String(myUserId);
+  const isDone = getStep(roomStatus(activeRoom ?? {})) >= 2;
+  const isSeller = activeRoom?.sellerNickname === myNickname;
 
-  const quickReplies = isSeller
-    ? [
-        "접속 완료했습니다. 거래 진행해요.",
-        "아이템 준비 완료됐습니다.",
-        "거래 감사합니다!",
-      ]
-    : [
-        "인게임 위치가 어디인가요?",
-        "마일리지 예치 완료했습니다.",
-        "아이템 수령 완료했습니다!",
-      ];
-
-  // ── WebSocket 연동 ─────────────────────────────────────────
-  // useWebSocket(subscribeTopic, sendDestination, onMessage)
-  // subscribeTopic  : 수신 구독 경로 — 백엔드: /topic/chat/{chatRoomId}
-  // sendDestination : 발신 경로    — 백엔드: /app/chat/{chatRoomId}
-  const subscribeTopic = selectedId ? `/topic/chat/${selectedId}` : null;
-  const sendDestination = selectedId ? `/app/chat/${selectedId}` : null;
-
+  // WebSocket
+  const topic = selectedId ? `/topic/chat/${selectedId}` : null;
+  const dest = selectedId ? `/app/chat/${selectedId}` : null;
   const handleIncoming = useCallback(
     (msg) => {
       setMessages((prev) => {
-        // 중복 방지 (id 기준)
         if (msgId(msg) && prev.some((m) => msgId(m) === msgId(msg)))
           return prev;
         return [...prev, msg];
       });
-      // 목록의 lastMessage 업데이트
       setRooms((prev) =>
         prev.map((r) =>
           String(roomId(r)) === String(selectedId)
@@ -1243,43 +402,36 @@ export default function ChatPage() {
     [selectedId],
   );
 
-  // hook 호출 — 시그니처: (subscribeTopic, sendDestination, onMessage)
-  const { sendMessage } = useWebSocket(
-    subscribeTopic,
-    sendDestination,
-    handleIncoming,
-  );
+  const { sendMessage } = useWebSocket(topic, dest, handleIncoming);
 
-  // ── 채팅방 목록 로드 ──────────────────────────────────────
+  // 채팅방 목록 로드
   useEffect(() => {
     setRoomsLoad(true);
     ChatApi.getChatRooms()
       .then((res) => {
-        // 백엔드 응답: { data: [...] } 또는 배열 직접
         const list = res.data?.data ?? res.data ?? [];
         setRooms(list);
-        if (list.length > 0 && !selectedId) {
+        // URL roomId 파라미터 우선
+        const urlRoom = searchParams.get("roomId");
+        if (urlRoom) {
+          setSelectedId(String(urlRoom));
+        } else if (list.length > 0 && !selectedId) {
           setSelectedId(String(roomId(list[0])));
         }
       })
-      .catch((err) => console.error("채팅방 목록 오류", err))
+      .catch(() => {})
       .finally(() => setRoomsLoad(false));
   }, []);
 
-  // ── 메시지 로드 ───────────────────────────────────────────
-  const loadMessages = useCallback((rId, pg = 0, prepend = false) => {
+  // 메시지 로드
+  const loadMessages = useCallback((rId) => {
     if (!rId) return;
     setMsgLoad(true);
-    ChatApi.getChatMessages(rId, { page: pg, size: 30 })
+    ChatApi.getChatMessages(rId, { page: 0, size: 50 })
       .then((res) => {
-        // 백엔드: Page<ChatMessageResponse> → { data: { content: [...], last: bool } }
         const raw =
           res.data?.data?.content ?? res.data?.content ?? res.data ?? [];
-        const list = [...raw].reverse(); // 최신순 → 오래된순으로 뒤집어 렌더
-        setMessages((prev) => (prepend ? [...list, ...prev] : list));
-        setHasMore(!(res.data?.data?.last ?? res.data?.last ?? true));
-        setPage(pg);
-        // 읽음 처리
+        setMessages([...raw].reverse());
         ChatApi.readMessages(rId).catch(() => {});
         setRooms((prev) =>
           prev.map((r) =>
@@ -1287,72 +439,52 @@ export default function ChatPage() {
           ),
         );
       })
-      .catch((err) => console.error("메시지 로드 오류", err))
+      .catch(() => {})
       .finally(() => setMsgLoad(false));
   }, []);
 
   useEffect(() => {
-    if (selectedId) loadMessages(selectedId, 0);
-  }, [selectedId, loadMessages]);
-
-  // ── 스크롤 to bottom ──────────────────────────────────────
+    if (selectedId) loadMessages(selectedId);
+  }, [selectedId]);
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ── 무한 스크롤 (위로 스크롤 시 이전 메시지) ──────────────
-  const handleScroll = useCallback(
-    (e) => {
-      if (e.target.scrollTop === 0 && hasMore && !msgLoad) {
-        const prevH = e.target.scrollHeight;
-        loadMessages(selectedId, page + 1, true);
-        requestAnimationFrame(() => {
-          e.target.scrollTop = e.target.scrollHeight - prevH;
-        });
-      }
-    },
-    [hasMore, msgLoad, selectedId, page, loadMessages],
-  );
-
-  // ── 메시지 전송 ───────────────────────────────────────────
+  // 메시지 전송
   function handleSend(e) {
     e.preventDefault();
     if (!input.trim() || !selectedId) return;
     const content = input.trim();
     setInput("");
-
-    // 낙관적 업데이트
-    const optimistic = {
+    const opt = {
       id: `opt-${Date.now()}`,
-      senderId: myUserId,
+      senderId: myNickname,
       content,
       sentAt: new Date().toISOString(),
       isRead: false,
     };
-    setMessages((prev) => [...prev, optimistic]);
-
-    // useWebSocket.sendMessage(body) — body는 백엔드 ChatMessageRequest DTO에 맞춤
-    // 백엔드: { content: string } 또는 { message: string } — 팀 백엔드 확인 필요
+    setMessages((prev) => [...prev, opt]);
     sendMessage({ content, type: "CHAT" });
   }
 
-  // ── 결제 확인 ─────────────────────────────────────────────
-  function handleMileagePay() {
+  // 결제 확인
+  function handlePayConfirm(method) {
     if (!activeRoom) return;
-    const price = activeRoom.itemPrice ?? activeRoom.price ?? 0;
-    const fee = Math.floor(price * 0.015);
+    const price =
+      activeRoom.itemPrice ?? activeRoom.basePrice ?? activeRoom.price ?? 0;
+    const fee = Math.floor(price * 0.05);
     const total = price + fee;
-
-    // 로컬 결제 완료 카드 삽입 (백엔드에서 SYSTEM 메시지로 내려오기 전 낙관적 표시)
-    const card = {
-      id: `pay-${Date.now()}`,
-      messageType: "PAYMENT_CARD",
-      totalAmount: total,
-      tradeChar: activeRoom.tradeChar ?? "—",
-      sentAt: new Date().toISOString(),
-      isRead: true,
-    };
-    setMessages((prev) => [...prev, card]);
+    // 결제 완료 카드 메시지 삽입
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `pay-${Date.now()}`,
+        messageType: "PAYMENT_CARD",
+        totalAmount: total,
+        method,
+        sentAt: new Date().toISOString(),
+      },
+    ]);
     setRooms((prev) =>
       prev.map((r) =>
         String(roomId(r)) === String(selectedId)
@@ -1360,13 +492,11 @@ export default function ChatPage() {
           : r,
       ),
     );
-    setShowPayModal(false);
-
-    // TODO: 실제 결제 API 호출 — 팀 결제 파트 연동
-    // WonPayApi.pay({ chatRoomId: selectedId, amount: total })
+    setShowPay(false);
+    // TODO: WonPayApi.pay({ chatRoomId: selectedId, amount: total, method })
   }
 
-  // ── 인수 완료 ─────────────────────────────────────────────
+  // 인수 완료
   function handleComplete() {
     if (!activeRoom || isDone) return;
     if (!window.confirm("거래를 최종 인수 완료 처리하겠습니까?")) return;
@@ -1377,461 +507,1015 @@ export default function ChatPage() {
           : r,
       ),
     );
-    // 로컬 시스템 메시지
     setMessages((prev) => [
       ...prev,
       {
         id: `sys-${Date.now()}`,
         messageType: "SYSTEM",
-        content: "거래 완료. 마일리지가 판매자에게 이관되었습니다.",
+        content: "거래 완료되었습니다. 마일리지가 판매자에게 이관되었습니다.",
         sentAt: new Date().toISOString(),
-        isRead: true,
       },
     ]);
-    // TODO: 거래 완료 API 호출
-    // TradeApi.complete(activeRoom.tradeId)
   }
 
-  // ── 렌더 ──────────────────────────────────────────────────
+  const quickReplies = isSeller
+    ? [
+        "안녕하세요! 거래 진행해요.",
+        "아이템 준비 완료됐습니다.",
+        "거래 감사합니다!",
+      ]
+    : ["얼마까지 가능하신가요?", "결제 완료했습니다.", "아이템 수령 완료!"];
+
   return (
-    <div
-      style={{
-        height: "100vh",
-        background: C.bg,
-        color: C.text,
-        fontFamily:
-          "'Pretendard','Noto Sans KR','Apple SD Gothic Neo',sans-serif",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
+    <Wrap>
       <style>{`
         @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
         *{box-sizing:border-box}
-        ::-webkit-scrollbar{width:3px;height:3px}
-        ::-webkit-scrollbar-track{background:transparent}
-        ::-webkit-scrollbar-thumb{background:${C.border};border-radius:4px}
-        input::placeholder{color:${C.textFaint}}
-        button{font-family:inherit}
+        ::-webkit-scrollbar{width:4px}
+        ::-webkit-scrollbar-thumb{background:#2a2a3e;border-radius:4px}
+        input::placeholder,textarea::placeholder{color:#52525b}
       `}</style>
 
-      {showPayModal && activeRoom && (
-        <MileageModal
+      {showPay && activeRoom && (
+        <PaymentModal
           room={activeRoom}
           myMileage={myMileage}
-          onConfirm={handleMileagePay}
-          onCancel={() => setShowPayModal(false)}
-        />
-      )}
-      {showListModal && (
-        <ChatListModal
-          rooms={rooms}
-          loading={roomsLoad}
-          selectedId={selectedId}
-          search={search}
-          onSearch={setSearch}
-          onSelect={(id) => setSelectedId(String(id))}
-          onClose={() => setShowListModal(false)}
+          onConfirm={handlePayConfirm}
+          onCancel={() => setShowPay(false)}
         />
       )}
 
+      {/* 채팅 목록 */}
+      <RoomList
+        rooms={rooms}
+        loading={roomsLoad}
+        selectedId={selectedId}
+        onSelect={(id) => setSelectedId(String(id))}
+        search={search}
+        onSearch={setSearch}
+      />
+
+      {/* 채팅 영역 */}
       {activeRoom ? (
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            overflow: "hidden",
-            border: `1px solid ${C.violetBorder}`,
-          }}
-        >
-          {/* ── 채팅 영역 ── */}
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              minWidth: 0,
-            }}
-          >
-            {/* 헤더 */}
-            <div
-              style={{
-                padding: "10px 16px",
-                flexShrink: 0,
-                borderBottom: `1px solid ${C.borderFaint}`,
-                background: C.bgPanel,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={txt(12, 700)}>
-                    파트너(마족) / {roomPartnerName(activeRoom)}
-                  </span>
-                  {activeRoom.partnerOnline && (
-                    <span
-                      style={{
-                        padding: "1px 6px",
-                        borderRadius: 99,
-                        fontSize: 9,
-                        fontWeight: 700,
-                        background: "rgba(34,197,94,.15)",
-                        color: C.online,
-                        border: "1px solid rgba(34,197,94,.3)",
-                      }}
-                    >
-                      ● ONLINE
-                    </span>
-                  )}
-                </div>
-                <div style={txt(10, 400, C.textMuted)}>
-                  {activeRoom.gameServer ??
-                    activeRoom.gameName ??
-                    "거래 진행 중"}
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    background: C.bgItem,
-                    border: `1px solid ${C.border}`,
-                    color: C.textSub,
-                    fontSize: 13,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  🔍
-                </button>
-                <button
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    background: C.bgItem,
-                    border: `1px solid ${C.border}`,
-                    color: C.textSub,
-                    fontSize: 16,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  ⋯
-                </button>
-              </div>
-            </div>
+        <ChatArea>
+          {/* 헤더 */}
+          <ChatHeader>
+            <HeaderLeft>
+              <HeaderTitle>
+                파트너(마족) / {roomPartner(activeRoom)}
+                {activeRoom.partnerOnline && <OnlinePill>● ONLINE</OnlinePill>}
+              </HeaderTitle>
+              <HeaderSub>
+                {activeRoom.gameName ?? activeRoom.gameServer ?? "거래 진행 중"}
+              </HeaderSub>
+            </HeaderLeft>
+            <HeaderActions>
+              <HeaderBtn>🔍</HeaderBtn>
+              <HeaderBtn>⋯</HeaderBtn>
+            </HeaderActions>
+          </ChatHeader>
 
-            {/* 경고 배너 */}
-            <div
-              style={{
-                margin: "10px 14px 0",
-                padding: "7px 12px",
-                background: "rgba(239,68,68,.06)",
-                border: "1px solid rgba(239,68,68,.2)",
-                borderRadius: 8,
-                fontSize: 10,
-                color: "rgba(252,165,165,.85)",
-                display: "flex",
-                alignItems: "center",
-                gap: 7,
-                flexShrink: 0,
-              }}
-            >
-              ⚠ 채팅 내부에서 개인 정보 보호 목적으로 개인정보 7일까지
-              보관됩니다.
-            </div>
+          {/* 경고 배너 */}
+          <WarnBanner>
+            ⚠ 채팅 내부에서 개인정보 보호 목적으로 개인정보 7일까지 보관됩니다.
+          </WarnBanner>
 
-            {/* 메시지 목록 */}
-            <div
-              ref={listRef}
-              onScroll={handleScroll}
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: "14px 16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}
-            >
-              {msgLoad && page === 0 ? (
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 10 }}
-                >
-                  {[1, 2, 3, 4].map((i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: "flex",
-                        flexDirection: i % 2 === 0 ? "row-reverse" : "row",
-                        gap: 8,
-                      }}
-                    >
-                      <Skeleton w={28} h={28} r={8} />
-                      <Skeleton w={`${40 + i * 8}%`} h={36} r={12} />
-                    </div>
-                  ))}
-                </div>
-              ) : messages.length === 0 ? (
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: C.textFaint,
-                    fontSize: 12,
-                  }}
-                >
-                  아직 메시지가 없습니다. 먼저 인사해 보세요! 👋
-                </div>
-              ) : (
-                messages.map((msg, i) => (
-                  <ChatMessage
-                    key={msgId(msg) ?? i}
-                    msg={msg}
-                    myUserId={myUserId}
-                    partnerAvatar={activeRoom.partnerAvatar ?? "👤"}
-                  />
-                ))
-              )}
-              <div ref={endRef} />
-            </div>
-
-            {/* 거래 완료 배너 */}
-            {isDone && (
-              <div
-                style={{
-                  margin: "0 14px 8px",
-                  padding: "8px 12px",
-                  background: "rgba(239,68,68,.06)",
-                  border: "1px solid rgba(239,68,68,.2)",
-                  borderRadius: 8,
-                  fontSize: 10,
-                  color: "rgba(252,165,165,.85)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  flexShrink: 0,
-                }}
-              >
-                ⚠ 이 채팅은 거래가 완료된 채팅방입니다.
-              </div>
+          {/* 메시지 목록 */}
+          <MsgList>
+            {msgLoad ? (
+              <EmptyMsg style={{ color: "#555" }}>메시지 로딩 중...</EmptyMsg>
+            ) : messages.length === 0 ? (
+              <EmptyMsg>
+                아직 메시지가 없습니다. 먼저 인사해 보세요! 👋
+              </EmptyMsg>
+            ) : (
+              messages.map((msg, i) => {
+                // 시스템 메시지
+                if (msgType(msg) === "SYSTEM")
+                  return (
+                    <SystemMsg key={msgId(msg) ?? i}>
+                      <span>🔒</span>
+                      {msgContent(msg)}
+                    </SystemMsg>
+                  );
+                // 결제 카드
+                if (msgType(msg) === "PAYMENT_CARD")
+                  return (
+                    <PayCardWrap key={msgId(msg) ?? i}>
+                      <PayCard>
+                        <PayCardHeader>
+                          <PayCardCheck>✓</PayCardCheck>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700 }}>
+                              결제 완료되었습니다.
+                            </div>
+                            <div style={{ fontSize: 11, color: "#888da8" }}>
+                              안전하게 거래를 진행해 주세요.
+                            </div>
+                          </div>
+                        </PayCardHeader>
+                        <PayCardBody>
+                          <PayCardRow>
+                            <span style={{ fontSize: 11, color: "#888da8" }}>
+                              결제 수단
+                            </span>
+                            <span style={{ fontSize: 12, fontWeight: 600 }}>
+                              {msg.method === "card" ? "카드 결제" : "마일리지"}
+                            </span>
+                          </PayCardRow>
+                          <PayCardRow>
+                            <span style={{ fontSize: 11, color: "#888da8" }}>
+                              총 결제금액
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 14,
+                                fontWeight: 800,
+                                color: "#6366f1",
+                              }}
+                            >
+                              {Number(msg.totalAmount ?? 0).toLocaleString()}{" "}
+                              KRW
+                            </span>
+                          </PayCardRow>
+                        </PayCardBody>
+                        <PayCardFooter>
+                          🔒 결제 완료 후 물품을 상대방에게 전달해 주세요.
+                        </PayCardFooter>
+                      </PayCard>
+                    </PayCardWrap>
+                  );
+                // 일반 메시지
+                const isMe =
+                  msgSender(msg) === myNickname ||
+                  msgSender(msg) === String(user?.memberId ?? user?.id ?? "");
+                return (
+                  <MsgRow key={msgId(msg) ?? i} $isMe={isMe}>
+                    {!isMe && (
+                      <MsgAvatar>
+                        {(roomPartner(activeRoom)[0] || "?").toUpperCase()}
+                      </MsgAvatar>
+                    )}
+                    <MsgBubbleWrap $isMe={isMe}>
+                      <MsgBubble $isMe={isMe}>{msgContent(msg)}</MsgBubble>
+                      <MsgMeta $isMe={isMe}>
+                        {isMe && (
+                          <ReadLabel>
+                            {msgRead(msg) ? "읽음" : "전송"}
+                          </ReadLabel>
+                        )}
+                        <MsgTime>
+                          {msgTime(msg) ? fmtTime(msgTime(msg)) : ""}
+                        </MsgTime>
+                      </MsgMeta>
+                    </MsgBubbleWrap>
+                  </MsgRow>
+                );
+              })
             )}
+            <div ref={endRef} />
+          </MsgList>
 
-            {/* 인수하기 버튼 */}
-            {!isSeller &&
-              !isDone &&
-              (roomStatus(activeRoom) === "PAID" ||
-                roomStatus(activeRoom) === "대금보관" ||
-                roomStatus(activeRoom) === "TRANSFER_PENDING" ||
-                roomStatus(activeRoom) === "인수대기") && (
-                <div style={{ padding: "0 14px 8px", flexShrink: 0 }}>
-                  <button
-                    onClick={handleComplete}
-                    style={{
-                      width: "100%",
-                      padding: "10px 0",
-                      background: C.violet,
-                      border: "none",
-                      borderRadius: 10,
-                      color: C.white,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                    }}
-                  >
-                    ✅ 인수하기
-                  </button>
-                </div>
-              )}
+          {/* 거래완료 배너 */}
+          {isDone && (
+            <DoneBanner>⚠ 이 채팅은 거래가 완료된 채팅방입니다.</DoneBanner>
+          )}
 
-            {/* 빠른 답장 */}
-            {!isDone && (
-              <div
-                style={{
-                  padding: "6px 12px",
-                  borderTop: `1px solid ${C.borderFaint}`,
-                  display: "flex",
-                  gap: 6,
-                  overflowX: "auto",
-                  flexShrink: 0,
+          {/* 인수하기 버튼 (구매자 & 결제완료 상태) */}
+          {!isSeller && !isDone && getStep(roomStatus(activeRoom)) === 1 && (
+            <CompleteBtnBottom onClick={handleComplete}>
+              ✅ 인수하기 (거래 완료)
+            </CompleteBtnBottom>
+          )}
+
+          {/* 빠른 답장 */}
+          {!isDone && (
+            <QuickRow>
+              {quickReplies.map((q) => (
+                <QuickBtn key={q} onClick={() => setInput(q)}>
+                  {q}
+                </QuickBtn>
+              ))}
+            </QuickRow>
+          )}
+
+          {/* 입력창 */}
+          <InputArea onSubmit={handleSend}>
+            <InputBox>
+              <InputBtns>
+                <InputIcon type="button">📎</InputIcon>
+                <InputIcon type="button">😊</InputIcon>
+              </InputBtns>
+              <InputField
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="[공지] 계정 인계 전 입금내역 확인 하세요."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend(e);
+                  }
                 }}
-              >
-                {quickReplies.map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => setInput(q)}
-                    style={{
-                      flexShrink: 0,
-                      padding: "5px 10px",
-                      borderRadius: 99,
-                      cursor: "pointer",
-                      background: C.bgItem,
-                      border: `1px solid ${C.border}`,
-                      color: C.textSub,
-                      fontSize: 10,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* 입력창 */}
-            <form
-              onSubmit={handleSend}
-              style={{
-                padding: "10px 12px",
-                borderTop: `1px solid ${C.borderFaint}`,
-                display: "flex",
-                alignItems: "flex-end",
-                gap: 10,
-                flexShrink: 0,
-              }}
-            >
-              <div
-                style={{
-                  flex: 1,
-                  background: C.bgCard,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 12,
-                  display: "flex",
-                  alignItems: "flex-end",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "0 4px",
-                  }}
-                >
-                  {["📎", "😊"].map((icon) => (
-                    <button
-                      key={icon}
-                      type="button"
-                      style={{
-                        width: 28,
-                        height: 28,
-                        background: "none",
-                        border: "none",
-                        color: C.textFaint,
-                        fontSize: 14,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {icon}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="[공지] 계정 인게 전 입금내역 확인 하세요."
-                  style={{
-                    flex: 1,
-                    background: "transparent",
-                    border: "none",
-                    padding: "10px 8px",
-                    fontSize: 11,
-                    color: C.text,
-                    outline: "none",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 9,
-                    color: C.textFaint,
-                    padding: "0 8px 10px",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Shift + Enter for new line
-                </span>
-              </div>
-              <button
-                type="submit"
-                disabled={!input.trim()}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
-                  flexShrink: 0,
-                  cursor: input.trim() ? "pointer" : "not-allowed",
-                  background: input.trim() ? C.violet : C.bgItem,
-                  border: `1px solid ${input.trim() ? C.violet : C.border}`,
-                  color: input.trim() ? C.white : C.textFaint,
-                  fontSize: 16,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                ➤
-              </button>
-            </form>
-          </div>
-
-          {/* ── 우측 사이드바 ── */}
-          <PartnerSidebar
-            room={activeRoom}
-            myUserId={myUserId}
-            onPayment={() => setShowPayModal(true)}
-            onChatList={() => setShowListModal(true)}
-          />
-        </div>
+              />
+              <ShiftHint>Shift + Enter for new line</ShiftHint>
+            </InputBox>
+            <SendBtn type="submit" $active={!!input.trim()}>
+              ➤
+            </SendBtn>
+          </InputArea>
+        </ChatArea>
       ) : (
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 16,
-          }}
-        >
+        <NoChat>
           <span style={{ fontSize: 48 }}>💬</span>
-          <p style={txt(14, 400, C.textFaint)}>채팅방을 선택해 주세요</p>
-          <button
-            onClick={() => setShowListModal(true)}
-            style={{
-              padding: "10px 20px",
-              borderRadius: 10,
-              background: C.violet,
-              border: "none",
-              color: C.white,
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            채팅목록 열기
-          </button>
-        </div>
+          <p style={{ color: "#555", marginTop: 16 }}>채팅방을 선택해 주세요</p>
+        </NoChat>
       )}
-    </div>
+
+      {/* 우측 사이드바 */}
+      {activeRoom && (
+        <Sidebar
+          room={activeRoom}
+          myNickname={myNickname}
+          onPay={() => setShowPay(true)}
+          onComplete={handleComplete}
+        />
+      )}
+    </Wrap>
   );
 }
+
+// ── Styled Components ──────────────────────────────────────────
+const fadeIn = keyframes`from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}`;
+
+const Wrap = styled.div`
+  display: flex;
+  height: 100vh;
+  background: #0a0a0f;
+  color: #f1f1f5;
+  font-family: "Pretendard", "Noto Sans KR", sans-serif;
+  overflow: hidden;
+`;
+
+// ── 목록 패널
+const ListPanel = styled.div`
+  width: 300px;
+  flex-shrink: 0;
+  background: #0d0d14;
+  border-right: 1px solid #2a2a3e;
+  display: flex;
+  flex-direction: column;
+  @media (max-width: 768px) {
+    width: 100%;
+    display: ${(p) => (p.$hidden ? "none" : "flex")};
+  }
+`;
+const ListHeader = styled.div`
+  padding: 20px 16px 12px;
+  border-bottom: 1px solid #1e1e2a;
+`;
+const ListTitle = styled.div`
+  font-size: 18px;
+  font-weight: 800;
+`;
+const SearchWrap = styled.div`
+  position: relative;
+  padding: 10px 12px;
+  border-bottom: 1px solid #1e1e2a;
+`;
+const SearchIcon = styled.span`
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  pointer-events: none;
+`;
+const SearchInput = styled.input`
+  width: 100%;
+  background: #13131c;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 8px 10px 8px 30px;
+  font-size: 12px;
+  color: #f1f1f5;
+  outline: none;
+`;
+const RoomScroll = styled.div`
+  flex: 1;
+  overflow-y: auto;
+`;
+const RoomItem = styled.div`
+  display: flex;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #1e1e2a;
+  background: ${(p) => (p.$active ? "#1a1a26" : "transparent")};
+  border-left: 3px solid ${(p) => (p.$active ? "#6c5ce7" : "transparent")};
+  transition: background 0.15s;
+  &:hover {
+    background: #1a1a26;
+  }
+`;
+const RoomAvatar = styled.div`
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #2a2a3e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+`;
+const RoomInfo = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+const RoomTop = styled.div`
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+`;
+const RoomName = styled.div`
+  font-size: 13px;
+  font-weight: 700;
+`;
+const RoomTime = styled.div`
+  font-size: 10px;
+  color: #52525b;
+`;
+const RoomItemName = styled.div`
+  font-size: 11px;
+  color: #6c5ce7;
+  font-weight: 600;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+const RoomBottom = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+const RoomLastMsg = styled.div`
+  font-size: 11px;
+  color: #71717a;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+const RoomStatusBadge = styled.span`
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+`;
+const UnreadBadge = styled.div`
+  width: 18px;
+  height: 18px;
+  border-radius: 99px;
+  background: #6c5ce7;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+`;
+const EmptyMsg = styled.div`
+  text-align: center;
+  padding: 40px 16px;
+  color: #52525b;
+  font-size: 13px;
+`;
+
+// ── 채팅 영역
+const ChatArea = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid #2a2a3e;
+`;
+const ChatHeader = styled.div`
+  padding: 12px 16px;
+  background: #0d0d14;
+  border-bottom: 1px solid #1e1e2a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+`;
+const HeaderLeft = styled.div``;
+const HeaderTitle = styled.div`
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+const OnlinePill = styled.span`
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+`;
+const HeaderSub = styled.div`
+  font-size: 11px;
+  color: #71717a;
+  margin-top: 2px;
+`;
+const HeaderActions = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+const HeaderBtn = styled.button`
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #13131c;
+  border: 1px solid #2a2a3e;
+  color: #a1a1b5;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+const WarnBanner = styled.div`
+  margin: 8px 12px 0;
+  padding: 6px 12px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  font-size: 10px;
+  color: rgba(252, 165, 165, 0.85);
+  flex-shrink: 0;
+`;
+const MsgList = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+const SystemMsg = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #13131c;
+  border: 1px solid #2a2a3e;
+  border-radius: 14px;
+  padding: 6px 14px;
+  font-size: 11px;
+  color: #a1a1b5;
+  align-self: center;
+  max-width: 80%;
+  text-align: center;
+`;
+const PayCardWrap = styled.div`
+  display: flex;
+  justify-content: center;
+`;
+const PayCard = styled.div`
+  width: 280px;
+  background: #13131c;
+  border: 1px solid #2a2a3e;
+  border-radius: 14px;
+  overflow: hidden;
+  animation: ${fadeIn} 0.2s ease;
+`;
+const PayCardHeader = styled.div`
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #1e1e2a;
+`;
+const PayCardCheck = styled.div`
+  width: 26px;
+  height: 26px;
+  border-radius: 99px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #10b981;
+  font-weight: 700;
+`;
+const PayCardBody = styled.div`
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+const PayCardRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+const PayCardFooter = styled.div`
+  padding: 8px 16px;
+  background: rgba(59, 130, 246, 0.05);
+  border-top: 1px solid #1e1e2a;
+  font-size: 10px;
+  color: rgba(147, 197, 253, 0.7);
+`;
+const MsgRow = styled.div`
+  display: flex;
+  flex-direction: ${(p) => (p.$isMe ? "row-reverse" : "row")};
+  align-items: flex-end;
+  gap: 8px;
+`;
+const MsgAvatar = styled.div`
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+`;
+const MsgBubbleWrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: ${(p) => (p.$isMe ? "flex-end" : "flex-start")};
+  max-width: 65%;
+  gap: 3px;
+`;
+const MsgBubble = styled.div`
+  padding: 10px 14px;
+  border-radius: 16px;
+  border-bottom-right-radius: ${(p) => (p.$isMe ? "4px" : "16px")};
+  border-bottom-left-radius: ${(p) => (p.$isMe ? "16px" : "4px")};
+  background: ${(p) => (p.$isMe ? "#6c5ce7" : "#1a1a26")};
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.5;
+  border: ${(p) => (p.$isMe ? "none" : "1px solid #2a2a3e")};
+`;
+const MsgMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-direction: ${(p) => (p.$isMe ? "row-reverse" : "row")};
+`;
+const ReadLabel = styled.span`
+  font-size: 10px;
+  color: #6c5ce7;
+`;
+const MsgTime = styled.span`
+  font-size: 10px;
+  color: #52525b;
+`;
+const DoneBanner = styled.div`
+  margin: 0 12px 8px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  font-size: 10px;
+  color: rgba(252, 165, 165, 0.85);
+  flex-shrink: 0;
+`;
+const CompleteBtnBottom = styled.button`
+  margin: 0 12px 8px;
+  padding: 11px;
+  background: #6c5ce7;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  &:hover {
+    opacity: 0.88;
+  }
+`;
+const QuickRow = styled.div`
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px;
+  border-top: 1px solid #1e1e2a;
+  overflow-x: auto;
+  flex-shrink: 0;
+`;
+const QuickBtn = styled.button`
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: #13131c;
+  border: 1px solid #2a2a3e;
+  color: #a1a1b5;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    border-color: #6c5ce7;
+    color: #fff;
+  }
+`;
+const InputArea = styled.form`
+  padding: 10px 12px;
+  border-top: 1px solid #1e1e2a;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+`;
+const InputBox = styled.div`
+  flex: 1;
+  background: #13131c;
+  border: 1px solid #2a2a3e;
+  border-radius: 12px;
+  display: flex;
+  align-items: flex-end;
+`;
+const InputBtns = styled.div`
+  display: flex;
+  padding: 0 4px;
+`;
+const InputIcon = styled.button`
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  color: #52525b;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+const InputField = styled.input`
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 10px 8px;
+  font-size: 12px;
+  color: #f1f1f5;
+`;
+const ShiftHint = styled.span`
+  font-size: 9px;
+  color: #52525b;
+  padding: 0 8px 10px;
+  white-space: nowrap;
+`;
+const SendBtn = styled.button`
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: ${(p) => (p.$active ? "#6c5ce7" : "#13131c")};
+  border: 1px solid ${(p) => (p.$active ? "#6c5ce7" : "#2a2a3e")};
+  color: ${(p) => (p.$active ? "#fff" : "#52525b")};
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+const NoChat = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+`;
+const OnlineDot = styled.div`
+  width: 10px;
+  height: 10px;
+  border-radius: 99px;
+  background: #22c55e;
+  border: 2px solid #0d0d14;
+  margin-left: auto;
+`;
+
+// ── 사이드바
+const SidePanel = styled.div`
+  width: 200px;
+  flex-shrink: 0;
+  background: #0d0d14;
+  border-left: 1px solid #1e1e2a;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+`;
+const SideSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+const SideSectionTitle = styled.div`
+  font-size: 10px;
+  font-weight: 700;
+  color: #52525b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+const PartnerRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+const PartnerAvatar = styled.div`
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+`;
+const PartnerDetail = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+const PartnerName = styled.div`
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+const PartnerSub = styled.div`
+  font-size: 9px;
+  color: #52525b;
+  margin-top: 2px;
+`;
+const VerifyRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: #13131c;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+`;
+const ActionBtns = styled.div`
+  display: flex;
+  gap: 6px;
+`;
+const ActionBtn = styled.button`
+  flex: 1;
+  padding: 7px 0;
+  background: #13131c;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  cursor: pointer;
+  color: ${(p) => (p.$warn ? "#f59e0b" : "#a1a1b5")};
+  font-size: 9px;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  span {
+    font-size: 13px;
+  }
+  &:hover {
+    border-color: #6c5ce7;
+  }
+`;
+const StepItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: ${(p) => (p.$active ? "rgba(108,92,231,.15)" : "#13131c")};
+  border: 1px solid ${(p) => (p.$active ? "rgba(108,92,231,.4)" : "#1e1e2a")};
+`;
+const StepDot = styled.div`
+  width: 20px;
+  height: 20px;
+  border-radius: 99px;
+  flex-shrink: 0;
+  background: ${(p) =>
+    p.$done ? "#6c5ce7" : p.$active ? "rgba(108,92,231,.2)" : "#13131c"};
+  border: 1px solid ${(p) => (p.$done || p.$active ? "#6c5ce7" : "#2a2a3e")};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: ${(p) => (p.$done ? "#fff" : p.$active ? "#6c5ce7" : "#52525b")};
+`;
+const PayBtn = styled.button`
+  width: 100%;
+  padding: 11px 0;
+  background: #6c5ce7;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover {
+    opacity: 0.88;
+  }
+`;
+const CompleteBtn = styled.button`
+  width: 100%;
+  padding: 11px 0;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 10px;
+  color: #10b981;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover {
+    background: rgba(16, 185, 129, 0.25);
+  }
+`;
+
+// ── 결제 모달
+const Overlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+`;
+const PayBox = styled.div`
+  width: 100%;
+  max-width: 480px;
+  background: #13131c;
+  border: 1px solid #2a2a3e;
+  border-radius: 18px;
+  overflow: hidden;
+  animation: ${fadeIn} 0.2s ease;
+`;
+const PaySection = styled.div`
+  padding: 18px 20px;
+  border-bottom: 1px solid #1e1e2a;
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+const PaySectionTitle = styled.div`
+  font-size: 12px;
+  font-weight: 700;
+  color: #888da8;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+const PayItemRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+const PayItemIcon = styled.div`
+  font-size: 28px;
+`;
+const PayItemInfo = styled.div`
+  flex: 1;
+`;
+const PayItemName = styled.div`
+  font-size: 14px;
+  font-weight: 700;
+`;
+const PayItemSub = styled.div`
+  font-size: 11px;
+  color: #888da8;
+  margin-top: 2px;
+`;
+const PayItemPrice = styled.div`
+  font-size: 16px;
+  font-weight: 800;
+  color: #c0c1ff;
+`;
+const PayMethodRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+const PayMethod = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: ${(p) => (p.$active ? "rgba(108,92,231,.12)" : "#0d0d14")};
+  border: 1px solid ${(p) => (p.$active ? "#6c5ce7" : "#2a2a3e")};
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  &:hover {
+    border-color: #6c5ce7;
+  }
+  span {
+    font-size: 22px;
+  }
+`;
+const CheckDot = styled.div`
+  margin-left: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 99px;
+  background: #6c5ce7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &::after {
+    content: "✓";
+    font-size: 10px;
+    color: #fff;
+    font-weight: 700;
+  }
+`;
+const PriceBreakdown = styled.div`
+  background: #0d0d14;
+  border: 1px solid #1e1e2a;
+  border-radius: 10px;
+  padding: 14px;
+`;
+const PriceRow2 = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: ${(p) => (p.$total ? "14px" : "13px")};
+  font-weight: ${(p) => (p.$total ? 700 : 400)};
+  color: ${(p) => (p.$total ? "#fff" : "#a1a1b5")};
+  padding: ${(p) => (p.$total ? "8px 0 0" : "4px 0")};
+`;
+const Divider = styled.div`
+  height: 1px;
+  background: #2a2a3e;
+  margin: 8px 0;
+`;
+const LackNotice = styled.div`
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  font-size: 11px;
+  color: #ef4444;
+`;
+const EscrowNote = styled.div`
+  margin-top: 10px;
+  font-size: 11px;
+  color: #52525b;
+`;
+const PayBtns = styled.div`
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px;
+`;
+const PayCancel = styled.button`
+  flex: 1;
+  padding: 12px 0;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #1a1a26;
+  border: 1px solid #2a2a3e;
+  color: #a1a1b5;
+  font-size: 13px;
+  font-weight: 600;
+  &:hover {
+    border-color: #6c5ce7;
+  }
+`;
+const PayConfirm = styled.button`
+  flex: 2;
+  padding: 12px 0;
+  border-radius: 10px;
+  cursor: pointer;
+  background: ${(p) => (p.disabled ? "#1a1a26" : "#6c5ce7")};
+  border: none;
+  color: ${(p) => (p.disabled ? "#52525b" : "#fff")};
+  font-size: 13px;
+  font-weight: 700;
+  opacity: ${(p) => (p.disabled ? 0.5 : 1)};
+  &:hover:not(:disabled) {
+    opacity: 0.88;
+  }
+`;
