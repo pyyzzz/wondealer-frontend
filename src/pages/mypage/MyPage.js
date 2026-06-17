@@ -1673,31 +1673,56 @@ const TAG_COLOR_MAP = {
 };
 
 const PAGE_SIZE_ACTIVITY = 3;
+// ============================================================
+// 이 파일의 두 함수(ActivityTab, ItemsTab)를 MyPage.jsx에서
+// 기존 동일한 이름의 함수와 교체하세요.
+// 나머지 코드(Icon, Badge, ChargeTab, WithdrawTab 등)는 그대로 유지.
+// ============================================================
 
+// ── 활동 기록 탭 ───────────────────────────────────────────────
+// 백엔드 엔드포인트:
+//   GET /api/members/me/trades?type=BUY|SELL&page=0  → 구매/판매 내역
+//   GET /api/members/me/bids?page=0                  → 경매(입찰) 내역
+// 현재 백엔드 미구현 → 500 응답 시 빈 배열 fallback 처리
 function ActivityTab() {
   const [activeSubTab, setActiveSubTab] = useState("구매 내역");
   const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState("전체");
   const PERIODS = ["전체", "1개월", "3개월", "6개월"];
+  const PAGE_SIZE_ACTIVITY = 10;
 
   useEffect(() => {
     let mounted = true;
     setLoading(true);
     setData([]);
     setPage(1);
-    fetch(`${SUB_TAB_API[activeSubTab]}?size=20`, {
-      headers: { Authorization: `Bearer ${token()}` },
-    })
+    setTotalPages(1);
+
+    const tk = token();
+    // 탭별 엔드포인트 분기
+    // 구매/판매는 /me/trades?type=BUY|SELL, 경매는 /me/bids
+    const url =
+      activeSubTab === "경매 내역"
+        ? `/api/members/me/bids?page=0&size=${PAGE_SIZE_ACTIVITY}`
+        : `/api/members/me/trades?type=${activeSubTab === "구매 내역" ? "BUY" : "SELL"}&page=0&size=${PAGE_SIZE_ACTIVITY}`;
+
+    fetch(url, { headers: { Authorization: `Bearer ${tk}` } })
       .then((res) => {
-        if (!res.ok) throw new Error();
+        // 501(미구현) 또는 기타 오류 → 빈 배열 처리
+        if (!res.ok) return null;
         return res.json();
       })
       .then((json) => {
-        if (!mounted) return;
-        const list = json?.data?.content ?? json?.content ?? json?.data ?? [];
-        setData(Array.isArray(list) ? list : []);
+        if (!mounted || !json) return;
+        // PageResDto 구조: { data: { content: [], totalPages: N } }
+        const content =
+          json?.data?.content ?? json?.content ?? json?.data ?? [];
+        const pages = json?.data?.totalPages ?? json?.totalPages ?? 1;
+        setData(Array.isArray(content) ? content : []);
+        setTotalPages(Math.max(1, pages));
       })
       .catch(() => {
         if (mounted) setData([]);
@@ -1705,16 +1730,75 @@ function ActivityTab() {
       .finally(() => {
         if (mounted) setLoading(false);
       });
+
     return () => {
       mounted = false;
     };
   }, [activeSubTab]);
 
-  const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE_ACTIVITY));
+  // 클라이언트 페이지네이션 (서버 페이징 구현 전까지)
   const pageData = data.slice(
     (page - 1) * PAGE_SIZE_ACTIVITY,
     page * PAGE_SIZE_ACTIVITY,
   );
+  const clientTotalPages = Math.max(
+    1,
+    Math.ceil(data.length / PAGE_SIZE_ACTIVITY),
+  );
+
+  // ItemListResDto 필드 → UI 필드 매핑
+  // 백엔드 구현 후 실제 trade DTO에 맞게 조정 필요
+  const mapItem = (item, i) => {
+    const id = item.itemId ?? item.id ?? item.orderId ?? i;
+    // tradeType: "DIRECT" | "AUCTION" / status: "SELLING" | "RESERVED" | "COMPLETED"
+    const rawTag = item.tag ?? item.tradeType ?? item.type ?? "";
+    const rawStatus = item.status ?? item.itemStatus ?? "";
+
+    const TAG_KO = {
+      DIRECT: "직거래",
+      AUCTION: "경매",
+      BUY: "구매",
+      SELL: "판매",
+    };
+    const STATUS_KO = {
+      SELLING: "판매중",
+      RESERVED: "예약중",
+      COMPLETED: "완료",
+      DELETED: "삭제됨",
+    };
+    const TAG_COLOR = {
+      DIRECT: "violet",
+      AUCTION: "amber",
+      BUY: "violet",
+      SELL: "green",
+    };
+    const STATUS_COLOR = {
+      SELLING: "green",
+      RESERVED: "amber",
+      COMPLETED: "zinc",
+      DELETED: "zinc",
+    };
+
+    return {
+      id,
+      tag: TAG_KO[rawTag] ?? rawTag,
+      tagColor: item.tagColor ?? TAG_COLOR[rawTag] ?? "zinc",
+      status: STATUS_KO[rawStatus] ?? rawStatus,
+      statusColor: item.statusColor ?? STATUS_COLOR[rawStatus] ?? "zinc",
+      title: item.title ?? item.itemName ?? item.name ?? "",
+      sub: item.createdAt
+        ? new Date(item.createdAt).toLocaleDateString("ko-KR")
+        : (item.sub ?? item.date ?? ""),
+      seller: item.sellerNickname ?? item.seller ?? item.counterpart ?? "",
+      price: item.basePrice ?? item.price ?? item.amount ?? 0,
+      img: item.thumbnailImg
+        ? null // 이미지 URL이면 <img> 렌더링
+        : (item.img ?? item.emoji ?? "📦"),
+      thumbnailImg: item.thumbnailImg ?? null,
+      gameName: item.gameName ?? "",
+      serverName: item.serverName ?? "",
+    };
+  };
 
   return (
     <div>
@@ -1740,7 +1824,10 @@ function ActivityTab() {
               key={tab}
               type="button"
               className={`mp-subtab-btn${activeSubTab === tab ? " active" : ""}`}
-              onClick={() => setActiveSubTab(tab)}
+              onClick={() => {
+                setActiveSubTab(tab);
+                setPage(1);
+              }}
             >
               {tab}
             </button>
@@ -1791,32 +1878,39 @@ function ActivityTab() {
       {loading ? (
         <div className="mp-empty">불러오는 중...</div>
       ) : pageData.length === 0 ? (
-        <div className="mp-empty">내역이 없습니다.</div>
+        <div className="mp-empty">{activeSubTab} 내역이 없습니다.</div>
       ) : (
         <div className="mp-activity-list">
-          {pageData.map((item, i) => {
-            const tag = item.tag ?? item.status ?? item.type ?? "";
-            const tagColor = item.tagColor ?? TAG_COLOR_MAP[tag] ?? "zinc";
-            const title = item.title ?? item.itemName ?? item.name ?? "";
-            const sub = item.sub ?? item.date ?? item.createdAt ?? "";
-            const seller = item.seller ?? item.counterpart ?? "";
-            const price = item.price ?? item.amount ?? 0;
-            const status = item.status ?? "";
-            const statusColor =
-              item.statusColor ?? TAG_COLOR_MAP[status] ?? "zinc";
-            const img = item.img ?? item.emoji ?? "📦";
-            const id = item.id ?? item.orderId ?? i;
+          {pageData.map((raw, i) => {
+            const item = mapItem(raw, i);
             return (
               <div
-                key={id}
+                key={item.id}
                 className="mp-activity-item"
                 style={{ alignItems: "center" }}
               >
                 <div
                   className="mp-activity-img"
-                  style={{ width: 48, height: 48, fontSize: 22 }}
+                  style={{
+                    width: 48,
+                    height: 48,
+                    fontSize: 22,
+                    overflow: "hidden",
+                  }}
                 >
-                  {img}
+                  {item.thumbnailImg ? (
+                    <img
+                      src={item.thumbnailImg}
+                      alt={item.title}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    item.img
+                  )}
                 </div>
                 <div className="mp-activity-body">
                   <div
@@ -1827,14 +1921,22 @@ function ActivityTab() {
                       marginBottom: 4,
                     }}
                   >
-                    <Badge color={tagColor}>{tag}</Badge>
+                    <Badge color={item.tagColor}>{item.tag}</Badge>
+                    {item.gameName && (
+                      <span style={{ fontSize: 10, color: "#52525b" }}>
+                        {item.gameName}
+                        {item.serverName ? ` · ${item.serverName}` : ""}
+                      </span>
+                    )}
                     <span style={{ fontSize: 10, color: "#52525b" }}>
-                      #{id}
+                      #{item.id}
                     </span>
                   </div>
-                  <div className="mp-activity-title">{title}</div>
-                  <div className="mp-activity-sub">{sub}</div>
-                  {seller && <div className="mp-activity-sub">{seller}</div>}
+                  <div className="mp-activity-title">{item.title}</div>
+                  <div className="mp-activity-sub">{item.sub}</div>
+                  {item.seller && (
+                    <div className="mp-activity-sub">{item.seller}</div>
+                  )}
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <div
@@ -1846,9 +1948,9 @@ function ActivityTab() {
                       marginBottom: 6,
                     }}
                   >
-                    ₩{fmt(price)}
+                    ₩{fmt(item.price)}
                   </div>
-                  <Badge color={statusColor}>{status}</Badge>
+                  <Badge color={item.statusColor}>{item.status}</Badge>
                 </div>
               </div>
             );
@@ -1856,7 +1958,7 @@ function ActivityTab() {
         </div>
       )}
 
-      {totalPages > 1 && (
+      {clientTotalPages > 1 && (
         <div className="mp-pagination">
           <button
             type="button"
@@ -1867,22 +1969,24 @@ function ActivityTab() {
           >
             &lt;
           </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <button
-              key={p}
-              type="button"
-              className={`mp-page-btn${p === page ? " active" : ""}`}
-              onClick={() => setPage(p)}
-            >
-              {p}
-            </button>
-          ))}
+          {Array.from({ length: clientTotalPages }, (_, i) => i + 1).map(
+            (p) => (
+              <button
+                key={p}
+                type="button"
+                className={`mp-page-btn${p === page ? " active" : ""}`}
+                onClick={() => setPage(p)}
+              >
+                {p}
+              </button>
+            ),
+          )}
           <button
             type="button"
             className="mp-page-btn"
-            disabled={page === totalPages}
+            disabled={page === clientTotalPages}
             onClick={() => setPage((p) => p + 1)}
-            style={{ opacity: page === totalPages ? 0.4 : 1 }}
+            style={{ opacity: page === clientTotalPages ? 0.4 : 1 }}
           >
             &gt;
           </button>
@@ -1893,86 +1997,124 @@ function ActivityTab() {
 }
 
 // ── 등록 물품 탭 ───────────────────────────────────────────────
+// 백엔드 엔드포인트:
+//   GET  /api/members/me/items?page=0   → ItemListResDto 페이지
+//   DELETE /api/items/{itemId}          → 물품 삭제 (구현됨)
+//   PUT  /api/items/{itemId}            → 가격 수정 (구현됨)
 function ItemsTab({ navigate }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [editPrice, setEditPrice] = useState("");
   const [deleting, setDeleting] = useState(null);
-  const [activeItemTab, setActiveItemTab] = useState("아이템");
-  const ITEM_TABS = ["아이템", "게임머니", "계정", "경매물품"];
+  const [saving, setSaving] = useState(null);
+  const [activeItemTab, setActiveItemTab] = useState("전체");
+  const ITEM_TABS = ["전체", "직거래", "경매"];
 
-  useEffect(() => {
-    let mounted = true;
-    fetch("/api/members/me/items", {
-      headers: { Authorization: `Bearer ${token()}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error();
-        return res.json();
-      })
-      .then((json) => {
-        if (!mounted) return;
-        const list = json?.data?.content ?? json?.content ?? json?.data ?? [];
-        setItems(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {
-        if (mounted) setItems([]);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // ItemStatus 한글 매핑
+  const STATUS_KO = {
+    SELLING: "판매중",
+    RESERVED: "예약중",
+    COMPLETED: "완료",
+    DELETED: "삭제됨",
+  };
+  const STATUS_COLOR = {
+    SELLING: "green",
+    RESERVED: "amber",
+    COMPLETED: "zinc",
+    DELETED: "zinc",
+  };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("이 물품을 삭제하시겠습니까?")) return;
-    setDeleting(id);
+  const fetchItems = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`/api/items/${id}`, {
-        method: "DELETE",
+      const res = await fetch("/api/members/me/items?page=0&size=50", {
         headers: { Authorization: `Bearer ${token()}` },
       });
       if (!res.ok) throw new Error();
-      setItems((prev) => prev.filter((item) => item.id !== id));
+      const json = await res.json();
+      // PageResDto: { data: { content: [...] } }
+      const list = json?.data?.content ?? json?.content ?? json?.data ?? [];
+      setItems(Array.isArray(list) ? list : []);
     } catch {
-      alert("삭제에 실패했습니다.");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
+
+  const handleDelete = async (itemId) => {
+    if (!window.confirm("이 물품을 삭제하시겠습니까?")) return;
+    setDeleting(itemId);
+    try {
+      const res = await fetch(`/api/items/${itemId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token()}` },
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.message || "삭제에 실패했습니다.");
+      }
+      setItems((prev) => prev.filter((item) => item.itemId !== itemId));
+    } catch (err) {
+      alert(err.message || "삭제에 실패했습니다.");
     } finally {
       setDeleting(null);
     }
   };
 
-  const handleEditSave = async (id) => {
+  const handleEditSave = async (itemId) => {
+    const price = Number(editPrice);
+    if (!price || price <= 0) {
+      alert("올바른 가격을 입력해주세요.");
+      return;
+    }
+    setSaving(itemId);
     try {
-      const res = await fetch(`/api/items/${id}`, {
-        method: "PATCH",
+      const res = await fetch(`/api/items/${itemId}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token()}`,
         },
-        body: JSON.stringify({ price: Number(editPrice) }),
+        // ItemUpdateReqDto에 맞춰 조정 (title, description, price 중 price만 변경)
+        body: JSON.stringify({ price }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.message || "수정에 실패했습니다.");
+      }
       setItems((prev) =>
         prev.map((item) =>
-          item.id === id ? { ...item, price: Number(editPrice) } : item,
+          item.itemId === itemId ? { ...item, basePrice: price } : item,
         ),
       );
       setEditingId(null);
-    } catch {
-      alert("수정에 실패했습니다.");
+    } catch (err) {
+      alert(err.message || "수정에 실패했습니다.");
+    } finally {
+      setSaving(null);
     }
   };
 
-  const sellingCount = items.filter(
-    (i) => (i.status ?? i.itemStatus) === "판매중",
-  ).length;
-  const reviewCount = items.filter(
-    (i) => (i.status ?? i.itemStatus) === "심사중",
-  ).length;
-  const totalPrice = items.reduce((s, i) => s + (i.price ?? 0), 0);
+  // ItemListResDto 필드: itemId, title, basePrice, tradeType, status,
+  //   gameName, serverName, categoryName, thumbnailImg, viewCount, createdAt
+  const filtered = items.filter((item) => {
+    if (activeItemTab === "전체") return true;
+    if (activeItemTab === "직거래") return item.tradeType === "DIRECT";
+    if (activeItemTab === "경매") return item.tradeType === "AUCTION";
+    return true;
+  });
+
+  const sellingCount = items.filter((i) => i.status === "SELLING").length;
+  const reservedCount = items.filter((i) => i.status === "RESERVED").length;
+  const totalPrice = items
+    .filter((i) => i.status === "COMPLETED")
+    .reduce((s, i) => s + (i.basePrice ?? 0), 0);
 
   if (loading) return <div className="mp-empty">불러오는 중...</div>;
 
@@ -1997,9 +2139,9 @@ function ItemsTab({ navigate }) {
       <div className="mp-items-stats">
         {[
           { label: "현재 판매중인 물품", value: sellingCount, cls: "violet" },
-          { label: "심사 대기중인 물품", value: reviewCount, cls: "amber" },
+          { label: "예약중인 물품", value: reservedCount, cls: "amber" },
           {
-            label: "누적 판매 금액",
+            label: "누적 완료 판매 금액",
             value: `₩${fmt(totalPrice)}`,
             cls: "green",
           },
@@ -2031,58 +2173,79 @@ function ItemsTab({ navigate }) {
           <thead>
             <tr>
               <th>아이템 정보</th>
-              <th>게임/서버</th>
-              <th>등급</th>
+              <th>게임 / 서버</th>
+              <th>카테고리</th>
               <th>가격</th>
               <th>상태</th>
               <th>관리</th>
             </tr>
           </thead>
           <tbody>
-            {items.length === 0 ? (
+            {filtered.length === 0 ? (
               <tr>
                 <td colSpan={6} className="mp-empty">
                   등록된 물품이 없습니다.
                 </td>
               </tr>
             ) : (
-              items.map((item) => {
-                const id = item.id ?? item.itemId;
-                const title = item.title ?? item.itemName ?? item.name ?? "";
-                const sub = item.sub ?? item.createdAt ?? item.date ?? "";
-                const server = item.server ?? item.gameName ?? "";
-                const tier = item.tier ?? item.grade ?? "";
-                const tierColor =
-                  item.tierColor ??
-                  (tier === "LEGENDARY"
-                    ? "amber"
-                    : tier === "EPIC"
-                      ? "violet"
-                      : "zinc");
-                const price = item.price ?? 0;
-                const status = item.status ?? item.itemStatus ?? "";
-                const statusColor =
-                  item.statusColor ??
-                  (status === "판매중"
-                    ? "green"
-                    : status === "심사중"
-                      ? "amber"
-                      : "zinc");
-                const img = item.img ?? item.emoji ?? "📦";
+              filtered.map((item) => {
+                const id = item.itemId;
+                const statusLabel = STATUS_KO[item.status] ?? item.status ?? "";
+                const statusColor = STATUS_COLOR[item.status] ?? "zinc";
+                const tradeLabel =
+                  item.tradeType === "AUCTION" ? "경매" : "직거래";
+                const tradeColor =
+                  item.tradeType === "AUCTION" ? "amber" : "violet";
+                const createdDate = item.createdAt
+                  ? new Date(item.createdAt).toLocaleDateString("ko-KR")
+                  : "";
+                const canEdit = item.status === "SELLING";
+
                 return (
                   <tr key={id}>
                     <td>
                       <div className="mp-item-cell">
-                        <div className="mp-item-icon">{img}</div>
+                        <div
+                          className="mp-item-icon"
+                          style={{ overflow: "hidden" }}
+                        >
+                          {item.thumbnailImg ? (
+                            <img
+                              src={item.thumbnailImg}
+                              alt={item.title}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          ) : (
+                            "📦"
+                          )}
+                        </div>
                         <div>
-                          <div className="mp-item-name">{title}</div>
-                          <div className="mp-item-date">{sub}</div>
+                          <div className="mp-item-name">{item.title}</div>
+                          <div className="mp-item-date">{createdDate}</div>
                         </div>
                       </div>
                     </td>
-                    <td style={{ color: "#a1a1aa" }}>{server}</td>
+                    <td style={{ color: "#a1a1aa", fontSize: 11 }}>
+                      {item.gameName ?? ""}
+                      {item.serverName ? ` · ${item.serverName}` : ""}
+                    </td>
                     <td>
-                      <Badge color={tierColor}>{tier}</Badge>
+                      <Badge color={tradeColor}>{tradeLabel}</Badge>
+                      {item.categoryName && (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "#71717a",
+                            marginTop: 4,
+                          }}
+                        >
+                          {item.categoryName}
+                        </div>
+                      )}
                     </td>
                     <td
                       style={{
@@ -2106,11 +2269,11 @@ function ItemsTab({ navigate }) {
                           autoFocus
                         />
                       ) : (
-                        fmt(price)
+                        `₩${fmt(item.basePrice ?? 0)}`
                       )}
                     </td>
                     <td>
-                      <Badge color={statusColor}>{status}</Badge>
+                      <Badge color={statusColor}>{statusLabel}</Badge>
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 4 }}>
@@ -2120,10 +2283,11 @@ function ItemsTab({ navigate }) {
                               className="mp-icon-btn"
                               type="button"
                               onClick={() => handleEditSave(id)}
+                              disabled={saving === id}
                               style={{ color: "#4ade80" }}
                               title="저장"
                             >
-                              ✓
+                              {saving === id ? "..." : "✓"}
                             </button>
                             <button
                               className="mp-icon-btn"
@@ -2139,11 +2303,18 @@ function ItemsTab({ navigate }) {
                             <button
                               className="mp-icon-btn"
                               type="button"
+                              disabled={!canEdit}
+                              style={{ opacity: canEdit ? 1 : 0.3 }}
                               onClick={() => {
+                                if (!canEdit) return;
                                 setEditingId(id);
-                                setEditPrice(String(price));
+                                setEditPrice(String(item.basePrice ?? 0));
                               }}
-                              title="수정"
+                              title={
+                                canEdit
+                                  ? "가격 수정"
+                                  : "판매중 상태에서만 수정 가능"
+                              }
                             >
                               <Icon.Edit2 />
                             </button>
