@@ -40,8 +40,17 @@ const GlobalStyle = createGlobalStyle`
     --color-primary-container: var(--primary-container);
     --on-primary: var(--on-primary);
     --color-secondary: var(--secondary);
-    --color-danger: var(--tertiary-container);
+    --color-danger: var(--error);
     --color-error: var(--error);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-accent: var(--accent);
+    --on-success: var(--on-success);
+    --on-warning: var(--on-warning);
+    --on-accent: var(--on-accent);
+    --rgb-primary: 192, 193, 255;
+    --rgb-danger: 255, 81, 106;
+    --rgb-success: 74, 222, 128;
     --border-color: var(--outline-variant);
     --outline: var(--outline);
   }
@@ -61,8 +70,17 @@ const GlobalStyle = createGlobalStyle`
     --color-primary-container: var(--primary-container);
     --on-primary: var(--on-primary);
     --color-secondary: var(--secondary);
-    --color-danger: var(--tertiary-container);
+    --color-danger: var(--error);
     --color-error: var(--error);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-accent: var(--accent);
+    --on-success: var(--on-success);
+    --on-warning: var(--on-warning);
+    --on-accent: var(--on-accent);
+    --rgb-primary: 70, 72, 212;
+    --rgb-danger: 220, 44, 79;
+    --rgb-success: 21, 128, 61;
     --border-color: var(--outline-variant);
     --outline: var(--outline);
   }
