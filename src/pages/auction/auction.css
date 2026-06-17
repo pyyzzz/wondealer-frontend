@@ -10,20 +10,62 @@
   border-radius: 14px;
   padding: 18px;
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
 }
-.auction-card:hover { border-color: var(--color-warning); transform: translateY(-2px); }
-.auction-emoji { font-size: 36px; margin-bottom: 10px; }
-.auction-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.auction-meta  { font-size: 11px; color: var(--text-faint); margin-bottom: 12px; }
-.auction-price-row { display: flex; justify-content: space-between; align-items: flex-end; }
-.auction-current  { font-size: 15px; font-weight: 800; color: var(--color-warning); }
-.auction-label    { font-size: 10px; color: var(--text-faint); margin-bottom: 2px; }
-.auction-timer    { font-size: 12px; font-weight: 700; color: var(--color-danger); }
-.auction-timer.ok { color: var(--color-secondary); }
+.auction-card:hover {
+  border-color: var(--color-warning);
+  transform: translateY(-2px);
+}
+.auction-emoji {
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+.auction-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.auction-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 12px;
+}
+.auction-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+.auction-current {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-warning);
+}
+.auction-label {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-bottom: 2px;
+}
+.auction-timer {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-danger);
+}
+.auction-timer.ok {
+  color: var(--color-secondary);
+}
 
 /* Auction Detail */
-.auction-detail { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+.auction-detail {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
 .bid-box {
   background: var(--bg-container);
   border: 1px solid var(--border-color);
@@ -31,7 +73,11 @@
   padding: 20px;
   margin-bottom: 20px;
 }
-.bid-input-row { display: flex; gap: 8px; margin-top: 10px; }
+.bid-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
 .bid-input {
   flex: 1;
   padding: 11px 14px;
@@ -43,7 +89,9 @@
   outline: none;
   transition: border-color 0.15s;
 }
-.bid-input:focus { border-color: var(--border-focus); }
+.bid-input:focus {
+  border-color: var(--border-focus);
+}
 .bid-submit {
   padding: 11px 24px;
   background: var(--color-warning);
@@ -53,8 +101,14 @@
   font-weight: 700;
   transition: opacity 0.15s;
 }
-.bid-submit:hover { opacity: 0.88; }
-.bid-history { display: flex; flex-direction: column; gap: 6px; }
+.bid-submit:hover {
+  opacity: 0.88;
+}
+.bid-history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .bid-row {
   display: flex;
   justify-content: space-between;
@@ -64,11 +118,24 @@
   border-radius: 8px;
   font-size: 13px;
 }
-.bid-row.top { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.2); }
+.bid-row.top {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
 /* Form styles (AuctionNew / shared) */
-.form-group { margin-bottom: 16px; }
-.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
-.form-input, .form-select {
+.form-group {
+  margin-bottom: 16px;
+}
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.form-input,
+.form-select {
   width: 100%;
   padding: 11px 14px;
   background: var(--bg-elevated);
@@ -79,6 +146,475 @@
   outline: none;
   transition: border-color 0.15s;
 }
-.form-input:focus, .form-select:focus { border-color: var(--border-focus); }
-.form-input::placeholder { color: var(--text-vfaint); }
-.form-input:disabled { opacity: 0.5; }
+.form-input:focus,
+.form-select:focus {
+  border-color: var(--border-focus);
+}
+.form-input::placeholder {
+  color: var(--text-vfaint);
+}
+.form-input:disabled {
+  opacity: 0.5;
+}
+
+/* ── Auction Detail Page (상세 페이지) ───────────────────────── */
+:root {
+  --detail-bg-panel: #14141c;
+  --detail-bg-panel-alt: #181820;
+  --detail-border: #2a2a36;
+  --detail-purple: #9b9cf7;
+  --detail-purple-dim: rgba(155, 156, 247, 0.14);
+  --detail-gold: #f0b94f;
+  --detail-green: #4ade9d;
+  --detail-red: #f4475e;
+  --detail-text: #f2f2f5;
+  --detail-text-dim: #9a9aa8;
+  --detail-text-faint: #6b6b78;
+}
+
+.detail-wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 28px 24px 60px;
+}
+
+@media (max-width: 480px) {
+  .detail-wrap {
+    padding: 16px 14px 40px;
+  }
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--detail-text-faint);
+  margin-bottom: 20px;
+}
+.breadcrumb a {
+  color: var(--detail-text-faint);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.breadcrumb a:hover {
+  color: var(--detail-purple);
+}
+.breadcrumb span:last-child {
+  color: var(--detail-text-dim);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .detail-grid {
+    gap: 16px;
+  }
+}
+
+/* 좌측: 이미지 */
+.detail-image-box {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      rgba(155, 156, 247, 0.1),
+      transparent 60%
+    ),
+    var(--detail-bg-panel);
+  border: 1px solid var(--detail-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.detail-image-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.detail-image-fallback {
+  font-size: 72px;
+}
+
+.detail-image-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.detail-image-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--detail-border);
+}
+.detail-image-dot.active {
+  background: var(--detail-purple);
+}
+
+.detail-desc-section {
+  margin-top: 14px;
+}
+.detail-desc-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--detail-text-dim);
+  margin-bottom: 8px;
+}
+.detail-desc-box {
+  background: var(--detail-bg-panel);
+  border: 1px solid var(--detail-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--detail-text-dim);
+  white-space: pre-wrap;
+}
+
+/* 우측: 정보 컬럼 */
+.detail-info-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-info-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--detail-text);
+  line-height: 1.35;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 480px) {
+  .detail-info-title {
+    font-size: 19px;
+  }
+}
+
+.detail-series-id {
+  font-size: 11px;
+  color: var(--detail-text-faint);
+  letter-spacing: 0.02em;
+  margin-bottom: 14px;
+}
+
+.detail-timer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+.detail-timer-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--detail-red);
+  box-shadow: 0 0 0 3px rgba(244, 71, 94, 0.18);
+}
+.detail-timer-label {
+  color: var(--detail-text-dim);
+}
+.detail-timer-value {
+  color: var(--detail-text);
+  font-weight: 700;
+  font-family: "SF Mono", monospace;
+}
+.detail-timer-row.ended .detail-timer-label {
+  color: var(--detail-red);
+  font-weight: 700;
+}
+
+.detail-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--detail-border);
+}
+.detail-stat-row.sub {
+  border-bottom: none;
+  padding-top: 6px;
+  padding-bottom: 16px;
+}
+.detail-stat-label {
+  font-size: 12px;
+  color: var(--detail-text-dim);
+}
+.detail-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--detail-text);
+}
+.detail-stat-value.highlight {
+  font-size: 24px;
+  color: var(--detail-purple);
+}
+.detail-stat-value.sub {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--detail-text-dim);
+}
+.detail-stat-value small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--detail-text-faint);
+  margin-left: 3px;
+}
+
+@media (max-width: 480px) {
+  .detail-stat-value {
+    font-size: 17px;
+  }
+  .detail-stat-value.highlight {
+    font-size: 20px;
+  }
+}
+
+.detail-bid-input-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--detail-bg-panel-alt);
+  border: 1px solid var(--detail-border);
+  border-radius: 10px;
+  padding: 4px 6px 4px 16px;
+  margin-bottom: 12px;
+}
+.detail-bid-input-label {
+  font-size: 12px;
+  color: var(--detail-text-dim);
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .detail-bid-input-row {
+    padding: 4px 6px 4px 12px;
+  }
+  .detail-bid-input-label {
+    font-size: 11px;
+  }
+}
+.detail-bid-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--detail-text);
+  padding: 10px 8px;
+}
+.detail-bid-input::placeholder {
+  color: var(--detail-text-faint);
+  font-weight: 500;
+}
+
+.detail-bid-hint {
+  font-size: 11px;
+  color: var(--detail-gold);
+  background: rgba(240, 185, 79, 0.1);
+  border: 1px solid rgba(240, 185, 79, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: -2px 0 12px;
+  line-height: 1.5;
+}
+
+.detail-action-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.detail-action-item {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.detail-action-item form,
+.detail-action-row form {
+  display: block;
+}
+
+.detail-btn-outline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 44px;
+  background: var(--detail-purple-dim);
+  border: 1px solid rgba(155, 156, 247, 0.35);
+  border-radius: 10px;
+  color: var(--detail-purple);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
+}
+.detail-btn-outline:hover {
+  background: rgba(155, 156, 247, 0.22);
+}
+.detail-btn-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.detail-btn-icon {
+  font-size: 14px;
+}
+
+@media (max-width: 480px) {
+  .detail-btn-outline {
+    font-size: 12px;
+    height: 42px;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 360px) {
+  .detail-btn-outline {
+    font-size: 11px;
+  }
+}
+
+.detail-btn-instant {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 44px;
+  margin-bottom: 18px;
+  background: rgba(74, 222, 157, 0.1);
+  border: 1px solid rgba(74, 222, 157, 0.3);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--detail-green);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.detail-btn-instant:hover {
+  background: rgba(74, 222, 157, 0.18);
+}
+
+/* 입찰 내역 */
+.detail-bidlist-box {
+  background: var(--detail-bg-panel);
+  border: 1px solid var(--detail-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-top: 18px;
+}
+
+@media (max-width: 480px) {
+  .detail-bidlist-box {
+    padding: 14px;
+  }
+  .detail-bid-amount {
+    font-size: 12px;
+  }
+}
+.detail-bidlist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--detail-text);
+}
+.detail-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--detail-green);
+  background: rgba(74, 222, 157, 0.12);
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.detail-status-badge.ended {
+  color: var(--detail-text-faint);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.detail-bidlist-empty {
+  font-size: 12px;
+  color: var(--detail-text-faint);
+  text-align: center;
+  padding: 10px 0;
+}
+
+.detail-bidlist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.detail-bidlist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+}
+.detail-bid-avatar {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--detail-purple-dim);
+  color: var(--detail-purple);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.detail-bid-name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--detail-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detail-bid-amount {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--detail-text);
+  white-space: nowrap;
+}
+
+.detail-bidlist-more {
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 0 0;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--detail-border);
+  color: var(--detail-text-faint);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.detail-bidlist-more:hover {
+  color: var(--detail-purple);
+}
