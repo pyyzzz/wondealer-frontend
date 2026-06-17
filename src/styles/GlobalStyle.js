@@ -1,8 +1,16 @@
 import { createGlobalStyle } from "styled-components";
-
+import { colors } from "./theme";
 // CSS 변수 기반 테마 시스템
 // 컴포넌트에서 var(--color-primary) 처럼 사용
 // 테마 전환 시 data-theme 속성만 바뀌고 컴포넌트 코드는 변경 불필요
+const toKebabCase = (str) =>
+  str.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, "$1-$2").toLowerCase();
+
+const generateCssVars = (themeColors) => {
+  return Object.entries(themeColors)
+    .map(([key, value]) => `--${toKebabCase(key)}: ${value};`)
+    .join("\n");
+};
 
 const GlobalStyle = createGlobalStyle`
   /* ── Google Fonts ─────────────────────────────────────────── */
@@ -15,51 +23,49 @@ const GlobalStyle = createGlobalStyle`
     padding: 0;
   }
 
-  /* ── 다크모드 CSS 변수 ─────────────────────────────────────── */
-  [data-theme='dark'], :root {
-    --bg-primary:       #121317;
-    --bg-container-low: #1a1b20;
-    --bg-container:     #1f1f24;
-    --bg-container-high:#292a2e;
-    --bg-surface-bright:#38393e;
+  /* ── CSS 변수 설정 (자동 생성 + 기존 변수 별칭 매핑) ───────────── */
+  :root {
+    /* 자동 생성되는 새 변수들 */
+    ${generateCssVars(colors.dark)}
 
-    --text-primary:     #e3e2e8;
-    --text-secondary:   #c7c4d7;
-
-    --color-primary:    #c0c1ff;
-    --color-primary-container: #8083ff;
-    --on-primary:       #1000a9;
-
-    --color-secondary:  #4edea3;
-    --color-danger:     #ff516a;
-    --color-error:      #ffb4ab;
-
-    --border-color:     #464554;
-    --outline:          #908fa0;
+    /* 기존 변수 호환성을 위한 별칭(Alias) */
+    --bg-primary: var(--background);
+    --bg-container-low: var(--surface-container-low);
+    --bg-container: var(--surface-container);
+    --bg-container-high: var(--surface-container-high);
+    --bg-surface-bright: var(--surface-bright);
+    --text-primary: var(--on-background);
+    --text-secondary: var(--on-surface-variant);
+    --color-primary: var(--primary);
+    --color-primary-container: var(--primary-container);
+    --on-primary: var(--on-primary);
+    --color-secondary: var(--secondary);
+    --color-danger: var(--tertiary-container);
+    --color-error: var(--error);
+    --border-color: var(--outline-variant);
+    --outline: var(--outline);
   }
+  [data-theme='light'] {
+    /* 자동 생성되는 새 변수들 */
+    ${generateCssVars(colors.light)}
 
-  /* ── 라이트모드 CSS 변수 (나중에 추가) ────────────────────── */
-  /* [data-theme='light'] {
-    --bg-primary:       #f9f9ff;
-    --bg-container-low: #f0f3ff;
-    --bg-container:     #e7eeff;
-    --bg-container-high:#dee8ff;
-    --bg-surface-bright:#f9f9ff;
-
-    --text-primary:     #111c2d;
-    --text-secondary:   #464554;
-
-    --color-primary:    #4648d4;
-    --color-primary-container: #6063ee;
-    --on-primary:       #ffffff;
-
-    --color-secondary:  #006591;
-    --color-danger:     #b90538;
-    --color-error:      #ba1a1a;
-
-    --border-color:     #c7c4d7;
-    --outline:          #767586;
-  } */
+    /* 기존 변수 호환성을 위한 별칭(Alias) */
+    --bg-primary: var(--background);
+    --bg-container-low: var(--surface-container-low);
+    --bg-container: var(--surface-container);
+    --bg-container-high: var(--surface-container-high);
+    --bg-surface-bright: var(--surface-bright);
+    --text-primary: var(--on-background);
+    --text-secondary: var(--on-surface-variant);
+    --color-primary: var(--primary);
+    --color-primary-container: var(--primary-container);
+    --on-primary: var(--on-primary);
+    --color-secondary: var(--secondary);
+    --color-danger: var(--tertiary-container);
+    --color-error: var(--error);
+    --border-color: var(--outline-variant);
+    --outline: var(--outline);
+  }
 
   /* ── body 기본 스타일 ─────────────────────────────────────── */
   body {
@@ -70,6 +76,7 @@ const GlobalStyle = createGlobalStyle`
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   /* ── 링크 기본 스타일 ─────────────────────────────────────── */
@@ -99,7 +106,7 @@ const GlobalStyle = createGlobalStyle`
     display: block;
   }
 
-  /* ── 스크롤바 (다크모드) ────────────────────────────────────── */
+  /* ── 스크롤바 ──────────────────────────────────────────────── */
   ::-webkit-scrollbar {
     width: 6px;
   }

@@ -4,36 +4,60 @@
 export const colors = {
   dark: {
     // 배경
-    background:              '#121317',
-    surfaceContainerLowest:  '#0d0e12',
-    surfaceContainerLow:     '#1a1b20',
-    surfaceContainer:        '#1f1f24',
-    surfaceContainerHigh:    '#292a2e',
+    surface: '#121317',
+    surfaceDim: '#121317',
+    surfaceBright: '#38393e',
+    surfaceContainerLowest: '#0d0e12',
+    surfaceContainerLow: '#1a1b20',
+    surfaceContainer: '#1f1f24',
+    surfaceContainerHigh: '#292a2e',
     surfaceContainerHighest: '#343439',
-    surfaceBright:           '#38393e',
+    surfaceVariant: '#343439',
+    background: '#121317',
+    inverseSurface: '#e3e2e8',
 
     // 텍스트
-    onSurface:        '#e3e2e8',
+    onSurface: '#e3e2e8',
     onSurfaceVariant: '#c7c4d7',
+    onBackground: '#e3e2e8',
+    inverseOnSurface: '#2f3035',
 
     // 포인트 컬러 (바이올렛)
-    primary:            '#c0c1ff',
-    onPrimary:          '#1000a9',
-    primaryContainer:   '#8083ff',
+    primary: '#c0c1ff',
+    onPrimary: '#1000a9',
+    primaryContainer: '#8083ff',
+    onPrimaryContainer: '#0d0096',
+    inversePrimary: '#494bd6',
+    surfaceTint: '#c0c1ff',
+    primaryFixed: '#e1e0ff',
+    primaryFixedDim: '#c0c1ff',
+    onPrimaryFixed: '#07006c',
+    onPrimaryFixedVariant: '#2f2ebe',
 
     // 보조 컬러 (그린)
-    secondary:          '#4edea3',
-    onSecondary:        '#003824',
+    secondary: '#4edea3',
+    onSecondary: '#003824',
     secondaryContainer: '#00a572',
-
+    onSecondaryContainer: '#00311f',
+    secondaryFixed: '#6ffbbe',
+    secondaryFixedDim: '#4edea3',
+    onSecondaryFixed: '#002113',
+    onSecondaryFixedVariant: '#005236',
     // 위험 컬러 (레드)
-    tertiary:           '#ffb2b7',
-    tertiaryContainer:  '#ff516a',
+    tertiary: '#ffb2b7',
+    onTertiary: '#67001b',
+    tertiaryContainer: '#ff516a',
+    onTertiaryContainer: '#5b0017',
+    tertiaryFixed: '#ffdadb',
+    tertiaryFixedDim: '#ffb2b7',
+    onTertiaryFixed: '#40000d',
+    onTertiaryFixedVariant: '#92002a',
 
     // 에러
-    error:          '#ffb4ab',
+    error: '#ffb4ab',
+    onError: '#690005',
     errorContainer: '#93000a',
-
+    onErrorContainer: '#ffdad6',
     // 선/구분선
     outline:        '#908fa0',
     outlineVariant: '#464554',
@@ -41,38 +65,64 @@ export const colors = {
 
   light: {
     // 배경
-    background:              '#f9f9ff',
-    surfaceContainerLowest:  '#ffffff',
-    surfaceContainerLow:     '#f0f3ff',
-    surfaceContainer:        '#e7eeff',
-    surfaceContainerHigh:    '#dee8ff',
+    surface: '#f9f9ff',
+    surfaceDim: '#cfdaf2',
+    surfaceBright: '#f9f9ff',
+    surfaceContainerLowest: '#ffffff',
+    surfaceContainerLow: '#f0f3ff',
+    surfaceContainer: '#e7eeff',
+    surfaceContainerHigh: '#dee8ff',
     surfaceContainerHighest: '#d8e3fb',
-    surfaceBright:           '#f9f9ff',
+    surfaceVariant: '#d8e3fb',
+    background: '#f9f9ff',
+    inverseSurface: '#263143',
 
     // 텍스트
-    onSurface:        '#111c2d',
+    onSurface: '#111c2d',
     onSurfaceVariant: '#464554',
+    onBackground: '#111c2d',
+    inverseOnSurface: '#ecf1ff',
 
     // 포인트 컬러 (인디고)
-    primary:            '#4648d4',
-    onPrimary:          '#ffffff',
-    primaryContainer:   '#6063ee',
+    primary: '#4648d4',
+    onPrimary: '#ffffff',
+    primaryContainer: '#6063ee',
+    onPrimaryContainer: '#fffbff',
+    inversePrimary: '#c0c1ff',
+    surfaceTint: '#494bd6',
+    primaryFixed: '#e1e0ff',
+    primaryFixedDim: '#c0c1ff',
+    onPrimaryFixed: '#07006c',
+    onPrimaryFixedVariant: '#2f2ebe',
 
     // 보조 컬러
-    secondary:          '#006591',
-    onSecondary:        '#ffffff',
+    secondary: '#006591',
+    onSecondary: '#ffffff',
     secondaryContainer: '#39b8fd',
+    onSecondaryContainer: '#004666',
+    secondaryFixed: '#c9e6ff',
+    secondaryFixedDim: '#89ceff',
+    onSecondaryFixed: '#001e2f',
+    onSecondaryFixedVariant: '#004c6e',
 
     // 위험 컬러
-    tertiary:           '#b90538',
-    tertiaryContainer:  '#dc2c4f',
+    tertiary: '#b90538',
+    onTertiary: '#ffffff',
+    tertiaryContainer: '#dc2c4f',
+    onTertiaryContainer: '#fffbff',
+    tertiaryFixed: '#ffdadb',
+    tertiaryFixedDim: '#ffb2b7',
+    onTertiaryFixed: '#40000d',
+    onTertiaryFixedVariant: '#92002a',
 
     // 에러
-    error:          '#ba1a1a',
+    error: '#ba1a1a',
+    onError: '#ffffff',
     errorContainer: '#ffdad6',
+    onErrorContainer: '#93000a',
 
     // 선/구분선
-    outline:        '#767586',
+    outline: '#767586',
     outlineVariant: '#c7c4d7',
   },
 };
