@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import styled from "styled-components";
 import ItemApi from "../../api/item.api";
 
@@ -47,6 +47,7 @@ const Icon = {
 
 export default function ItemListPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [games, setGames] = useState([]);
   const [servers, setServers] = useState([]);
@@ -55,11 +56,20 @@ export default function ItemListPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const [selectedGameId, setSelectedGameId] = useState(null);
+  // ✅ 메인페이지 등에서 ?gameId=2&keyword=검색어 형태로 들어왔을 때
+  //    초기 필터값으로 반영. (기존엔 이 값을 무시하고 항상 "전체"로 시작했음)
+  const initialGameIdParam = searchParams.get("gameId");
+  const initialGameId =
+    initialGameIdParam && !Number.isNaN(Number(initialGameIdParam))
+      ? Number(initialGameIdParam)
+      : null;
+  const initialKeyword = searchParams.get("keyword") || "";
+
+  const [selectedGameId, setSelectedGameId] = useState(initialGameId);
   const [selectedServerId, setSelectedServerId] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
-  const [keyword, setKeyword] = useState("");
-  const [inputKeyword, setInputKeyword] = useState("");
+  const [keyword, setKeyword] = useState(initialKeyword);
+  const [inputKeyword, setInputKeyword] = useState(initialKeyword);
   const [page, setPage] = useState(1);
 
   const SIZE = 10;
@@ -74,7 +84,7 @@ export default function ItemListPage() {
       .catch(() => {});
   }, []);
 
-  // 게임 선택 시 서버·카테고리 로드
+  // 게임 선택 시 서버·카테고리 로드 (초기 진입 시에도 동일하게 동작)
   useEffect(() => {
     setSelectedServerId(null);
     setSelectedCategoryId(null);
@@ -146,6 +156,9 @@ export default function ItemListPage() {
     setKeyword("");
     setInputKeyword("");
     setPage(1);
+    // 탭 클릭으로 필터를 바꾼 경우 주소창 쿼리도 함께 정리해
+    // 새로고침해도 선택한 게임 필터가 유지되도록 한다.
+    setSearchParams(gameId ? { gameId: String(gameId) } : {});
   };
 
   const totalPages = Math.ceil(total / SIZE) || 1;
