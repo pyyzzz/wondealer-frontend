@@ -121,26 +121,20 @@ const ItemEditPage = () => {
     setSaving(true);
 
     const updateData = {
-      category,
-      gameName,
-      serverName,
-      quantity: category === "money" ? quantity : null,
-      title,
-      details: description,
-      price: inputPrice,
-      gameServer: serverName,
-      images: images.map((img) => img.file).filter(Boolean),
+      title: title,
+      description: description,
+      basePrice: Number(inputPrice),
+      categoryId: Number(categoryId),
+      serverId: serverName ? Number(serverId) : null,
+      removedImageIds: [],
     };
 
     try {
       await ItemApi.updateItem(itemId, updateData);
       alert("물품 정보 수정이 완료되었습니다!");
-      navigate("/mypage", { state: { tab: "registration-management" } });
+      navigate("/mypage");
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "수정 중 오류가 발생했습니다. 다시 시도해주세요.",
-      );
+      setError(err.response?.data?.message || "수정 중 오류 발생");
     } finally {
       setSaving(false);
     }

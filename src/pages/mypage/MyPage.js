@@ -2060,11 +2060,15 @@ function ItemsTab({ navigate }) {
   };
 
   const handleEditSave = async (itemId) => {
-    const price = Number(editPrice);
-    if (!price || price <= 0) {
+    const priceValue = Number(editPrice); // 사용자가 입력한 숫자
+    if (!priceValue || priceValue <= 0) {
       alert("올바른 가격을 입력해주세요.");
       return;
     }
+
+    const currentItem = items.find((item) => item.itemId === itemId);
+    if (!currentItem) return;
+
     setSaving(itemId);
     try {
       const res = await fetch(`/api/items/${itemId}`, {
@@ -2073,26 +2077,40 @@ function ItemsTab({ navigate }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token()}`,
         },
-        // ItemUpdateReqDto에 맞춰 조정 (title, description, price 중 price만 변경)
-        body: JSON.stringify({ price }),
+        // ✅ 백엔드 ItemUpdateReqDto와 100% 일치시킴
+        body: JSON.stringify({
+          title: currentItem.title,
+          // 목록 API에 설명이 없을 경우 제목을 대신 넣어서 @NotBlank 통과
+          description:
+            currentItem.description ||
+            currentItem.details ||
+            currentItem.title ||
+            "상세 설명 없음",
+          basePrice: priceValue, // 👈 price가 아니라 basePrice여야 합니다!
+          categoryId: currentItem.categoryId,
+          serverId: currentItem.serverId,
+        }),
       });
+
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.message || "수정에 실패했습니다.");
       }
+
+      // 성공 시 목록 상태 업데이트
       setItems((prev) =>
         prev.map((item) =>
-          item.itemId === itemId ? { ...item, basePrice: price } : item,
+          item.itemId === itemId ? { ...item, basePrice: priceValue } : item,
         ),
       );
       setEditingId(null);
+      alert("가격이 수정되었습니다.");
     } catch (err) {
-      alert(err.message || "수정에 실패했습니다.");
+      alert(err.message);
     } finally {
       setSaving(null);
     }
   };
-
   // ItemListResDto 필드: itemId, title, basePrice, tradeType, status,
   //   gameName, serverName, categoryName, thumbnailImg, viewCount, createdAt
   const filtered = items.filter((item) => {
