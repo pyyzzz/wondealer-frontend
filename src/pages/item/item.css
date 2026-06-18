@@ -303,6 +303,62 @@
 .add-btn:hover {
   opacity: 0.88;
 }
+/* ==========================================================================
+   [반응형 대응] 아이템 페이지 모바일 최적화
+   ========================================================================== */
 
-/* ── form-page / form-section 은 ItemNew·Edit 이 styled-components로 ──
-   전환되어 더 이상 사용하지 않으므로 제거                              */
+/* 1. 목록 페이지 필터 및 그리드 대응 */
+@media (max-width: 768px) {
+  .page-wrap {
+    padding: 20px 16px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .list-search {
+    width: 100%;
+  }
+
+  .list-search-input {
+    flex: 1;
+    width: auto; /* 전체 너비 활용 */
+  }
+
+  .item-grid {
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(160px, 1fr)
+    ); /* 모바일에서 카드 크기 조정 */
+    gap: 10px;
+  }
+}
+
+/* 2. 상세 페이지 정보 컬럼 대응 */
+@media (max-width: 480px) {
+  .detail-wrap {
+    padding: 20px 16px;
+  }
+
+  .detail-image-box {
+    font-size: 60px; /* 로고/이미지 아이콘 크기 축소 */
+    border-radius: 12px;
+  }
+
+  .detail-meta-table td {
+    font-size: 12px;
+  }
+
+  .detail-btn-row {
+    flex-direction: column; /* 구매/채팅 버튼 세로 배치 */
+  }
+
+  .detail-btn-buy,
+  .detail-btn-chat {
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+  }
+}

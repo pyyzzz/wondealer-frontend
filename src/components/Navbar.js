@@ -13,22 +13,13 @@ import moon from "../img/moon.svg";
 const Navbar = () => {
   const { isLoggedIn, user, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // 현재 URL 주소 감지
+  const location = useLocation(); // 현재 url 주소 감지
   const { theme, setTheme } = useTheme();
 
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // 현재 주소가 관리자(/admin) 페이지인지 확인
   const isAdminPage = location.pathname.startsWith("/admin");
-
-  // 첫 번째 버전의 안전한 다중 조건 닉네임 파싱 로직 유지
-  const nickname =
-    user?.nickname ||
-    user?.name ||
-    user?.username ||
-    (user?.email ? user.email.split("@")[0] : "") ||
-    "닉네임";
 
   const handleLogout = () => {
     logout();
@@ -43,7 +34,6 @@ const Navbar = () => {
       alert("검색어를 입력하세요.");
       return;
     }
-    // 주소 형식 일치화 처리
     navigate(`/search?q=${encodeURIComponent(searchKeyword)}`);
   };
 
@@ -62,7 +52,6 @@ const Navbar = () => {
         <Logo onClick={() => navigate("/")}>
           <LogoImg src={logo} alt="WONDEALER" />
         </Logo>
-        {/* 관리자 페이지가 아닐 때만 메뉴 버튼 출력 */}
         {!isAdminPage && (
           <>
             <MenuButton onClick={() => navigate("/items/new")}>
@@ -79,7 +68,6 @@ const Navbar = () => {
       </LeftGroup>
 
       <RightGroup>
-        {/* 관리자 페이지가 아닐 때만 검색바 및 기능 아이콘 출력 */}
         {!isAdminPage && (
           <>
             <SearchBar>
@@ -94,15 +82,11 @@ const Navbar = () => {
 
             <IconButton
               onClick={() => handleProtectedNavigation("/mypage/wallet")}
-              title="지갑"
             >
               <IconImg src={walletIcon} alt="지갑" />
             </IconButton>
 
-            <IconButton
-              onClick={() => handleProtectedNavigation("/chat")}
-              title="채팅"
-            >
+            <IconButton onClick={() => handleProtectedNavigation("/chat")}>
               <IconImg src={chatIcon} alt="채팅" />
             </IconButton>
           </>
@@ -113,7 +97,6 @@ const Navbar = () => {
             $active={theme === "dark"}
             aria-pressed={theme === "dark"}
             onClick={() => setTheme("dark")}
-            title="다크 모드"
           >
             <IconImg src={moon} alt="다크 모드" />
           </IconButton>
@@ -122,7 +105,6 @@ const Navbar = () => {
             $active={theme === "light"}
             aria-pressed={theme === "light"}
             onClick={() => setTheme("light")}
-            title="라이트 모드"
           >
             <IconImg src={sun} alt="라이트 모드" />
           </IconButton>
@@ -131,13 +113,15 @@ const Navbar = () => {
         {isLoggedIn ? (
           <UserMenuContainer>
             <NicknameButton onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              <span>{nickname}</span>
+              <span>{user?.nickname || "닉네임"}</span>
               <span className="arrow">{isMenuOpen ? "▲" : "▼"}</span>
             </NicknameButton>
 
             {isMenuOpen && (
               <DropdownMenu>
-                <DropdownItem className="title">{nickname}</DropdownItem>
+                <DropdownItem className="title">
+                  {user?.nickname || "닉네임"}
+                </DropdownItem>
                 {!isAdminPage && (
                   <DropdownItem
                     onClick={() => {
@@ -164,10 +148,6 @@ const Navbar = () => {
     </Nav>
   );
 };
-
-// ==========================================
-// Styled Components 스타일 정의 (디자인 일치화 완료)
-// ==========================================
 
 const Nav = styled.nav`
   display: flex;
@@ -217,6 +197,7 @@ const Logo = styled.div`
   @media (max-width: 768px) {
     margin-right: -25px;
   }
+
   @media (max-width: 580px) {
     margin-right: 0;
   }
@@ -235,6 +216,7 @@ const LogoImg = styled.img`
     height: 80px;
     margin-left: -20px;
   }
+
   @media (max-width: 580px) {
     width: 140px;
     height: 60px;
@@ -281,11 +263,10 @@ const MenuButton = styled.button`
 const SearchBar = styled.div`
   display: flex;
   align-items: center;
-  background-color: #ffffff;
+  background-color: var(--surface-container-low);
   border-radius: 30px;
   padding: 4px 4px 4px 20px;
-  border: 1px solid var(--border-color, #e1e4e6);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   width: 260px;
   height: 38px;
 
@@ -302,12 +283,12 @@ const SearchInput = styled.input`
   border: none;
   background: none;
   font-size: 14px;
-  color: #121317 !important;
+  color: var(--on-surface);
   outline: none;
   padding: 0;
 
   &::placeholder {
-    color: #9aa0a6;
+    color: var(--outline);
   }
 `;
 
@@ -341,7 +322,6 @@ const NavButton = styled.button`
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
-  border: none;
 
   &:hover {
     background-color: var(--bg-container-high);
@@ -350,42 +330,6 @@ const NavButton = styled.button`
   @media (max-width: 580px) {
     font-size: 12px;
     padding: 6px 8px;
-  }
-`;
-
-const SignUpButton = styled(NavButton)`
-  background-color: var(--color-primary);
-  color: var(--on-primary);
-  font-weight: 600;
-  border: 1px solid var(--color-primary);
-
-  &:hover {
-    background-color: var(--primary-container);
-    border-color: var(--primary-container);
-    color: var(--on-primary);
-  }
-`;
-
-const IconButton = styled.button`
-  background: none;
-  border: none;
-  padding: 6px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: ${(props) =>
-    props.$active ? "var(--bg-container-high)" : "transparent"};
-  outline: ${(props) =>
-    props.$active ? "1px solid var(--color-primary)" : "none"};
-
-  &:hover {
-    background-color: var(--bg-container-high);
-  }
-
-  @media (max-width: 580px) {
-    padding: 4px;
   }
 `;
 
@@ -409,6 +353,38 @@ const Separator = styled.span`
   font-weight: 200;
   margin: 0 2px;
   user-select: none;
+`;
+
+const SignUpButton = styled(NavButton)`
+  background-color: var(--color-primary);
+  color: var(--on-primary);
+  font-weight: 600;
+  border: 1px solid var(--color-primary);
+
+  &:hover {
+    background-color: var(--primary-container);
+    border-color: var(--primary-container);
+    color: var(--on-primary);
+  }
+`;
+
+const IconButton = styled.button`
+  font-size: 18px;
+  padding: 6px;
+  border-radius: 6px;
+  background-color: ${(props) =>
+    props.$active ? "var(--bg-container-high)" : "transparent"};
+  outline: ${(props) =>
+    props.$active ? "1px solid var(--color-primary)" : "none"};
+
+  &:hover {
+    background-color: var(--bg-container-high);
+  }
+
+  @media (max-width: 580px) {
+    font-size: 16px;
+    padding: 4px;
+  }
 `;
 
 const UserMenuContainer = styled.div`

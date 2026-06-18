@@ -1,21 +1,22 @@
 /* auth.css — 로그인 / 회원가입 공용 스타일 */
 
 .auth-page {
-  min-height: calc(100vh - 60px - 120px);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 16px;
-  background-color: var(--bg-primary);
+  min-height: 100vh;
+  padding: 20px; /* 모바일에서 좌우 여백 확보 */
+  background-color: #f9f9f9;
 }
 
 .auth-card {
   width: 100%;
-  max-width: 420px;
-  background-color: var(--bg-container);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 40px 36px;
+  max-width: 400px; /* 데스크톱에서는 최대 너비 제한 */
+  padding: 40px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .auth-logo {
@@ -651,4 +652,44 @@
   text-decoration: none;
   font-weight: 600;
   margin-left: 5px;
+}
+
+/* ==========================================================================
+   [반응형 대응] 모바일 환경 최적화
+   ========================================================================== */
+@media (max-width: 480px) {
+  .auth-page {
+    padding: 20px 16px;
+    justify-content: flex-start;
+    min-height: 100dvh; /* 키보드 올라올 때 레이아웃 밀림 방지 */
+  }
+
+  .auth-card {
+    padding: 30px 20px;
+    border-radius: 16px;
+  }
+
+  .auth-logo {
+    font-size: 32px;
+    margin-bottom: 30px;
+  }
+
+  /* 2단 그리드 폼을 모바일에서 세로로 변경 */
+  .auth-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* 인증번호 입력 그룹 세로 배치 */
+  .email-input-group {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-send-code {
+    padding: 12px;
+  }
+
+  .auth-input {
+    font-size: 16px; /* iOS 자동 줌 방지 */
+  }
 }

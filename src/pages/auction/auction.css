@@ -618,3 +618,59 @@
 .detail-bidlist-more:hover {
   color: var(--detail-purple);
 }
+
+/* ==========================================================================
+   [반응형 대응] 경매 상세 페이지 모바일 최적화
+   ========================================================================== */
+@media (max-width: 480px) {
+  /* 상세 페이지 전체 패딩 축소 */
+  .detail-wrap {
+    padding: 16px 14px 60px;
+  }
+
+  /* 이미지 박스 높이 조정 */
+  .detail-image-box {
+    max-height: 350px;
+  }
+
+  /* 상세 정보 컬럼 정렬 */
+  .detail-info-title {
+    font-size: 20px;
+  }
+
+  /* 통계 행 여백 최적화 */
+  .detail-stat-row {
+    padding: 8px 0;
+  }
+  .detail-stat-value {
+    font-size: 18px;
+  }
+  .detail-stat-value.highlight {
+    font-size: 22px;
+  }
+
+  /* 입찰 입력 영역: 버튼과 입력창을 세로로 배치 (화면이 너무 좁을 경우) */
+  .detail-bid-input-row {
+    margin-bottom: 10px;
+  }
+
+  .detail-action-row {
+    flex-direction: column; /* 버튼 2개를 세로로 쌓음 */
+    gap: 8px;
+  }
+
+  .detail-btn-outline,
+  .detail-btn-instant {
+    height: 48px; /* 터치하기 좋은 높이로 살짝 증가 */
+    font-size: 14px; /* 가독성 향상 */
+  }
+
+  /* 입찰 내역 박스 패딩 */
+  .detail-bidlist-box {
+    padding: 14px;
+  }
+
+  .detail-bid-amount {
+    font-size: 14px; /* 입찰 금액 잘 보이게 확대 */
+  }
+}
