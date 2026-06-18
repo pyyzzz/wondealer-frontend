@@ -469,8 +469,8 @@ const AuctionNewPage = () => {
 // ── Styled Components ───────────────────────
 
 const PageContainer = styled.div`
-  background-color: #0b0c10;
-  color: #ffffff;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
   padding: 40px 8%;
   box-sizing: border-box;
@@ -489,7 +489,7 @@ const HeaderSection = styled.div`
 
 const Breadcrumb = styled.p`
   font-size: 11px;
-  color: #6c5ce7;
+  color: var(--color-primary);
   font-weight: bold;
   letter-spacing: 1px;
   margin-bottom: 8px;
@@ -514,7 +514,7 @@ const PageTitle = styled.h1`
 
 const PageDesc = styled.p`
   font-size: 13px;
-  color: #888da8;
+  color: var(--text-secondary);
   line-height: 1.6;
   max-width: 700px;
 
@@ -524,8 +524,8 @@ const PageDesc = styled.p`
 `;
 
 const SectionContainer = styled.div`
-  background-color: #12131a;
-  border: 1px solid #1f2029;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
@@ -548,7 +548,7 @@ const SectionTitle = styled.h2`
   gap: 8px;
 
   span {
-    color: #8083ff;
+    color: var(--color-primary);
     font-size: 13px;
   }
 `;
@@ -571,43 +571,43 @@ const FormGroup = styled.div`
 
   label {
     font-size: 13px;
-    color: #e3e2e8;
+    color: var(--text-primary);
   }
 `;
 
 const Select = styled.select`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   width: 100%;
 `;
 
 const Input = styled.input`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   width: 100%;
   box-sizing: border-box;
 
   &::placeholder {
-    color: #4e5161;
+    color: var(--outline);
   }
 `;
 
 const TextArea = styled.textarea`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   resize: none;
@@ -616,7 +616,7 @@ const TextArea = styled.textarea`
   box-sizing: border-box;
 
   &::placeholder {
-    color: #4e5161;
+    color: var(--outline);
   }
 `;
 
@@ -634,8 +634,8 @@ const BottomGrid = styled.div`
 `;
 
 const AuctionBox = styled.div`
-  background-color: #0b0c10;
-  border: 1px solid #1f2029;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px;
   display: flex;
@@ -646,8 +646,8 @@ const AuctionBox = styled.div`
 const PriceInputWrapper = styled.div`
   display: flex;
   align-items: center;
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 10px 12px;
   width: 100%;
@@ -657,7 +657,7 @@ const PriceInputWrapper = styled.div`
     background: transparent;
     border: none;
     outline: none;
-    color: white;
+    color: var(--text-primary);
     width: 100%;
     text-align: right;
     font-size: 14px;
@@ -667,7 +667,7 @@ const PriceInputWrapper = styled.div`
     }
   }
   span {
-    color: #a5a8b7;
+    color: var(--text-secondary);
     font-size: 13px;
   }
 `;
@@ -680,9 +680,12 @@ const TabButtonGroup = styled.div`
 `;
 
 const TabButton = styled.button`
-  background-color: ${(props) => (props.isActive ? "#6c5ce7" : "#171821")};
-  border: 1px solid ${(props) => (props.isActive ? "#6c5ce7" : "#252631")};
-  color: ${(props) => (props.isActive ? "#ffffff" : "#a5a8b7")};
+  background-color: ${(props) =>
+    props.isActive ? "var(--color-primary)" : "var(--bg-container-low)"};
+  border: 1px solid ${(props) =>
+    props.isActive ? "var(--color-primary)" : "var(--border-color)"};
+  color: ${(props) =>
+    props.isActive ? "var(--on-primary)" : "var(--text-secondary)"};
   padding: 10px 0;
   border-radius: 6px;
   font-size: 12px;
@@ -697,7 +700,7 @@ const TabButton = styled.button`
   }
 
   &:hover {
-    border-color: #6c5ce7;
+    border-color: var(--color-primary);
   }
 `;
 
@@ -705,20 +708,20 @@ const TimeNotice = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
   margin-top: 10px;
 
   .label {
     font-size: 11px;
-    color: #888da8;
+    color: var(--text-secondary);
     margin: 0 0 4px 0;
   }
   .time {
     font-size: 13px;
-    color: #10b981;
+    color: var(--color-success);
     font-weight: 600;
     margin: 0;
   }
@@ -746,10 +749,10 @@ const HiddenFileInput = styled.input`
 `;
 
 const UploadMainZone = styled.div`
-  border: 1px dashed #4e5161;
+  border: 1px dashed var(--outline);
   border-radius: 8px;
   padding: 32px 24px;
-  background-color: #171821;
+  background-color: var(--bg-container-low);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -759,7 +762,7 @@ const UploadMainZone = styled.div`
   flex: 1;
 
   &:hover {
-    border-color: #6c5ce7;
+    border-color: var(--color-primary);
   }
 `;
 
@@ -783,7 +786,7 @@ const UploadTextMain = styled.p`
 
 const UploadTextSub = styled.p`
   font-size: 11px;
-  color: #686b7c;
+  color: var(--text-secondary);
 `;
 
 const PreviewRow = styled.div`
@@ -793,14 +796,15 @@ const PreviewRow = styled.div`
 `;
 
 const PreviewSlot = styled.div`
-  background-color: #171821;
-  border: 1px solid ${(props) => (props.hasImage ? "#4e5161" : "#252631")};
+  background-color: var(--bg-container-low);
+  border: 1px solid ${(props) =>
+    props.hasImage ? "var(--outline)" : "var(--border-color)"};
   border-radius: 6px;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #4e5161;
+  color: var(--outline);
   font-size: 12px;
   position: relative;
   overflow: hidden;
@@ -849,9 +853,9 @@ const ButtonGroup = styled.div`
 `;
 
 const CancelButton = styled.button`
-  background-color: #12131a;
-  border: 1px solid #252631;
-  color: #ffffff;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 14px 0;
   width: 220px;
   border-radius: 8px;
@@ -865,9 +869,9 @@ const CancelButton = styled.button`
 `;
 
 const SubmitButton = styled.button`
-  background-color: #c0c1ff;
+  background-color: var(--color-primary);
   border: none;
-  color: #1000a9;
+  color: var(--on-primary);
   padding: 14px 0;
   width: 220px;
   border-radius: 8px;

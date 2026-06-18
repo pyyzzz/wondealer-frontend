@@ -385,8 +385,8 @@ export default ItemListPage;
 // ── Styled Components (CSS 변수 기반 다크모드 및 모바일 대응 반응형 레이아웃) ───────────────────────
 
 const PageLayout = styled.div`
-  background-color: var(--color-bg, #0b0c10);
-  color: var(--color-text, #ffffff);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
   padding: 40px 5%;
   box-sizing: border-box;
@@ -413,7 +413,7 @@ const PageTitle = styled.h1`
 const SearchForm = styled.form`
   display: flex;
   align-items: center;
-  background-color: #ffffff;
+  background-color: var(--bg-container-low);
   border-radius: 25px;
   padding: 4px 16px;
   width: 280px;
@@ -431,17 +431,17 @@ const SearchInput = styled.input`
   padding: 8px 4px;
   width: 100%;
   font-size: 14px;
-  color: #333333;
+  color: var(--text-primary);
 
   &::placeholder {
-    color: #999999;
+    color: var(--text-secondary);
   }
 `;
 
 const SearchButton = styled.button`
   background: none;
   border: none;
-  color: var(--color-primary, #6c5ce7);
+  color: var(--color-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -463,10 +463,9 @@ const GameTabContainer = styled.div`
 `;
 
 const GameTabButton = styled.button`
-  background-color: ${(props) =>
-    props.isActive ? "var(--color-primary, #5445d4)" : "#1c1d26"};
-  color: ${(props) => (props.isActive ? "#ffffff" : "#9ca3af")};
-  border: 1px solid ${(props) => (props.isActive ? "transparent" : "#2d2f3d")};
+  background-color: ${(props) => (props.isActive ? "var(--color-primary)" : "var(--bg-container-low)")};
+  color: ${(props) => (props.isActive ? "#ffffff" : "var(--text-secondary)")};
+  border: 1px solid ${(props) => (props.isActive ? "transparent" : "var(--border-color)")};
   border-radius: 20px;
   padding: 8px 18px;
   font-size: 13px;
@@ -492,9 +491,9 @@ const CategoryTab = styled.button`
   height: 38px;
   padding: 0 22px;
   border-radius: 20px;
-  border: 1px solid #3b3d50;
-  background-color: ${(props) => (props.isActive ? "#635BFF" : "#1B1C25")};
-  color: ${(props) => (props.isActive ? "#ffffff" : "#B0B2C3")};
+  border: 1px solid var(--border-color);
+  background-color: ${(props) => (props.isActive ? "var(--color-primary)" : "var(--bg-container-low)")};
+  color: ${(props) => (props.isActive ? "#ffffff" : "var(--text-secondary)")};
   font-size: 14px;
   font-weight: 400;
   cursor: pointer;
@@ -527,14 +526,14 @@ const ServerSidebar = styled.aside`
 const SidebarTitle = styled.h2`
   font-size: 18px;
   font-weight: 600;
-  color: #c0c1ff;
+  color: var(--color-primary);
   margin-bottom: 20px;
   display: flex;
   flex-direction: column;
 
   span {
     font-size: 10px;
-    color: #555870;
+    color: var(--text-secondary);
     margin-top: 4px;
     font-weight: 400;
   }
@@ -570,9 +569,9 @@ const ServerItem = styled.li`
   cursor: pointer;
   transition: none;
 
-  background-color: ${(props) => (props.isActive ? "#8083FF" : "transparent")};
+  background-color: ${(props) => (props.isActive ? "var(--color-primary)" : "transparent")};
 
-  color: ${(props) => (props.isActive ? "#0D0096" : "#C7C4D7")};
+  color: ${(props) => (props.isActive ? "#ffffff" : "var(--text-secondary)")};
 
   font-weight: ${(props) => (props.isActive ? "600" : "400")};
 
@@ -606,8 +605,8 @@ const ItemListSection = styled.section`
 const ItemCard = styled.div`
   display: flex;
   align-items: center;
-  background-color: #12131a;
-  border: 1px solid #1f2029;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px 24px;
   transition:
@@ -634,7 +633,7 @@ const ItemThumbnail = styled.div`
   overflow: hidden;
   margin-right: 20px;
   flex-shrink: 0;
-  background-color: #1c1d26;
+  background-color: var(--bg-container-low);
 
   img {
     width: 100%;
@@ -654,13 +653,13 @@ const ItemInfo = styled.div`
 const ItemName = styled.h3`
   font-size: 15px;
   font-weight: 500;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 6px;
 `;
 
 const ItemMeta = styled.p`
   font-size: 12px;
-  color: #62667d;
+  color: var(--text-secondary);
 `;
 
 const ItemActionGroup = styled.div`
@@ -689,18 +688,18 @@ const PriceContainer = styled.div`
 
 const PriceLabel = styled.span`
   font-size: 10px;
-  color: #52556a;
+  color: var(--text-secondary);
   font-weight: 500;
 `;
 
 const PriceValue = styled.span`
   font-size: 18px;
   font-weight: 700;
-  color: #7289da;
+  color: var(--color-primary);
 `;
 
 const BuyButton = styled.button`
-  background-color: var(--color-primary, #5445d4);
+  background-color: var(--color-primary);
   color: white;
   border: none;
   border-radius: 4px;
@@ -718,7 +717,7 @@ const BuyButton = styled.button`
 const StatusText = styled.div`
   text-align: center;
   padding: 80px 0;
-  color: #62667d;
+  color: var(--text-secondary);
   font-size: 14px;
 `;
 
@@ -733,7 +732,7 @@ const PaginationContainer = styled.div`
 
 const PaginationArrow = styled.button`
   background: transparent;
-  color: #8e92a7;
+  color: var(--text-secondary);
   border: none;
   width: 32px;
   height: 32px;
@@ -745,7 +744,7 @@ const PaginationArrow = styled.button`
   transition: color 0.2s;
 
   &:disabled {
-    color: #3f4152;
+    color: var(--border-color);
     cursor: not-allowed;
   }
 
@@ -756,8 +755,7 @@ const PaginationArrow = styled.button`
 
 const PaginationNumber = styled.button`
   background: transparent;
-  color: ${(props) =>
-    props.isActive ? "var(--color-primary, #6c5ce7)" : "#8e92a7"};
+  color: ${(props) => (props.isActive ? "var(--color-primary)" : "var(--text-secondary)")};
   border: none;
   width: 32px;
   height: 32px;
@@ -776,8 +774,7 @@ const PaginationNumber = styled.button`
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background-color: ${(props) =>
-      props.isActive ? "var(--color-primary, #6c5ce7)" : "transparent"};
+    background-color: ${(props) => (props.isActive ? "var(--color-primary)" : "transparent")};
   }
 
   &:hover {

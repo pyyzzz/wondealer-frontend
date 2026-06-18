@@ -409,8 +409,8 @@ const ItemEditPage = () => {
 
 // ── Styled Components (ItemNewPage와 동일) ───────────────────────
 const PageContainer = styled.div`
-  background-color: #0b0c10;
-  color: #ffffff;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
   padding: 40px 8%;
   box-sizing: border-box;
@@ -420,7 +420,7 @@ const HeaderSection = styled.div`
 `;
 const Breadcrumb = styled.p`
   font-size: 11px;
-  color: #6c5ce7;
+  color: var(--color-primary);
   font-weight: bold;
   letter-spacing: 1px;
   margin-bottom: 8px;
@@ -439,8 +439,8 @@ const PageDesc = styled.p`
   max-width: 700px;
 `;
 const SectionContainer = styled.div`
-  background-color: #12131a;
-  border: 1px solid #1f2029;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
@@ -463,8 +463,11 @@ const CategoryGroup = styled.div`
   gap: 16px;
 `;
 const Card = styled.div`
-  background-color: ${(props) => (props.isActive ? "#1a1b26" : "#171821")};
-  border: 1px solid ${(props) => (props.isActive ? "#6c5ce7" : "#252631")};
+  background-color: ${(props) =>
+    props.isActive ? "var(--bg-container-low)" : "var(--bg-container)"};
+  border: 1px solid
+    ${(props) =>
+      props.isActive ? "var(--color-primary)" : "var(--border-color)"};
   border-radius: 8px;
   padding: 20px;
   display: flex;
@@ -488,7 +491,7 @@ const CardContent = styled.div`
   }
   p {
     font-size: 11px;
-    color: #c7c4d7;
+    color: var(--text-secondary);
     line-height: 1.4;
   }
 `;
@@ -497,7 +500,7 @@ const CheckBadge = styled.div`
   top: 50%;
   right: 16px;
   transform: translateY(-50%);
-  background-color: #6c5ce7;
+  background-color: var(--color-primary);
   color: white;
   width: 18px;
   height: 18px;
@@ -522,21 +525,21 @@ const FormGroup = styled.div`
   }
 `;
 const Select = styled.select`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   width: 100%;
 `;
 const Input = styled.input`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   width: 100%;
@@ -560,11 +563,11 @@ const InputWrapper = styled.div`
   }
 `;
 const TextArea = styled.textarea`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   resize: none;
@@ -580,8 +583,8 @@ const BottomGrid = styled.div`
   margin-bottom: 32px;
 `;
 const PriceBox = styled.div`
-  background-color: #0b0c10;
-  border: 1px solid #1f2029;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px;
   display: flex;
@@ -594,21 +597,21 @@ const PriceRow = styled.div`
   align-items: center;
   label {
     font-size: 13px;
-    color: #a5a8b7;
+    color: var(--text-secondary);
   }
   &.sub-row {
-    border-top: 1px solid #1f2029;
+    border-top: 1px solid var(--border-color);
     padding-top: 14px;
     .minus-price {
-      color: #ef4444;
+      color: var(--color-danger);
       font-size: 13px;
     }
   }
   &.total-row {
-    border-top: 1px solid #1f2029;
+    border-top: 1px solid var(--border-color);
     padding-top: 14px;
     .total-price {
-      color: #10b981;
+      color: var(--color-success);
       font-size: 15px;
       font-weight: 700;
     }
@@ -617,8 +620,8 @@ const PriceRow = styled.div`
 const PriceInputWrapper = styled.div`
   display: flex;
   align-items: center;
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 8px 12px;
   width: ${(props) => (props.isMoney ? "30%" : "50%")};
@@ -627,14 +630,14 @@ const PriceInputWrapper = styled.div`
     background: transparent;
     border: none;
     outline: none;
-    color: white;
+    color: var(--text-primary);
     width: 100%;
     text-align: right;
     font-size: 14px;
     padding-right: 6px;
   }
   span {
-    color: #a5a8b7;
+    color: var(--text-secondary);
     font-size: 13px;
   }
 `;
@@ -647,10 +650,10 @@ const HiddenFileInput = styled.input`
   display: none;
 `;
 const UploadMainZone = styled.div`
-  border: 1px dashed #4e5161;
+  border: 1px dashed var(--border-color);
   border-radius: 8px;
   padding: 32px 24px;
-  background-color: #171821;
+  background-color: var(--bg-container-low);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -659,7 +662,7 @@ const UploadMainZone = styled.div`
   text-align: center;
   flex: 1;
   &:hover {
-    border-color: #6c5ce7;
+    border-color: var(--color-primary);
   }
 `;
 const UploadIcon = styled.div`
@@ -680,7 +683,7 @@ const UploadTextMain = styled.p`
 `;
 const UploadTextSub = styled.p`
   font-size: 11px;
-  color: #686b7c;
+  color: var(--text-secondary);
 `;
 const PreviewRow = styled.div`
   display: grid;
@@ -728,7 +731,7 @@ const RemoveButton = styled.button`
   line-height: 1;
   transition: background-color 0.2s;
   &:hover {
-    background-color: #ef4444;
+    background-color: var(--color-danger);
   }
 `;
 const ButtonGroup = styled.div`
@@ -738,9 +741,9 @@ const ButtonGroup = styled.div`
   width: 100%;
 `;
 const CancelButton = styled.button`
-  background-color: #12131a;
-  border: 1px solid #252631;
-  color: #ffffff;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 14px 0;
   width: 220px;
   border-radius: 8px;
@@ -749,9 +752,9 @@ const CancelButton = styled.button`
   cursor: pointer;
 `;
 const SubmitButton = styled.button`
-  background-color: #c0c1ff;
+  background-color: var(--color-primary);
   border: none;
-  color: #1000a9;
+  color: white;
   padding: 14px 0;
   width: 220px;
   border-radius: 8px;
