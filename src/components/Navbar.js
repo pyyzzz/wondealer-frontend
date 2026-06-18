@@ -19,7 +19,7 @@ const Navbar = () => {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const isAdminPage = location.pathname === "/admin"; // 현재 주소가 admin인지 확인
+  const isAdminPage = location.pathname.startsWith("/admin");
 
   const handleLogout = () => {
     logout();
