@@ -654,7 +654,7 @@ function WithdrawTab({
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/mileage/withdraw", {
+      const res = await fetch(`${Common.API_URL}/api/mileage/withdraw`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -853,7 +853,7 @@ function DeleteAccountModal({ onConfirm, onClose }) {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/members/me", {
+      const res = await fetch(`${Common.API_URL}/api/members/me`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -994,12 +994,15 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw }) {
       const [txRes, statRes, actRes] = await Promise.allSettled([
         fetch(`${Common.API_URL}/api/members/me/mileage/transactions?size=3`, {
           headers: { Authorization: `Bearer ${tk}` },
+          cache: "no-store",
         }),
         fetch(`${Common.API_URL}/api/members/me/stats`, {
           headers: { Authorization: `Bearer ${tk}` },
+          cache: "no-store",
         }),
         fetch(`${Common.API_URL}/api/members/me/activities?size=3`, {
           headers: { Authorization: `Bearer ${tk}` },
+          cache: "no-store",
         }),
       ]);
 
@@ -1224,8 +1227,9 @@ function ProfileTab({
 
   useEffect(() => {
     let mounted = true;
-    fetch("/api/members/me", {
+    fetch(`${Common.API_URL}/api/members/me`, {
       headers: { Authorization: `Bearer ${token()}` },
+      cache: "no-store",
     })
       .then((res) => {
         if (!res.ok) throw new Error("인증 실패");
@@ -1300,11 +1304,14 @@ function ProfileTab({
       if (profileFile) {
         const fd = new FormData();
         fd.append("image", profileFile);
-        const imgRes = await fetch("/api/members/me/profile-image", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${tk}` },
-          body: fd,
-        });
+        const imgRes = await fetch(
+          `${Common.API_URL}/api/members/me/profile-image`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${tk}` },
+            body: fd,
+          },
+        );
         if (!imgRes.ok) throw new Error("이미지 업로드 실패");
         const imgData = await imgRes.json();
         const uploaded = imgData?.data?.profileImg || null;
@@ -1314,7 +1321,7 @@ function ProfileTab({
         }
       }
 
-      const infoRes = await fetch("/api/members/me", {
+      const infoRes = await fetch(`${Common.API_URL}/api/members/me`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -1328,7 +1335,7 @@ function ProfileTab({
       }
 
       if (wantsPwChange) {
-        const pwRes = await fetch("/api/members/me/password", {
+        const pwRes = await fetch(`${Common.API_URL}/api/members/me/password`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -1345,7 +1352,7 @@ function ProfileTab({
         }
       }
 
-      const bankRes = await fetch("/api/members/me/bank", {
+      const bankRes = await fetch(`${Common.API_URL}/api/members/me/bank`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -1446,7 +1453,7 @@ function ProfileTab({
         </div>
 
         <div className="mp-profile-fields">
-          {/* 기본 정보 - 2번 레이아웃: 아이디/성함, 이메일, 닉네임/전화번호 */}
+          {/* 기본 정보 */}
           <div className="mp-card">
             <div className="mp-card-title">
               <Icon.User /> 기본 정보
@@ -1649,38 +1656,10 @@ function ProfileTab({
 }
 
 // ── 활동 기록 탭 ───────────────────────────────────────────────
-const SUB_TAB_API = {
-  "구매 내역": "/api/members/me/purchases",
-  "판매 내역": "/api/members/me/sales",
-  "경매 내역": "/api/members/me/auctions",
-};
-
-const TAG_COLOR_MAP = {
-  구매완료: "violet",
-  판매완료: "green",
-  경매낙찰: "amber",
-  경매패배: "zinc",
-  심사중: "amber",
-  "에스크로 완료": "green",
-};
-
-const PAGE_SIZE_ACTIVITY = 3;
-// ============================================================
-// 이 파일의 두 함수(ActivityTab, ItemsTab)를 MyPage.jsx에서
-// 기존 동일한 이름의 함수와 교체하세요.
-// 나머지 코드(Icon, Badge, ChargeTab, WithdrawTab 등)는 그대로 유지.
-// ============================================================
-
-// ── 활동 기록 탭 ───────────────────────────────────────────────
-// 백엔드 엔드포인트:
-//   GET /api/members/me/trades?type=BUY|SELL&page=0  → 구매/판매 내역
-//   GET /api/members/me/bids?page=0                  → 경매(입찰) 내역
-// 현재 백엔드 미구현 → 500 응답 시 빈 배열 fallback 처리
 function ActivityTab() {
   const [activeSubTab, setActiveSubTab] = useState("구매 내역");
   const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState("전체");
   const PERIODS = ["전체", "1개월", "3개월", "6개월"];
@@ -1691,17 +1670,17 @@ function ActivityTab() {
     setLoading(true);
     setData([]);
     setPage(1);
-    setTotalPages(1);
 
     const tk = token();
-    // 탭별 엔드포인트 분기
-    // 구매/판매는 /me/trades?type=BUY|SELL, 경매는 /me/bids
-    const url =
+    const path =
       activeSubTab === "경매 내역"
         ? `/api/members/me/bids?page=0&size=${PAGE_SIZE_ACTIVITY}`
         : `/api/members/me/trades?type=${activeSubTab === "구매 내역" ? "BUY" : "SELL"}&page=0&size=${PAGE_SIZE_ACTIVITY}`;
 
-    fetch(url, { headers: { Authorization: `Bearer ${tk}` } })
+    fetch(`${Common.API_URL}${path}`, {
+      headers: { Authorization: `Bearer ${tk}` },
+      cache: "no-store",
+    })
       .then((res) => {
         // 501(미구현) 또는 기타 오류 → 빈 배열 처리
         if (!res.ok) return null;
@@ -1709,12 +1688,9 @@ function ActivityTab() {
       })
       .then((json) => {
         if (!mounted || !json) return;
-        // PageResDto 구조: { data: { content: [], totalPages: N } }
         const content =
           json?.data?.content ?? json?.content ?? json?.data ?? [];
-        const pages = json?.data?.totalPages ?? json?.totalPages ?? 1;
         setData(Array.isArray(content) ? content : []);
-        setTotalPages(Math.max(1, pages));
       })
       .catch(() => {
         if (mounted) setData([]);
@@ -1738,11 +1714,8 @@ function ActivityTab() {
     Math.ceil(data.length / PAGE_SIZE_ACTIVITY),
   );
 
-  // ItemListResDto 필드 → UI 필드 매핑
-  // 백엔드 구현 후 실제 trade DTO에 맞게 조정 필요
   const mapItem = (item, i) => {
     const id = item.itemId ?? item.id ?? item.orderId ?? i;
-    // tradeType: "DIRECT" | "AUCTION" / status: "SELLING" | "RESERVED" | "COMPLETED"
     const rawTag = item.tag ?? item.tradeType ?? item.type ?? "";
     const rawStatus = item.status ?? item.itemStatus ?? "";
 
@@ -1783,9 +1756,7 @@ function ActivityTab() {
         : (item.sub ?? item.date ?? ""),
       seller: item.sellerNickname ?? item.seller ?? item.counterpart ?? "",
       price: item.basePrice ?? item.price ?? item.amount ?? 0,
-      img: item.thumbnailImg
-        ? null // 이미지 URL이면 <img> 렌더링
-        : (item.img ?? item.emoji ?? "📦"),
+      img: item.thumbnailImg ? null : (item.img ?? item.emoji ?? "📦"),
       thumbnailImg: item.thumbnailImg ?? null,
       gameName: item.gameName ?? "",
       serverName: item.serverName ?? "",
@@ -1989,10 +1960,6 @@ function ActivityTab() {
 }
 
 // ── 등록 물품 탭 ───────────────────────────────────────────────
-// 백엔드 엔드포인트:
-//   GET  /api/members/me/items?page=0   → ItemListResDto 페이지
-//   DELETE /api/items/{itemId}          → 물품 삭제 (구현됨)
-//   PUT  /api/items/{itemId}            → 가격 수정 (구현됨)
 function ItemsTab({ navigate }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2003,7 +1970,6 @@ function ItemsTab({ navigate }) {
   const [activeItemTab, setActiveItemTab] = useState("전체");
   const ITEM_TABS = ["전체", "직거래", "경매"];
 
-  // ItemStatus 한글 매핑
   const STATUS_KO = {
     SELLING: "판매중",
     RESERVED: "예약중",
@@ -2020,12 +1986,15 @@ function ItemsTab({ navigate }) {
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/members/me/items?page=0&size=50", {
-        headers: { Authorization: `Bearer ${token()}` },
-      });
+      const res = await fetch(
+        `${Common.API_URL}/api/members/me/items?page=0&size=50`,
+        {
+          headers: { Authorization: `Bearer ${token()}` },
+          cache: "no-store",
+        },
+      );
       if (!res.ok) throw new Error();
       const json = await res.json();
-      // PageResDto: { data: { content: [...] } }
       const list = json?.data?.content ?? json?.content ?? json?.data ?? [];
       setItems(Array.isArray(list) ? list : []);
     } catch {
@@ -2043,7 +2012,7 @@ function ItemsTab({ navigate }) {
     if (!window.confirm("이 물품을 삭제하시겠습니까?")) return;
     setDeleting(itemId);
     try {
-      const res = await fetch(`/api/items/${itemId}`, {
+      const res = await fetch(`${Common.API_URL}/api/items/${itemId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token()}` },
       });
@@ -2060,7 +2029,7 @@ function ItemsTab({ navigate }) {
   };
 
   const handleEditSave = async (itemId) => {
-    const priceValue = Number(editPrice); // 사용자가 입력한 숫자
+    const priceValue = Number(editPrice);
     if (!priceValue || priceValue <= 0) {
       alert("올바른 가격을 입력해주세요.");
       return;
@@ -2071,22 +2040,20 @@ function ItemsTab({ navigate }) {
 
     setSaving(itemId);
     try {
-      const res = await fetch(`/api/items/${itemId}`, {
+      const res = await fetch(`${Common.API_URL}/api/items/${itemId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token()}`,
         },
-        // ✅ 백엔드 ItemUpdateReqDto와 100% 일치시킴
         body: JSON.stringify({
           title: currentItem.title,
-          // 목록 API에 설명이 없을 경우 제목을 대신 넣어서 @NotBlank 통과
           description:
             currentItem.description ||
             currentItem.details ||
             currentItem.title ||
             "상세 설명 없음",
-          basePrice: priceValue, // 👈 price가 아니라 basePrice여야 합니다!
+          basePrice: priceValue,
           categoryId: currentItem.categoryId,
           serverId: currentItem.serverId,
         }),
@@ -2097,7 +2064,6 @@ function ItemsTab({ navigate }) {
         throw new Error(j.message || "수정에 실패했습니다.");
       }
 
-      // 성공 시 목록 상태 업데이트
       setItems((prev) =>
         prev.map((item) =>
           item.itemId === itemId ? { ...item, basePrice: priceValue } : item,
@@ -2111,8 +2077,7 @@ function ItemsTab({ navigate }) {
       setSaving(null);
     }
   };
-  // ItemListResDto 필드: itemId, title, basePrice, tradeType, status,
-  //   gameName, serverName, categoryName, thumbnailImg, viewCount, createdAt
+
   const filtered = items.filter((item) => {
     if (activeItemTab === "전체") return true;
     if (activeItemTab === "직거래") return item.tradeType === "DIRECT";
@@ -2939,10 +2904,8 @@ const SIDEBAR_ITEMS = [
   { key: "support", label: "고객센터", Icon: Icon.Headphones },
 ];
 
-// charge/withdraw는 mileage 서브뷰이므로 사이드바 active는 mileage로 표시
 const TAB_TO_SIDEBAR_KEY = { charge: "mileage", withdraw: "mileage" };
 
-// ── 메인 ──────────────────────────────────────────────────────
 // ── 메인 ──────────────────────────────────────────────────────
 export default function MyPage({ tab: defaultTab }) {
   const { user, logout, isLoggedIn } = useAuth();
@@ -2960,11 +2923,12 @@ export default function MyPage({ tab: defaultTab }) {
     accountHolder: "",
   });
 
-  // 잔액은 이 함수가 유일한 출처. 충전/출금 직후에도 이걸로 서버와 재동기화한다.
+  // 잔액은 이 함수가 유일한 출처. 충전/출금 직후에도, 페이지 재진입 시에도 항상 이걸로 서버와 재동기화한다.
   const fetchBalance = useCallback(async () => {
     try {
       const res = await fetch(`${Common.API_URL}/api/members/me/mileage`, {
         headers: { Authorization: `Bearer ${token()}` },
+        cache: "no-store",
       });
       if (res.ok) {
         const d = await res.json();
@@ -2980,6 +2944,7 @@ export default function MyPage({ tab: defaultTab }) {
 
     fetch(`${Common.API_URL}/api/members/me`, {
       headers: { Authorization: `Bearer ${token()}` },
+      cache: "no-store",
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((d) => {
