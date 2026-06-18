@@ -1,77 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import ItemApi from "../../api/item.api";
 
-// ── 데이터 및 상수 ──────────────────────────────────────────────────────────
-const GAMES = [
-  { key: "all", label: "전체" },
-  { key: "lostark", label: "LOST ARK" },
-  { key: "maple", label: "MapleStory" },
-  { key: "dungeon", label: "Dungeon & Fighter" },
-  { key: "fc", label: "FC ONLINE" },
-  { key: "lineage", label: "Lineage" },
-  { key: "battle", label: "PUBG" },
-  { key: "valorant", label: "Valorant" },
-  { key: "overwatch", label: "Overwatch 2" },
-];
-
-const FALLBACK_SERVERS = {
-  lostark: [
-    "루페온",
-    "카마인",
-    "아브렐슈드",
-    "카단",
-    "아만",
-    "실리안",
-    "카제로스",
-    "니나브",
-  ],
-  maple: ["스카니아", "루나", "엘리시움", "크로아", "베라", "오로라"],
-  dungeon: ["통합서버", "카인", "디레지에", "바칼", "프레이"],
-  fc: ["서버전체"],
-};
-
 const CATEGORIES = ["상품전체", "아이템", "게임머니", "계정", "기타"];
-
-const DUMMY_ITEMS = [
-  {
-    id: 1,
-    title: "멸화의 보석 10레벨",
-    game: "lostark",
-    gameName: "LOST ARK",
-    gameServer: "루페온",
-    category: "아이템",
-    price: 245000,
-  },
-  {
-    id: 2,
-    title: "10만 골드",
-    game: "lostark",
-    gameName: "LOST ARK",
-    gameServer: "카마인",
-    category: "게임머니",
-    price: 120000,
-  },
-  {
-    id: 5,
-    title: "아케인셰이드 두손검",
-    game: "maple",
-    gameName: "MapleStory",
-    gameServer: "스카니아",
-    category: "아이템",
-    price: 550000,
-  },
-  {
-    id: 8,
-    title: "자석펫 (쁘띠 티모)",
-    game: "maple",
-    gameName: "MapleStory",
-    gameServer: "엘리시움",
-    category: "아이템",
-    price: 990000,
-  },
-];
 
 const Icon = {
   Search: () => (
@@ -115,108 +47,89 @@ const Icon = {
 
 export default function ItemListPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
 
-  // URL 파라미터 읽기
-  const game = searchParams.get("game") || "all";
-  const server = searchParams.get("server") || "";
-  const category = searchParams.get("category") || "상품전체";
-  const page = parseInt(searchParams.get("page") || "1", 10);
-  const keyword = searchParams.get("keyword") || "";
-
-  const [inputKeyword, setInputKeyword] = useState(keyword);
+  const [games, setGames] = useState([]);
+  const [servers, setServers] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [serverList, setServerList] = useState([]);
+
+  const [selectedGameId, setSelectedGameId] = useState(null);
+  const [selectedServerId, setSelectedServerId] = useState(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  const [keyword, setKeyword] = useState("");
+  const [inputKeyword, setInputKeyword] = useState("");
+  const [page, setPage] = useState(1);
 
   const SIZE = 10;
 
-  // 필터 업데이트 공통 로직
-  const updateParams = useCallback(
-    (newParams) => {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        Object.entries(newParams).forEach(([key, val]) => {
-          if (!val || val === "all" || val === "상품전체") next.delete(key);
-          else next.set(key, val);
-        });
-        // 필터가 바뀌면 페이지는 항상 1로 리셋 (단, 페이지 이동 요청이 아닐 때만)
-        if (!newParams.page) next.set("page", "1");
-        return next;
-      });
-    },
-    [setSearchParams],
-  );
-
-  // 게임 선택 시 해당 게임의 서버 목록 로드
+  // 게임 목록 로드
   useEffect(() => {
-    if (game === "all") {
-      setServerList([]);
-      return;
-    }
-    // 우선 로컬 데이터를 보여주고 API가 성공하면 덮어씀
-    setServerList(FALLBACK_SERVERS[game] ?? []);
-    ItemApi.getGameServers(game)
+    ItemApi.getGames()
       .then((r) => {
         const list = r.data?.data ?? [];
-        if (list.length > 0)
-          setServerList(list.map((s) => s.serverName ?? s.name ?? s));
+        setGames(list);
       })
       .catch(() => {});
-  }, [game]);
+  }, []);
 
-  // 키워드 파라미터와 인풋 동기화
+  // 게임 선택 시 서버·카테고리 로드
   useEffect(() => {
-    setInputKeyword(keyword);
-  }, [keyword]);
+    setSelectedServerId(null);
+    setSelectedCategoryId(null);
+    setServers([]);
+    setCategories([]);
+    setPage(1);
 
-  // 데이터 불러오기 및 필터링 적용
-  // 1. fetchItems 함수 내부 로직 수정 (더미 데이터 필터링 강화)
+    if (!selectedGameId) return;
+
+    ItemApi.getGameServers(selectedGameId)
+      .then((r) => {
+        const list = r.data?.data ?? r.data ?? [];
+        setServers(
+          list.map((s) => ({
+            id: s.serverId ?? s.id,
+            name: s.serverName ?? s.name,
+          })),
+        );
+      })
+      .catch(() => {});
+
+    ItemApi.getCategories(selectedGameId)
+      .then((r) => {
+        const list = r.data?.data ?? r.data ?? [];
+        setCategories(
+          list.map((c) => ({
+            id: c.categoryId ?? c.id,
+            name: c.categoryName ?? c.name,
+          })),
+        );
+      })
+      .catch(() => {});
+  }, [selectedGameId]);
+
+  // 아이템 조회
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {
-        page: page - 1,
-        size: SIZE,
-        game: game !== "all" ? game : "",
-        server,
-        category: category !== "상품전체" ? category : "",
-        keyword,
-      };
+      const params = { page: page - 1, size: SIZE };
+      if (selectedGameId) params.gameId = selectedGameId;
+      if (selectedServerId) params.serverId = selectedServerId;
+      if (selectedCategoryId) params.categoryId = selectedCategoryId;
+      if (keyword.trim()) params.keyword = keyword.trim();
+
       const res = await ItemApi.getItems(params);
       const pageData = res.data?.data ?? {};
       setItems(pageData.content ?? []);
       setTotal(pageData.totalElements ?? 0);
-    } catch (err) {
-      // API 실패 시 더미 데이터 기반 실시간 필터링
-      let filtered = [...DUMMY_ITEMS];
-
-      // 1. 게임 필터링 (game 키값 매칭)
-      if (game !== "all") {
-        filtered = filtered.filter((i) => i.game === game);
-      }
-      // 2. 서버 필터링 (DUMMY_ITEMS의 gameServer 키값 매칭)
-      if (server) {
-        filtered = filtered.filter((i) => i.gameServer === server);
-      }
-      // 3. 카테고리 필터링
-      if (category !== "상품전체") {
-        filtered = filtered.filter((i) => i.category === category);
-      }
-      // 4. 키워드 필터링
-      if (keyword) {
-        filtered = filtered.filter((i) =>
-          i.title.toLowerCase().includes(keyword.toLowerCase()),
-        );
-      }
-
-      setTotal(filtered.length);
-      setItems(filtered.slice((page - 1) * SIZE, page * SIZE));
+    } catch {
+      setItems([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [game, server, category, page, keyword]);
+  }, [selectedGameId, selectedServerId, selectedCategoryId, keyword, page]);
 
   useEffect(() => {
     fetchItems();
@@ -224,7 +137,15 @@ export default function ItemListPage() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    updateParams({ keyword: inputKeyword });
+    setKeyword(inputKeyword);
+    setPage(1);
+  };
+
+  const handleGameSelect = (gameId) => {
+    setSelectedGameId(gameId);
+    setKeyword("");
+    setInputKeyword("");
+    setPage(1);
   };
 
   const totalPages = Math.ceil(total / SIZE) || 1;
@@ -237,20 +158,26 @@ export default function ItemListPage() {
           <AddBtn onClick={() => navigate("/items/new")}>+ 판매 등록</AddBtn>
         </HeaderRow>
 
+        {/* 게임 탭 */}
         <GameTabContainer>
-          {GAMES.map((g) => (
+          <GameTabButton
+            $isActive={selectedGameId === null}
+            onClick={() => handleGameSelect(null)}
+          >
+            전체
+          </GameTabButton>
+          {games.map((g) => (
             <GameTabButton
-              key={g.key}
-              $isActive={game === g.key}
-              onClick={() =>
-                updateParams({ game: g.key, server: "", keyword: "" })
-              }
+              key={g.gameId ?? g.id}
+              $isActive={selectedGameId === (g.gameId ?? g.id)}
+              onClick={() => handleGameSelect(g.gameId ?? g.id)}
             >
-              {g.label}
+              {g.gameName ?? g.name}
             </GameTabButton>
           ))}
         </GameTabContainer>
 
+        {/* 검색 */}
         <FilterArea>
           <SearchForm onSubmit={handleSearchSubmit}>
             <SearchInput
@@ -263,45 +190,75 @@ export default function ItemListPage() {
             </SearchButton>
           </SearchForm>
 
-          <CategoryTabContainer>
-            {CATEGORIES.map((cat) => (
+          {/* 카테고리 탭 (백엔드 카테고리) */}
+          {categories.length > 0 && (
+            <CategoryTabContainer>
               <CategoryTab
-                key={cat}
-                $isActive={category === cat}
-                onClick={() => updateParams({ category: cat })}
+                $isActive={selectedCategoryId === null}
+                onClick={() => {
+                  setSelectedCategoryId(null);
+                  setPage(1);
+                }}
               >
-                {cat}
+                전체
               </CategoryTab>
-            ))}
-          </CategoryTabContainer>
+              {categories.map((c) => (
+                <CategoryTab
+                  key={c.id}
+                  $isActive={selectedCategoryId === c.id}
+                  onClick={() => {
+                    setSelectedCategoryId(c.id);
+                    setPage(1);
+                  }}
+                >
+                  {c.name}
+                </CategoryTab>
+              ))}
+            </CategoryTabContainer>
+          )}
         </FilterArea>
       </TopSection>
 
       <MainContentContainer>
+        {/* 서버 사이드바 */}
         <ServerSidebar>
           <SidebarTitle>
-            {GAMES.find((g) => g.key === game)?.label || "전체"} 서버
+            {selectedGameId
+              ? (games.find((g) => (g.gameId ?? g.id) === selectedGameId)
+                  ?.gameName ?? "게임")
+              : "전체"}{" "}
+            서버
             <span>SERVER LIST</span>
           </SidebarTitle>
           <ServerList>
             <ServerItem
-              $isActive={!server}
-              onClick={() => updateParams({ server: "" })}
+              $isActive={selectedServerId === null}
+              onClick={() => {
+                setSelectedServerId(null);
+                setPage(1);
+              }}
             >
               전체 서버
             </ServerItem>
-            {serverList.map((s) => (
+            {servers.map((s) => (
               <ServerItem
-                key={s}
-                $isActive={server === s}
-                onClick={() => updateParams({ server: s })}
+                key={s.id}
+                $isActive={selectedServerId === s.id}
+                onClick={() => {
+                  setSelectedServerId(s.id);
+                  setPage(1);
+                }}
               >
-                {s}
+                {s.name}
               </ServerItem>
             ))}
+            {selectedGameId && servers.length === 0 && (
+              <ServerEmpty>서버 없음</ServerEmpty>
+            )}
           </ServerList>
         </ServerSidebar>
 
+        {/* 아이템 목록 */}
         <ItemListSection>
           <TotalIndicator>
             총 <strong>{total}</strong>개의 거래 항목
@@ -315,25 +272,26 @@ export default function ItemListPage() {
             <>
               {items.map((item, idx) => (
                 <ItemCard
-                  key={item.itemId || item.id || idx}
-                  onClick={() => navigate(`/items/${item.itemId || item.id}`)}
+                  key={item.itemId ?? item.id ?? idx}
+                  onClick={() => navigate(`/items/${item.itemId ?? item.id}`)}
                 >
                   <ItemThumbnail>📦</ItemThumbnail>
                   <ItemInfo>
                     <ItemName>{item.title}</ItemName>
                     <ItemMeta>
-                      <span className="game-tag">
-                        {GAMES.find(
-                          (g) => g.key === (item.game || item.gameName),
-                        )?.label ||
-                          item.gameName ||
-                          item.game ||
-                          "기타"}
-                      </span>
-                      <span className="divider"> | </span>
-                      <span className="server-tag">
-                        {item.serverName || item.gameServer || "전체서버"}
-                      </span>
+                      <span className="game-tag">{item.gameName ?? ""}</span>
+                      {item.serverName && (
+                        <>
+                          <span className="divider"> | </span>
+                          <span className="server-tag">{item.serverName}</span>
+                        </>
+                      )}
+                      {item.categoryName && (
+                        <>
+                          <span className="divider"> · </span>
+                          <span>{item.categoryName}</span>
+                        </>
+                      )}
                     </ItemMeta>
                   </ItemInfo>
                   <ItemActionGroup>
@@ -341,39 +299,48 @@ export default function ItemListPage() {
                       <PriceLabel>판매 가격</PriceLabel>
                       <PriceValue>
                         {Number(
-                          item.price || item.basePrice || 0,
+                          item.price ?? item.basePrice ?? 0,
                         ).toLocaleString()}
                         원
                       </PriceValue>
                     </PriceContainer>
-                    <BuyButton>구매하기</BuyButton>
+                    <BuyButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/items/${item.itemId ?? item.id}`);
+                      }}
+                    >
+                      구매하기
+                    </BuyButton>
                   </ItemActionGroup>
                 </ItemCard>
               ))}
 
-              <PaginationContainer>
-                <PaginationArrow
-                  disabled={page === 1}
-                  onClick={() => updateParams({ page: String(page - 1) })}
-                >
-                  <Icon.ArrowLeft />
-                </PaginationArrow>
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <PaginationNumber
-                    key={i + 1}
-                    $isActive={page === i + 1}
-                    onClick={() => updateParams({ page: String(i + 1) })}
+              {totalPages > 1 && (
+                <PaginationContainer>
+                  <PaginationArrow
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => p - 1)}
                   >
-                    {i + 1}
-                  </PaginationNumber>
-                ))}
-                <PaginationArrow
-                  disabled={page === totalPages}
-                  onClick={() => updateParams({ page: String(page + 1) })}
-                >
-                  <Icon.ArrowRight />
-                </PaginationArrow>
-              </PaginationContainer>
+                    <Icon.ArrowLeft />
+                  </PaginationArrow>
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <PaginationNumber
+                      key={i + 1}
+                      $isActive={page === i + 1}
+                      onClick={() => setPage(i + 1)}
+                    >
+                      {i + 1}
+                    </PaginationNumber>
+                  ))}
+                  <PaginationArrow
+                    disabled={page === totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    <Icon.ArrowRight />
+                  </PaginationArrow>
+                </PaginationContainer>
+              )}
             </>
           )}
         </ItemListSection>
@@ -382,8 +349,7 @@ export default function ItemListPage() {
   );
 }
 
-// ── Styled Components (기존 스타일 유지) ──────────────────────────────────────────────────
-
+// ── Styled Components ──────────────────────────────────────────
 const PageLayout = styled.div`
   background-color: #0b0c10;
   color: #ffffff;
@@ -421,6 +387,9 @@ const AddBtn = styled.button`
   border-radius: 8px;
   font-weight: 700;
   cursor: pointer;
+  &:hover {
+    opacity: 0.9;
+  }
 `;
 const GameTabContainer = styled.div`
   display: flex;
@@ -436,22 +405,22 @@ const GameTabContainer = styled.div`
   }
 `;
 const GameTabButton = styled.button`
-  background-color: ${(props) => (props.$isActive ? "#635BFF" : "#1c1d26")};
-  color: ${(props) => (props.$isActive ? "#ffffff" : "#9ca3af")};
-  border: 1px solid ${(props) => (props.$isActive ? "transparent" : "#2d2f3d")};
+  background-color: ${(p) => (p.$isActive ? "#635BFF" : "#1c1d26")};
+  color: ${(p) => (p.$isActive ? "#ffffff" : "#9ca3af")};
+  border: 1px solid ${(p) => (p.$isActive ? "transparent" : "#2d2f3d")};
   padding: 10px 20px;
   border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
   transition: 0.2s;
   &:hover {
-    background-color: #2d2f3d;
+    background-color: ${(p) => (p.$isActive ? "#635BFF" : "#2d2f3d")};
   }
 `;
 const FilterArea = styled.div`
   display: flex;
   align-items: center;
-  gap: 30px;
+  gap: 20px;
   flex-wrap: wrap;
 `;
 const SearchForm = styled.form`
@@ -470,6 +439,7 @@ const SearchInput = styled.input`
   width: 100%;
   color: white;
   outline: none;
+  font-size: 14px;
 `;
 const SearchButton = styled.button`
   background: none;
@@ -479,16 +449,19 @@ const SearchButton = styled.button`
 `;
 const CategoryTabContainer = styled.div`
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 `;
 const CategoryTab = styled.button`
-  background-color: ${(props) => (props.$isActive ? "#635BFF" : "transparent")};
-  color: ${(props) => (props.$isActive ? "#ffffff" : "#B0B2C3")};
-  border: none;
-  padding: 8px 15px;
-  border-radius: 6px;
+  background-color: ${(p) => (p.$isActive ? "#635BFF" : "transparent")};
+  color: ${(p) => (p.$isActive ? "#ffffff" : "#B0B2C3")};
+  border: 1px solid ${(p) => (p.$isActive ? "#635BFF" : "#2d2f3d")};
+  padding: 6px 14px;
+  border-radius: 20px;
   cursor: pointer;
+  font-size: 13px;
   font-weight: 600;
+  transition: 0.15s;
 `;
 const MainContentContainer = styled.div`
   display: flex;
@@ -518,10 +491,9 @@ const ServerList = styled.div`
   gap: 4px;
 `;
 const ServerItem = styled.div`
-  background-color: ${(props) =>
-    props.$isActive ? "#635BFF22" : "transparent"};
-  color: ${(props) => (props.$isActive ? "#8083FF" : "#C7C4D7")};
-  font-weight: ${(props) => (props.$isActive ? "700" : "400")};
+  background-color: ${(p) => (p.$isActive ? "#635BFF22" : "transparent")};
+  color: ${(p) => (p.$isActive ? "#8083FF" : "#C7C4D7")};
+  font-weight: ${(p) => (p.$isActive ? "700" : "400")};
   padding: 10px;
   border-radius: 6px;
   cursor: pointer;
@@ -529,6 +501,11 @@ const ServerItem = styled.div`
   &:hover {
     background-color: #1c1d26;
   }
+`;
+const ServerEmpty = styled.div`
+  font-size: 12px;
+  color: #3c4060;
+  padding: 8px 10px;
 `;
 const ItemListSection = styled.section`
   flex: 1;
@@ -567,6 +544,7 @@ const ItemThumbnail = styled.div`
   justify-content: center;
   font-size: 24px;
   margin-right: 20px;
+  flex-shrink: 0;
 `;
 const ItemInfo = styled.div`
   flex: 1;
@@ -584,7 +562,7 @@ const ItemMeta = styled.div`
     font-weight: 600;
   }
   .divider {
-    margin: 0 8px;
+    margin: 0 6px;
     color: #2d2f3d;
   }
 `;
@@ -614,6 +592,7 @@ const BuyButton = styled.button`
   padding: 10px 20px;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
 `;
 const StatusText = styled.div`
   padding: 100px 0;
@@ -639,19 +618,16 @@ const PaginationArrow = styled.button`
   justify-content: center;
   &:disabled {
     opacity: 0.3;
+    cursor: default;
   }
 `;
 const PaginationNumber = styled.button`
-  background: ${(props) => (props.$isActive ? "#635BFF" : "#1c1d26")};
-  border: 1px solid ${(props) => (props.$isActive ? "#635BFF" : "#2d2f3d")};
+  background: ${(p) => (p.$isActive ? "#635BFF" : "#1c1d26")};
+  border: 1px solid ${(p) => (p.$isActive ? "#635BFF" : "#2d2f3d")};
   color: white;
   width: 36px;
   height: 36px;
   border-radius: 8px;
+  font-weight: ${(p) => (p.$isActive ? "700" : "400")};
   cursor: pointer;
-  font-weight: ${(props) => (props.$isActive ? "700" : "400")};
-  position: relative;
-  ${(props) =>
-    props.$isActive &&
-    `&::after { content: ''; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: white; border-radius: 50%; }`}
 `;
