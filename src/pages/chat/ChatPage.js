@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import ChatApi from "../../api/chat.api";
@@ -7,7 +7,7 @@ import useWebSocket from "../../hooks/useWebSocket";
 
 // ── 결제 모달 ─────────────────────────────────────────────────
 function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
-  const [method, setMethod] = useState("mileage"); // mileage | card
+  const [method, setMethod] = useState("mileage");
   const price = room?.itemPrice ?? room?.basePrice ?? room?.price ?? 0;
   const fee = Math.floor(price * 0.05);
   const total = price + fee;
@@ -17,7 +17,6 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
   return (
     <Overlay>
       <PayBox>
-        {/* 상품 정보 */}
         <PaySection>
           <PaySectionTitle>나의 화재매역 현황</PaySectionTitle>
           <PayItemRow>
@@ -34,8 +33,6 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
             <PayItemPrice>{fmt(price)} 원</PayItemPrice>
           </PayItemRow>
         </PaySection>
-
-        {/* 결제 수단 */}
         <PaySection>
           <PaySectionTitle>결제 수단 선택</PaySectionTitle>
           <PayMethodRow>
@@ -69,8 +66,6 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
             </PayMethod>
           </PayMethodRow>
         </PaySection>
-
-        {/* 최종 결제 금액 */}
         <PaySection>
           <PaySectionTitle>최종 결제 금액</PaySectionTitle>
           <PriceBreakdown>
@@ -100,7 +95,6 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
             🔒 결제 금액은 거래 완료 전까지 에스크로에 안전 보관됩니다.
           </EscrowNote>
         </PaySection>
-
         <PayBtns>
           <PayCancel onClick={onCancel}>취소</PayCancel>
           <PayConfirm onClick={() => onConfirm(method)} disabled={lack}>
@@ -144,32 +138,27 @@ function roomId(r) {
   return r.chatRoomId ?? r.id;
 }
 function roomPartner(r) {
-  return r.partnerNickname ?? r.partnerName ?? "상대방";
+  return r.opponent?.nickname ?? r.partnerNickname ?? r.partnerName ?? "상대방";
 }
 function roomItem(r) {
-  return r.itemName ?? r.itemTitle ?? "거래 아이템";
+  return r.itemTitle ?? r.itemName ?? "거래 아이템";
 }
 function roomLast(r) {
   return r.lastMessage ?? "";
 }
 function roomLastTime(r) {
-  return r.lastMessageTime ?? r.lastMsgTime ?? null;
+  return r.lastMessageAt ?? r.lastMessageTime ?? r.lastMsgTime ?? null;
 }
 function roomUnread(r) {
   return r.unreadCount ?? 0;
 }
 function roomStatus(r) {
-  return r.tradeStatus ?? r.status ?? "CONSULTING";
-}
-function roomSellerId(r) {
-  return r.sellerId ?? r.sellerMemberId ?? null;
+  if (r.tradeStatus) return r.tradeStatus;
+  return r.tradeId ? "PAID" : "CONSULTING";
 }
 
 function msgId(m) {
-  return m.chatMessageId ?? m.id ?? null;
-}
-function msgSender(m) {
-  return String(m.senderId ?? m.senderMemberId ?? "");
+  return m.chatMessageId ?? m.messageId ?? m.id ?? null;
 }
 function msgContent(m) {
   return m.content ?? m.message ?? m.text ?? "";
@@ -183,6 +172,10 @@ function msgRead(m) {
 function msgType(m) {
   return m.messageType ?? m.type ?? "CHAT";
 }
+// ✅ senderNickname 기준으로 isMe 판별
+function msgSenderNickname(m) {
+  return m.senderNickname ?? "";
+}
 
 const STEPS = ["거래 대기", "결제 완료", "거래 완료"];
 const STATUS_STEP = {
@@ -194,7 +187,6 @@ const STATUS_STEP = {
 function getStep(status) {
   return STATUS_STEP[status] ?? 0;
 }
-
 const STATUS_LABEL = {
   CONSULTING: "거래대기",
   PAID: "결제완료",
@@ -318,7 +310,6 @@ function Sidebar({ room, myNickname, onPay, onComplete }) {
           </ActionBtn>
         </ActionBtns>
       </SideSection>
-
       <SideSection>
         <SideSectionTitle>거래 현황</SideSectionTitle>
         {STEPS.map((label, i) => {
@@ -341,12 +332,9 @@ function Sidebar({ room, myNickname, onPay, onComplete }) {
           );
         })}
       </SideSection>
-
-      {/* 구매자: 결제하기 버튼 */}
       {!isSeller && !isDone && stepIdx === 0 && (
         <PayBtn onClick={onPay}>💳 결제하기</PayBtn>
       )}
-      {/* 구매자: 인수하기 버튼 */}
       {!isSeller && !isDone && stepIdx === 1 && (
         <CompleteBtn onClick={onComplete}>✅ 인수하기</CompleteBtn>
       )}
@@ -356,7 +344,6 @@ function Sidebar({ room, myNickname, onPay, onComplete }) {
 
 // ── 메인 ChatPage ─────────────────────────────────────────────
 export default function ChatPage() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const myNickname = user?.nickname ?? "";
@@ -377,9 +364,9 @@ export default function ChatPage() {
   const isDone = getStep(roomStatus(activeRoom ?? {})) >= 2;
   const isSeller = activeRoom?.sellerNickname === myNickname;
 
-  // WebSocket
   const topic = selectedId ? `/topic/chat/${selectedId}` : null;
   const dest = selectedId ? `/app/chat/${selectedId}` : null;
+
   const handleIncoming = useCallback(
     (msg) => {
       setMessages((prev) => {
@@ -404,18 +391,16 @@ export default function ChatPage() {
 
   const { sendMessage } = useWebSocket(topic, dest, handleIncoming);
 
-  // 채팅방 목록 로드
   useEffect(() => {
     setRoomsLoad(true);
-    ChatApi.getChatRooms()
+    ChatApi.getChatRooms({ page: 0, size: 50 })
       .then((res) => {
-        const list = res.data?.data ?? res.data ?? [];
+        const list = res.data?.data?.content ?? res.data?.content ?? [];
         setRooms(list);
-        // URL roomId 파라미터 우선
         const urlRoom = searchParams.get("roomId");
         if (urlRoom) {
           setSelectedId(String(urlRoom));
-        } else if (list.length > 0 && !selectedId) {
+        } else if (list.length > 0) {
           setSelectedId(String(roomId(list[0])));
         }
       })
@@ -423,7 +408,6 @@ export default function ChatPage() {
       .finally(() => setRoomsLoad(false));
   }, []);
 
-  // 메시지 로드
   const loadMessages = useCallback((rId) => {
     if (!rId) return;
     setMsgLoad(true);
@@ -446,76 +430,52 @@ export default function ChatPage() {
   useEffect(() => {
     if (selectedId) loadMessages(selectedId);
   }, [selectedId]);
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 메시지 전송
+  // ✅ 낙관적 업데이트 제거 — WebSocket 브로드캐스트로만 수신
   function handleSend(e) {
     e.preventDefault();
     if (!input.trim() || !selectedId) return;
     const content = input.trim();
     setInput("");
-    const opt = {
-      id: `opt-${Date.now()}`,
-      senderId: myNickname,
-      content,
-      sentAt: new Date().toISOString(),
-      isRead: false,
-    };
-    setMessages((prev) => [...prev, opt]);
     sendMessage({ content, type: "CHAT" });
   }
 
-  // 결제 확인
-  function handlePayConfirm(method) {
+  async function handlePayConfirm(method) {
     if (!activeRoom) return;
-    const price =
-      activeRoom.itemPrice ?? activeRoom.basePrice ?? activeRoom.price ?? 0;
-    const fee = Math.floor(price * 0.05);
-    const total = price + fee;
-    // 결제 완료 카드 메시지 삽입
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `pay-${Date.now()}`,
-        messageType: "PAYMENT_CARD",
-        totalAmount: total,
-        method,
-        sentAt: new Date().toISOString(),
-      },
-    ]);
-    setRooms((prev) =>
-      prev.map((r) =>
-        String(roomId(r)) === String(selectedId)
-          ? { ...r, tradeStatus: "PAID", lastMessage: "결제 완료" }
-          : r,
-      ),
-    );
-    setShowPay(false);
-    // TODO: WonPayApi.pay({ chatRoomId: selectedId, amount: total, method })
+    try {
+      await ChatApi.payForRoom(selectedId, method);
+      setRooms((prev) =>
+        prev.map((r) =>
+          String(roomId(r)) === String(selectedId)
+            ? { ...r, tradeStatus: "PAID", lastMessage: "결제 완료" }
+            : r,
+        ),
+      );
+      setShowPay(false);
+    } catch (err) {
+      alert(err.response?.data?.message || "결제에 실패했습니다.");
+    }
   }
 
-  // 인수 완료
-  function handleComplete() {
+  async function handleComplete() {
     if (!activeRoom || isDone) return;
     if (!window.confirm("거래를 최종 인수 완료 처리하겠습니까?")) return;
-    setRooms((prev) =>
-      prev.map((r) =>
-        String(roomId(r)) === String(selectedId)
-          ? { ...r, tradeStatus: "COMPLETED" }
-          : r,
-      ),
-    );
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `sys-${Date.now()}`,
-        messageType: "SYSTEM",
-        content: "거래 완료되었습니다. 마일리지가 판매자에게 이관되었습니다.",
-        sentAt: new Date().toISOString(),
-      },
-    ]);
+    try {
+      await ChatApi.completeRoom(selectedId);
+      setRooms((prev) =>
+        prev.map((r) =>
+          String(roomId(r)) === String(selectedId)
+            ? { ...r, tradeStatus: "COMPLETED" }
+            : r,
+        ),
+      );
+    } catch (err) {
+      alert(err.response?.data?.message || "거래 완료 처리에 실패했습니다.");
+    }
   }
 
   const quickReplies = isSeller
@@ -545,7 +505,6 @@ export default function ChatPage() {
         />
       )}
 
-      {/* 채팅 목록 */}
       <RoomList
         rooms={rooms}
         loading={roomsLoad}
@@ -555,10 +514,8 @@ export default function ChatPage() {
         onSearch={setSearch}
       />
 
-      {/* 채팅 영역 */}
       {activeRoom ? (
         <ChatArea>
-          {/* 헤더 */}
           <ChatHeader>
             <HeaderLeft>
               <HeaderTitle>
@@ -575,12 +532,10 @@ export default function ChatPage() {
             </HeaderActions>
           </ChatHeader>
 
-          {/* 경고 배너 */}
           <WarnBanner>
             ⚠ 채팅 내부에서 개인정보 보호 목적으로 개인정보 7일까지 보관됩니다.
           </WarnBanner>
 
-          {/* 메시지 목록 */}
           <MsgList>
             {msgLoad ? (
               <EmptyMsg style={{ color: "#555" }}>메시지 로딩 중...</EmptyMsg>
@@ -590,7 +545,6 @@ export default function ChatPage() {
               </EmptyMsg>
             ) : (
               messages.map((msg, i) => {
-                // 시스템 메시지
                 if (msgType(msg) === "SYSTEM")
                   return (
                     <SystemMsg key={msgId(msg) ?? i}>
@@ -598,7 +552,6 @@ export default function ChatPage() {
                       {msgContent(msg)}
                     </SystemMsg>
                   );
-                // 결제 카드
                 if (msgType(msg) === "PAYMENT_CARD")
                   return (
                     <PayCardWrap key={msgId(msg) ?? i}>
@@ -645,10 +598,9 @@ export default function ChatPage() {
                       </PayCard>
                     </PayCardWrap>
                   );
-                // 일반 메시지
-                const isMe =
-                  msgSender(msg) === myNickname ||
-                  msgSender(msg) === String(user?.memberId ?? user?.id ?? "");
+
+                // ✅ senderNickname으로 isMe 판별
+                const isMe = msgSenderNickname(msg) === myNickname;
                 return (
                   <MsgRow key={msgId(msg) ?? i} $isMe={isMe}>
                     {!isMe && (
@@ -676,19 +628,16 @@ export default function ChatPage() {
             <div ref={endRef} />
           </MsgList>
 
-          {/* 거래완료 배너 */}
           {isDone && (
             <DoneBanner>⚠ 이 채팅은 거래가 완료된 채팅방입니다.</DoneBanner>
           )}
 
-          {/* 인수하기 버튼 (구매자 & 결제완료 상태) */}
           {!isSeller && !isDone && getStep(roomStatus(activeRoom)) === 1 && (
             <CompleteBtnBottom onClick={handleComplete}>
               ✅ 인수하기 (거래 완료)
             </CompleteBtnBottom>
           )}
 
-          {/* 빠른 답장 */}
           {!isDone && (
             <QuickRow>
               {quickReplies.map((q) => (
@@ -699,7 +648,6 @@ export default function ChatPage() {
             </QuickRow>
           )}
 
-          {/* 입력창 */}
           <InputArea onSubmit={handleSend}>
             <InputBox>
               <InputBtns>
@@ -731,7 +679,6 @@ export default function ChatPage() {
         </NoChat>
       )}
 
-      {/* 우측 사이드바 */}
       {activeRoom && (
         <Sidebar
           room={activeRoom}
@@ -755,8 +702,6 @@ const Wrap = styled.div`
   font-family: "Pretendard", "Noto Sans KR", sans-serif;
   overflow: hidden;
 `;
-
-// ── 목록 패널
 const ListPanel = styled.div`
   width: 300px;
   flex-shrink: 0;
@@ -764,10 +709,6 @@ const ListPanel = styled.div`
   border-right: 1px solid #2a2a3e;
   display: flex;
   flex-direction: column;
-  @media (max-width: 768px) {
-    width: 100%;
-    display: ${(p) => (p.$hidden ? "none" : "flex")};
-  }
 `;
 const ListHeader = styled.div`
   padding: 20px 16px 12px;
@@ -892,8 +833,6 @@ const EmptyMsg = styled.div`
   color: #52525b;
   font-size: 13px;
 `;
-
-// ── 채팅 영역
 const ChatArea = styled.div`
   flex: 1;
   display: flex;
@@ -1207,8 +1146,6 @@ const OnlineDot = styled.div`
   border: 2px solid #0d0d14;
   margin-left: auto;
 `;
-
-// ── 사이드바
 const SidePanel = styled.div`
   width: 200px;
   flex-shrink: 0;
@@ -1351,8 +1288,6 @@ const CompleteBtn = styled.button`
     background: rgba(16, 185, 129, 0.25);
   }
 `;
-
-// ── 결제 모달
 const Overlay = styled.div`
   position: fixed;
   inset: 0;

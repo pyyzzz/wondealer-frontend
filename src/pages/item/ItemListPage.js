@@ -215,7 +215,7 @@ export default function ItemListPage() {
           {GAMES.map((g) => (
             <GameTabButton
               key={g.key}
-              isActive={game === g.key}
+              $isActive={game === g.key}
               onClick={() => {
                 setSearchParams({ game: g.key, page: "1" });
                 setInputKeyword("");
@@ -242,7 +242,7 @@ export default function ItemListPage() {
             {CATEGORIES.map((cat) => (
               <CategoryTab
                 key={cat}
-                isActive={category === cat}
+                $isActive={category === cat}
                 onClick={() => updateParams({ category: cat, page: "1" })}
               >
                 {cat}
@@ -260,7 +260,7 @@ export default function ItemListPage() {
           </SidebarTitle>
           <ServerList>
             <ServerItem
-              isActive={!server}
+              $isActive={!server}
               onClick={() => updateParams({ server: "", page: "1" })}
             >
               전체 서버
@@ -268,7 +268,7 @@ export default function ItemListPage() {
             {serverList.map((s) => (
               <ServerItem
                 key={s}
-                isActive={server === s}
+                $isActive={server === s}
                 onClick={() => updateParams({ server: s, page: "1" })}
               >
                 {s}
@@ -290,8 +290,10 @@ export default function ItemListPage() {
             <>
               {items.map((item) => (
                 <ItemCard
-                  key={item.id}
-                  onClick={() => navigate(`/items/${item.id}`)}
+                  key={item.itemId ?? item.id ?? item.item_id ?? index}
+                  onClick={() =>
+                    navigate(`/items/${item.itemId ?? item.id ?? item.item_id}`)
+                  }
                 >
                   <ItemThumbnail>📦</ItemThumbnail>
                   <ItemInfo>
@@ -316,7 +318,9 @@ export default function ItemListPage() {
                     <BuyButton
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/items/${item.item_id ?? item.id}`);
+                        navigate(
+                          `/items/${item.itemId ?? item.id ?? item.item_id}`,
+                        );
                       }}
                     >
                       구매하기
@@ -335,7 +339,7 @@ export default function ItemListPage() {
                 {Array.from({ length: totalPages }, (_, i) => (
                   <PaginationNumber
                     key={i + 1}
-                    isActive={page === i + 1}
+                    $isActive={page === i + 1}
                     onClick={() => updateParams({ page: i + 1 })}
                   >
                     {i + 1}
@@ -421,16 +425,9 @@ const GameTabContainer = styled.div`
 `;
 
 const GameTabButton = styled.button`
-  background-color: ${(props) => (props.isActive ? "#635BFF" : "#1c1d26")};
-  color: ${(props) => (props.isActive ? "#ffffff" : "#9ca3af")};
-  border: 1px solid ${(props) => (props.isActive ? "transparent" : "#2d2f3d")};
-  border-radius: 20px;
-  padding: 8px 20px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: 0.2s;
+  background-color: ${(props) => (props.$isActive ? "#635BFF" : "#1c1d26")};
+  color: ${(props) => (props.$isActive ? "#ffffff" : "#9ca3af")};
+  border: 1px solid ${(props) => (props.$isActive ? "transparent" : "#2d2f3d")};
 `;
 
 const FilterArea = styled.div`
@@ -473,13 +470,8 @@ const CategoryTabContainer = styled.div`
 `;
 
 const CategoryTab = styled.button`
-  padding: 6px 16px;
-  border-radius: 20px;
-  border: 1px solid #2d2f3d;
-  background-color: ${(props) => (props.isActive ? "#635BFF" : "transparent")};
-  color: ${(props) => (props.isActive ? "#ffffff" : "#B0B2C3")};
-  font-size: 13px;
-  cursor: pointer;
+  background-color: ${(props) => (props.$isActive ? "#635BFF" : "transparent")};
+  color: ${(props) => (props.$isActive ? "#ffffff" : "#B0B2C3")};
 `;
 
 const MainContentContainer = styled.div`
@@ -514,17 +506,10 @@ const ServerList = styled.div`
 `;
 
 const ServerItem = styled.div`
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
   background-color: ${(props) =>
-    props.isActive ? "#635BFF22" : "transparent"};
-  color: ${(props) => (props.isActive ? "#8083FF" : "#C7C4D7")};
-  font-weight: ${(props) => (props.isActive ? "700" : "400")};
-  &:hover {
-    background-color: #1c1d26;
-  }
+    props.$isActive ? "#635BFF22" : "transparent"};
+  color: ${(props) => (props.$isActive ? "#8083FF" : "#C7C4D7")};
+  font-weight: ${(props) => (props.$isActive ? "700" : "400")};
 `;
 
 const ItemListSection = styled.section`
@@ -648,17 +633,10 @@ const PaginationArrow = styled.button`
 `;
 
 const PaginationNumber = styled.button`
-  background: ${(props) => (props.isActive ? "#635BFF" : "#1c1d26")};
-  border: 1px solid ${(props) => (props.isActive ? "#635BFF" : "#2d2f3d")};
-  color: white;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  position: relative;
+  background: ${(props) => (props.$isActive ? "#635BFF" : "#1c1d26")};
+  border: 1px solid ${(props) => (props.$isActive ? "#635BFF" : "#2d2f3d")};
   ${(props) =>
-    props.isActive &&
+    props.$isActive &&
     `
     &::after {
       content: ''; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);

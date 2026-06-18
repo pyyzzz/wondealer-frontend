@@ -27,7 +27,7 @@ const DUMMY_ITEM = {
 
 export default function ItemDetailPage() {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { itemId } = useParams();
   const { isLoggedIn, user } = useAuth();
 
   const [item, setItem] = useState(null);
@@ -38,14 +38,15 @@ export default function ItemDetailPage() {
 
   useEffect(() => {
     setLoading(true);
-    ItemApi.getItem(id)
+    ItemApi.getItem(itemId)
       .then((r) => {
         const d = r.data?.data ?? r.data ?? {};
+        console.log("[item detail raw]", JSON.stringify(d));
         setItem(Object.keys(d).length > 0 ? d : DUMMY_ITEM);
       })
       .catch(() => setItem(DUMMY_ITEM))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [itemId]);
 
   const handleChat = async () => {
     if (!isLoggedIn) {
@@ -57,13 +58,20 @@ export default function ItemDetailPage() {
       return;
     }
     setChatLoading(true);
+    setError("");
     try {
-      const res = await ChatApi.createChatRoom(Number(id));
-      const roomId = res.data?.data?.chatRoomId ?? res.data?.chatRoomId;
-      navigate(roomId ? `/chat?roomId=${roomId}` : "/chat");
+      const res = await ChatApi.createChatRoom(Number(itemId));
+      const roomId = res.data?.data?.chatRoomId;
+      if (roomId) {
+        navigate(`/chat?roomId=${roomId}`);
+      } else {
+        setError("채팅방 생성에 성공했지만 방 정보를 불러오지 못했습니다.");
+      }
     } catch (err) {
-      const roomId = err.response?.data?.data?.chatRoomId;
-      navigate(roomId ? `/chat?roomId=${roomId}` : "/chat");
+      const message = err.response?.data?.message;
+      setError(
+        message || "채팅방 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+      );
     } finally {
       setChatLoading(false);
     }
