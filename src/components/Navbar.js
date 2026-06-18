@@ -155,8 +155,9 @@ const Nav = styled.nav`
   justify-content: space-between;
   padding: 0 24px;
   height: 60px;
-  background-color: var(--surface-container);
+  background-color: var(--bg-container, var(--surface-container));
   border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -263,7 +264,8 @@ const MenuButton = styled.button`
 const SearchBar = styled.div`
   display: flex;
   align-items: center;
-  background-color: var(--surface-container-low);
+  background-color: var(--bg-container-high, var(--surface-container-low));
+  border: 1px solid var(--border-color);
   border-radius: 30px;
   padding: 4px 4px 4px 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -276,6 +278,10 @@ const SearchBar = styled.div`
   @media (max-width: 580px) {
     display: none;
   }
+
+  &:focus-within {
+    border-color: var(--color-primary);
+  }
 `;
 
 const SearchInput = styled.input`
@@ -283,20 +289,21 @@ const SearchInput = styled.input`
   border: none;
   background: none;
   font-size: 14px;
-  color: var(--on-surface);
+  color: var(--text-primary);
   outline: none;
   padding: 0;
 
   &::placeholder {
-    color: var(--outline);
+    color: var(--text-secondary);
+    opacity: 1;
   }
 `;
 
 const SearchButton = styled.button`
   height: 30px;
-  min-width: 44px;
-  background-color: var(--primary);
-  border: none;
+  min-width: 52px;
+  background-color: var(--color-primary);
+  border: 1px solid var(--color-primary);
   border-radius: 999px;
   display: flex;
   justify-content: center;
@@ -305,10 +312,13 @@ const SearchButton = styled.button`
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform 0.2s, background-color 0.2s, border-color 0.2s;
   margin-left: 8px;
+  padding: 0 12px;
 
   &:hover {
+    background-color: var(--primary-container);
+    border-color: var(--primary-container);
     transform: scale(1.05);
   }
 `;
