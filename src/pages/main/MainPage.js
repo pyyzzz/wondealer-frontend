@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import axios from "axios";
 import Common from "../../utils/Common";
-import heroBgImage from "../../img/HeroSection.jpg";
+import heroBgImage from "../../img/HeroSection.webp";
+import herosectionlight from "../../img/HeroSectionlight.webp";
 
 const api = axios.create({ baseURL: Common.API_URL });
 
@@ -350,19 +351,26 @@ const HeroSection = styled.div`
   @media (max-width: 480px) {
     height: 380px;
   }
+
   &::before {
     content: "";
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: url(${heroBgImage}) no-repeat center/cover;
-    filter: brightness(0.6) contrast(1.1);
-
-    @media (prefers-color-scheme: light) {
-      filter: brightness(1.1) contrast(0.9);
-    }
+    filter: brightness(1.4) contrast(1.1);
     z-index: 1;
   }
+
+  /* 라이트모드 상태일 때: herosectionlight 이미지로 교체 */
+  [data-theme="light"] &::before {
+    background: url(${herosectionlight}) no-repeat center/cover;
+    filter: brightness(1.1) contrast(1.05);
+  }
 `;
+
 const HeroOverlay = styled.div`
   position: absolute;
   inset: 0;
