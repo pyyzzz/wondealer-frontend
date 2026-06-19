@@ -502,4 +502,3 @@ export const EscrowBanner = styled.div`
   color: var(--color-success);
   line-height: 1.5;
 `;
-// --- 스타일 컴포넌트 정의 끝 ---
