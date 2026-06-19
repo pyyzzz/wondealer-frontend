@@ -23,6 +23,29 @@ function normalizeBid(bid) {
   };
 }
 
+// AuctionDetailResDto 구조:
+// { auctionId, item: { itemId, title, description, gameName, categoryName,
+//   serverName, images: [], seller: { memberId, nickname } },
+//   startPrice, currentPrice, instantBuyPrice, bidCount, endTime, status, winnerId }
+function normalizeAuction(data) {
+  if (!data) return null;
+  const item = data.item ?? {};
+  return {
+    ...data,
+    title: item.title ?? data.title ?? "",
+    description: item.description ?? data.description ?? "",
+    game: item.gameName ?? data.game ?? "",
+    categoryName: item.categoryName ?? "",
+    serverName: item.serverName ?? "",
+    images: item.images ?? [],
+    imageUrl: item.images && item.images.length > 0 ? item.images[0] : null,
+    sellerNickname: item.seller?.nickname ?? "",
+    // 백엔드는 endTime, currentPrice 필드명을 사용
+    endAt: data.endTime ?? data.endAt,
+    currentBid: data.currentPrice ?? data.currentBid,
+  };
+}
+
 export default function AuctionDetailPage() {
   const { auctionId } = useParams();
   const navigate = useNavigate();
@@ -48,7 +71,8 @@ export default function AuctionDetailPage() {
   useEffect(() => {
     AuctionApi.getAuction(auctionId)
       .then((r) => {
-        const d = r.data?.data || r.data;
+        const raw = r.data?.data || r.data;
+        const d = normalizeAuction(raw);
         setAuction(d);
         setTimeStr(timeLeft(d?.endAt || d?.endTime));
       })
@@ -98,7 +122,7 @@ export default function AuctionDetailPage() {
       alert(`${amount.toLocaleString()}원 입찰 완료!`);
       setBidAmount("");
       const r = await AuctionApi.getAuction(auctionId);
-      setAuction(r.data?.data || r.data);
+      setAuction(normalizeAuction(r.data?.data || r.data));
       try {
         const br = await AuctionApi.getBids(auctionId);
         const nextBids = getBidList(br);
@@ -139,7 +163,7 @@ export default function AuctionDetailPage() {
       await AuctionApi.closeAuction(auctionId);
       alert("낙찰 처리가 완료되었습니다.");
       const r = await AuctionApi.getAuction(auctionId);
-      setAuction(r.data?.data || r.data);
+      setAuction(normalizeAuction(r.data?.data || r.data));
     } catch (err) {
       alert(err.response?.data?.message || "낙찰 처리에 실패했습니다.");
     } finally {
@@ -174,8 +198,8 @@ export default function AuctionDetailPage() {
 
   const ended = timeStr === "종료";
   const currentBid = Number(
-    auction.currentPrice ||
-      auction.currentBid ||
+    auction.currentBid ||
+      auction.currentPrice ||
       auction.startPrice ||
       auction.price ||
       0,
@@ -221,20 +245,25 @@ export default function AuctionDetailPage() {
               ))}
             </div>
           )}
-          {auction.details && (
+          {auction.description && (
             <div className="detail-desc-section">
-              <button className="detail-desc-toggle">
-                <span>▸ 상세 설명</span>
-              </button>
+              <div className="detail-desc-title">상세 설명</div>
+              <div className="detail-desc-box">{auction.description}</div>
             </div>
           )}
         </div>
 
         {/* 오른쪽: 정보 + 입찰 */}
         <div className="detail-info-col">
-          <div className="detail-info-title">{auction.title}</div>
-          {auction.seriesId && (
-            <div className="detail-series-id">시리즈: {auction.seriesId}</div>
+          <div className="detail-info-title">
+            {auction.title || "이름 없음"}
+          </div>
+          {(auction.serverName || auction.categoryName) && (
+            <div className="detail-series-id">
+              {[auction.serverName, auction.categoryName]
+                .filter(Boolean)
+                .join(" · ")}
+            </div>
           )}
 
           {!ended ? (
