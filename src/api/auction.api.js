@@ -22,11 +22,9 @@ const AuctionApi = {
     AxiosInstance.get(`/api/auctions/${id}/bids`, { params }),
   getBids: (id, params) =>
     AxiosInstance.get(`/api/auctions/${id}/bids`, { params }),
-  placeBid: (id, amount) =>
-    AxiosInstance.post(`/api/auctions/${id}/bids`, { amount }),
 
-  buyNow: (id) => AxiosInstance.post(`/api/auctions/${id}/instant-buy`),
-  instantBuy: (id) => AxiosInstance.post(`/api/auctions/${id}/instant-buy`),
+  placeBid: (id, amount) =>
+    AxiosInstance.post(`/api/auctions/${id}/bids`, { bidPrice: amount }),
 
   getMyAuctions: (params) => AxiosInstance.get("/api/auctions/my", { params }),
   getMyBids: (params) => AxiosInstance.get("/api/auctions/my-bids", { params }),
