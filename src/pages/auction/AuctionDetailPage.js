@@ -28,6 +28,14 @@ export default function AuctionDetailPage() {
   const [showAllBids, setShowAllBids] = useState(false);
   const [closing, setClosing] = useState(false);
 
+  const getBidList = (response) => {
+    const data = response?.data?.data ?? response?.data ?? [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.content)) return data.content;
+    if (Array.isArray(data.bids)) return data.bids;
+    return [];
+  };
+
   useEffect(() => {
     AuctionApi.getAuction(auctionId)
       .then((r) => {
@@ -39,7 +47,7 @@ export default function AuctionDetailPage() {
       .finally(() => setLoading(false));
 
     AuctionApi.getBids(auctionId)
-      .then((r) => setBids(r.data?.data || r.data || []))
+      .then((r) => setBids(getBidList(r)))
       .catch(() => {});
   }, [auctionId]); // eslint-disable-line
 
@@ -69,7 +77,8 @@ export default function AuctionDetailPage() {
       alert(`최소 ${minBid.toLocaleString()}원 이상 입찰해야 합니다.`);
       return;
     }
-    if (instantBuyPrice && amount >= instantBuyPrice) {
+    const shouldUseInstantBuy = false;
+    if (shouldUseInstantBuy) {
       const goInstant = window.confirm(
         `입찰 금액이 즉시 낙찰가(${fmt(instantBuyPrice)}원) 이상입니다.\n즉시 낙찰로 진행하시겠습니까?\n\n취소를 누르면 즉시 낙찰가보다 낮은 금액으로 다시 입력해주세요.`,
       );
@@ -86,13 +95,28 @@ export default function AuctionDetailPage() {
     }
     setBidding(true);
     try {
-      await AuctionApi.placeBid(auctionId, amount);
+      const bidResponse = await AuctionApi.placeBid(auctionId, amount);
       alert(`${amount.toLocaleString()}원 입찰 완료!`);
       setBidAmount("");
       const r = await AuctionApi.getAuction(auctionId);
       setAuction(r.data?.data || r.data);
       const br = await AuctionApi.getBids(auctionId);
-      setBids(br.data?.data || br.data || []);
+      const nextBids = getBidList(br);
+      const createdBid = bidResponse?.data?.data ?? bidResponse?.data;
+      if (nextBids.length > 0) {
+        setBids(nextBids);
+      } else if (createdBid && typeof createdBid === "object") {
+        setBids([createdBid]);
+      } else {
+        setBids((prev) => [
+          {
+            id: `local-${Date.now()}`,
+            amount,
+            bidderNickname: user?.nickname || user?.name || user?.username || "나",
+          },
+          ...prev,
+        ]);
+      }
     } catch (err) {
       alert(err.response?.data?.message || "입찰에 실패했습니다.");
     } finally {
@@ -148,16 +172,13 @@ export default function AuctionDetailPage() {
   const currentBid = Number(
     auction.currentBid || auction.startPrice || auction.price || 0,
   );
-  const minBidUnit = Number(auction.minBidUnit || 1000);
+  const minBidUnit = 100;
   const instantBuyPrice = auction.instantBuyPrice
     ? Number(auction.instantBuyPrice)
     : null;
   const rawMinBid = currentBid + minBidUnit;
   // 즉시낙찰가가 일반 최소입찰가보다 낮게 설정된 경우, 즉시낙찰가를 최소입찰가로 사용
-  const minBid =
-    instantBuyPrice && rawMinBid > instantBuyPrice
-      ? instantBuyPrice
-      : rawMinBid;
+  const minBid = rawMinBid;
 
   return (
     <div className="detail-wrap">
@@ -231,7 +252,7 @@ export default function AuctionDetailPage() {
           <div className="detail-stat-row sub">
             <span className="detail-stat-label">최소 입찰 증가액</span>
             <span className="detail-stat-value sub">
-              {fmt(auction.minBidUnit || 1000)} <small>KRW</small>
+              {fmt(minBidUnit)} <small>KRW</small>
             </span>
           </div>
 

@@ -55,8 +55,11 @@ export default function LoginPage() {
           accessToken: result.accessToken,
           refreshToken: result.refreshToken,
           nickname: result.nickname || result.username || identifier,
+          authority: result.authority,
         });
-        navigate("/", { replace: true });
+        navigate(result.authority === "ROLE_ADMIN" ? "/admin" : "/", {
+          replace: true,
+        });
       }
     } catch (err) {
       setError(
