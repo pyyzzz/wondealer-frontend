@@ -302,11 +302,12 @@
   filter: brightness(1.08);
 }
 
-/* 입찰 내역 */
+/* ── 입찰 내역 (라이트모드 대응) ───────────── */
+
 .detail-bidlist-box {
   margin-top: 24px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-soft);
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 16px;
 }
@@ -318,6 +319,7 @@
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 12px;
+  color: var(--text-primary);
 }
 
 .detail-status-badge {
@@ -325,20 +327,20 @@
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(139, 108, 255, 0.15);
-  color: var(--accent-purple);
+  background: var(--color-primary);
+  color: var(--on-primary);
 }
 
 .detail-status-badge.ended {
-  background: rgba(255, 92, 92, 0.15);
-  color: var(--danger);
+  background: var(--color-danger);
+  color: var(--on-tertiary-container);
 }
 
 .detail-bidlist-empty {
   text-align: center;
   padding: 24px 0;
   font-size: 13px;
-  color: var(--text-faint);
+  color: var(--text-secondary);
 }
 
 .detail-bidlist {
@@ -352,7 +354,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .detail-bidlist-row:last-child {
@@ -364,8 +366,8 @@
   height: 28px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: var(--bg-panel-light);
-  color: var(--accent-purple);
+  background: var(--bg-container-low);
+  color: var(--color-primary);
   font-weight: 700;
   font-size: 13px;
   display: flex;
@@ -373,23 +375,34 @@
   justify-content: center;
 }
 
+.detail-bid-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .detail-bid-name {
   font-size: 13px;
-  color: var(--text-sub);
-  flex: 1;
+  color: var(--text-primary);
+}
+
+.detail-bid-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
 .detail-bid-amount {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-main);
+  color: var(--text-primary);
 }
 
 .detail-bidlist-more {
   width: 100%;
   background: none;
   border: none;
-  color: var(--text-faint);
+  color: var(--text-secondary);
   font-size: 13px;
   padding: 10px 0 0;
   cursor: pointer;
@@ -397,7 +410,7 @@
 }
 
 .detail-bidlist-more:hover {
-  color: var(--accent-purple);
+  color: var(--color-primary);
 }
 
 /* 상세 설명 */

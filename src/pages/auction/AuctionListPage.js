@@ -212,6 +212,7 @@ const ItemCard = styled.div`
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px 24px;
+  cursor: pointer;
   transition:
     transform 0.2s,
     border-color 0.2s;
@@ -546,6 +547,13 @@ const AuctionListPage = () => {
     setSearchParams({ search: searchKeyword });
   };
 
+  // 아이템 카드(썸네일/제목 영역) 클릭 시 상세 페이지로 이동
+  // 단순 조회이므로 로그인 여부와 무관하게 이동 허용
+  const handleItemClick = (id) => {
+    navigate(`/auctions/${id}`);
+  };
+
+  // 입찰하기 버튼 클릭 시 - 로그인 체크 후 상세 페이지로 이동
   const handleBidClick = (id) => {
     if (!isLoggedIn) {
       alert("로그인이 필요합니다.");
@@ -608,7 +616,10 @@ const AuctionListPage = () => {
             <StatusText>등록된 경매 상품이 없습니다.</StatusText>
           ) : (
             filteredData.map((auc) => (
-              <ItemCard key={auc.auctionId}>
+              <ItemCard
+                key={auc.auctionId}
+                onClick={() => handleItemClick(auc.auctionId)}
+              >
                 <ItemThumbnail>
                   <img
                     src={
@@ -620,7 +631,7 @@ const AuctionListPage = () => {
                 </ItemThumbnail>
                 <ItemInfo>
                   <ItemName>{auc.itemTitle}</ItemName>
-                <ItemMeta>
+                  <ItemMeta>
                     <span>
                       {auc.gameName} / {auc.serverName || "전체"}
                     </span>
@@ -640,7 +651,12 @@ const AuctionListPage = () => {
                       원
                     </PriceValue>
                   </PriceContainer>
-                  <BuyButton onClick={() => handleBidClick(auc.auctionId)}>
+                  <BuyButton
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBidClick(auc.auctionId);
+                    }}
+                  >
                     입찰하기
                   </BuyButton>
                 </ItemActionGroup>
