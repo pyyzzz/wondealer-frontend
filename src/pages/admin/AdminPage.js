@@ -1,26 +1,79 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminApi from "../../api/admin.api";
+import { useAuth } from "../../context/AuthContext";
+
+import admindelete from "../../img/admindelete.svg";
+import adminfilter from "../../img/adminfilter.svg";
+import admingame from "../../img/admingame.svg";
+import admingameserver from "../../img/admingameserver.svg";
+import adminlogout from "../../img/adminlogout.svg";
+import adminmain from "../../img/adminmain.svg";
+import adminmember from "../../img/adminmember.svg";
+import adminproduct from "../../img/adminproduct.svg";
 
 // ── 사이드바 ───────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { key: "members", icon: "👥", label: "회원 관리" },
-  { key: "items", icon: "📦", label: "상품 관리" },
-  { key: "games", icon: "🎮", label: "게임/카테고리 관리" },
+  {
+    key: "members",
+    icon: (
+      <img
+        src={adminmember}
+        alt="회원"
+        style={{
+          width: "16px",
+          height: "16px",
+          marginRight: "8px",
+          verticalAlign: "middle",
+        }}
+      />
+    ),
+    label: "회원 관리",
+  },
+  {
+    key: "items",
+    icon: (
+      <img
+        src={adminproduct}
+        alt="상품"
+        style={{
+          width: "16px",
+          height: "16px",
+          marginRight: "8px",
+          verticalAlign: "middle",
+        }}
+      />
+    ),
+    label: "상품 관리",
+  },
+  {
+    key: "games",
+    icon: (
+      <img
+        src={admingame}
+        alt="게임"
+        style={{
+          width: "16px",
+          height: "16px",
+          marginRight: "8px",
+          verticalAlign: "middle",
+        }}
+      />
+    ),
+    label: "게임/카테고리 관리",
+  },
 ];
 
-function Sidebar({ active, onChange, adminName, onLogout }) {
-  const isNarrow =
-    typeof window !== "undefined" &&
-    window.matchMedia("(max-width: 768px)").matches;
+function Sidebar({ active, onChange, onLogout, onGoMain }) {
   return (
     <div
+      className="admin-sidebar"
       style={{
-        width: isNarrow ? "100%" : 200,
-        minHeight: isNarrow ? "auto" : "100vh",
+        width: 200,
+        minHeight: "100vh",
         background: "var(--bg-container)",
-        borderRight: isNarrow ? "none" : "1px solid var(--border-color)",
-        borderBottom: isNarrow ? "1px solid var(--border-color)" : "none",
+        borderRight: "1px solid var(--border-color)",
         display: "flex",
         flexDirection: "column",
         flexShrink: 0,
@@ -43,26 +96,7 @@ function Sidebar({ active, onChange, adminName, onLogout }) {
         </div>
       </div>
 
-      <div
-        style={{
-          padding: "8px 0",
-          borderTop: "1px solid var(--border-color)",
-          borderBottom: "1px solid var(--border-color)",
-          margin: "0 12px 8px",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            color: "var(--text-secondary)",
-            padding: "4px 8px",
-          }}
-        >
-          {adminName}
-        </div>
-      </div>
-
-      <nav style={{ flex: 1, padding: "4px 8px" }}>
+      <nav className="admin-nav" style={{ flex: 1, padding: "4px 8px" }}>
         {NAV_ITEMS.map((n) => (
           <button
             key={n.key}
@@ -101,6 +135,36 @@ function Sidebar({ active, onChange, adminName, onLogout }) {
         }}
       >
         <button
+          onClick={onGoMain}
+          style={{
+            width: "100%",
+            textAlign: "left",
+            padding: "9px 10px",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            fontSize: 12,
+            color: "var(--text-secondary)",
+            background: "transparent",
+            marginBottom: 4,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <img
+            src={adminmain}
+            alt="메인"
+            style={{
+              width: "14px",
+              height: "14px",
+              marginRight: "6px",
+              verticalAlign: "middle",
+            }}
+          />
+          메인 페이지
+        </button>
+        <button
           onClick={onLogout}
           style={{
             width: "100%",
@@ -117,7 +181,19 @@ function Sidebar({ active, onChange, adminName, onLogout }) {
             gap: 8,
           }}
         >
-          🚪 로그아웃
+          <img
+            src={adminlogout}
+            alt="로그아웃"
+            style={{
+              width: "14px",
+              height: "14px",
+              marginRight: "6px",
+              verticalAlign: "middle",
+              filter:
+                "invert(35%) sepia(95%) saturate(1200%) hue-rotate(335deg) brightness(95%) contrast(90%)",
+            }}
+          />
+          로그아웃
         </button>
       </div>
     </div>
@@ -216,7 +292,7 @@ function SearchBar({ value, onChange, placeholder }) {
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       style={{
-        width: "min(260px, 100%)",
+        width: 260,
         background: "var(--bg-container-high)",
         border: "1px solid var(--border-color)",
         borderRadius: 8,
@@ -285,7 +361,56 @@ function MembersTab() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [banTarget, setBanTarget] = useState(null);
+  const [banReason, setBanReason] = useState("");
+  const [banReasons, setBanReasons] = useState({});
   const PAGE_SIZE = 10;
+
+  const confirmBan = async () => {
+    if (!banTarget) return;
+    const reason = banReason.trim();
+    if (!reason) {
+      alert("제재 사유를 입력해주세요.");
+      return;
+    }
+    try {
+      // 1. 백엔드 API 호출
+      const res = await AdminApi.banMember(banTarget, { reason });
+
+      // 2. 백엔드 응답(ApiResponse) 구조에서 데이터 추출 (res.data.data)
+      // 백엔드가 ApiResponse.ok("회원이 정지되었습니다.", response) 형태로 주므로 .data.data에 DTO가 들어있음
+      const updatedMember = res.data?.data;
+
+      // 3. 현재 프론트엔드 리스트(members) 상태를 즉시 동기화해 줍니다.
+      setMembers((prevMembers) =>
+        prevMembers.map((member) => {
+          const memberId = member.memberId ?? member.id;
+          if (memberId === banTarget) {
+            return {
+              ...member,
+              // 백엔드가 준 최신 상태가 있으면 덮어쓰고, 없으면 프론트에서 강제 세팅
+              isBanned: updatedMember?.isBanned ?? true,
+              banned: updatedMember?.isBanned ?? true,
+              banReason: updatedMember?.banReason ?? reason,
+              status: "BANNED", // 프론트의 status 조건 방어용
+            };
+          }
+          return member;
+        }),
+      );
+
+      // 로컬 사유 상태 맵도 함께 백업
+      setBanReasons((prev) => ({ ...prev, [banTarget]: reason }));
+
+      setBanTarget(null);
+      setBanReason("");
+
+      // 서버와 최종 리스트 동기화
+      fetchMembers();
+    } catch (e) {
+      alert("처리 실패: " + (e.response?.data?.message ?? e.message));
+    }
+  };
 
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -293,7 +418,8 @@ function MembersTab() {
       const res = await AdminApi.getMembers({
         page: page - 1,
         size: PAGE_SIZE,
-        search,
+        keyword: search,
+        sort: "createdAt,desc",
       });
       setMembers(res.data.data?.content ?? []);
       setTotal(res.data.data?.totalElements ?? 0);
@@ -321,6 +447,7 @@ function MembersTab() {
   return (
     <div>
       <div
+        className="admin-section-head"
         style={{
           display: "flex",
           alignItems: "center",
@@ -354,20 +481,16 @@ function MembersTab() {
       </div>
 
       <div
+        className="admin-table-scroll"
         style={{
           background: "var(--bg-container)",
           border: "1px solid var(--border-color)",
           borderRadius: 12,
-          overflowX: "auto",
+          overflow: "hidden",
         }}
       >
         <table
-          style={{
-            width: "100%",
-            minWidth: 680,
-            borderCollapse: "collapse",
-            fontSize: 12,
-          }}
+          style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}
         >
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
@@ -415,7 +538,13 @@ function MembersTab() {
               </tr>
             ) : (
               members.map((u) => {
-                const isBanned = u.status === "BANNED" || u.status === "제한됨";
+                const isBanned =
+                  u.isBanned === true ||
+                  u.banned === true ||
+                  u.status === "BANNED" ||
+                  u.status === "제한됨";
+                const currentBanReason =
+                  u.banReason || banReasons[u.memberId ?? u.id] || "사유 없음";
                 const initials = (u.nickname ?? u.name ?? "?")
                   .slice(0, 2)
                   .toUpperCase();
@@ -486,16 +615,40 @@ function MembersTab() {
                       {u.createdAt?.slice(0, 10) ?? u.date}
                     </td>
                     <td style={{ padding: "12px 16px" }}>
-                      <Badge label={isBanned ? "제한됨" : "정상"} />
+                      <Badge label={isBanned ? "정지됨" : "활성"} />
                     </td>
                     <td style={{ padding: "12px 16px" }}>
-                      <div style={{ display: "flex", gap: 6 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: isBanned ? "column" : "row",
+                          alignItems: "flex-start",
+                          gap: 6,
+                        }}
+                      >
+                        {isBanned && (
+                          <ActionBtn
+                            label="제재 사유"
+                            onClick={() =>
+                              alert(
+                                u.banReason ??
+                                  banReasons[u.memberId ?? u.id] ??
+                                  "저장된 제재 사유가 없습니다.",
+                              )
+                            }
+                          />
+                        )}
                         <ActionBtn
-                          label={isBanned ? "제한 해제" : "정지 처리"}
+                          label={isBanned ? "정지 해제" : "정지 처리"}
                           variant={isBanned ? "success" : "danger"}
-                          onClick={() =>
-                            handleBan(u.memberId ?? u.id, isBanned)
-                          }
+                          onClick={() => {
+                            const memberId = u.memberId ?? u.id;
+                            if (isBanned) handleBan(memberId, true);
+                            else {
+                              setBanTarget(memberId);
+                              setBanReason("");
+                            }
+                          }}
                         />
                       </div>
                     </td>
@@ -506,6 +659,56 @@ function MembersTab() {
           </tbody>
         </table>
       </div>
+      {banTarget && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              width: 360,
+              maxWidth: "90vw",
+              background: "var(--bg-container)",
+              border: "1px solid var(--border-color)",
+              borderRadius: 12,
+              padding: 20,
+            }}
+          >
+            <h3 style={{ marginBottom: 12, color: "var(--text-primary)" }}>
+              제재 사유 입력
+            </h3>
+            <textarea
+              value={banReason}
+              onChange={(e) => setBanReason(e.target.value)}
+              rows={4}
+              placeholder="제재 사유를 입력해주세요."
+              style={{
+                width: "100%",
+                resize: "vertical",
+                padding: 12,
+                borderRadius: 8,
+                border: "1px solid var(--border-color)",
+                background: "var(--bg-container-high)",
+                color: "var(--text-primary)",
+                marginBottom: 14,
+              }}
+            />
+            <div
+              style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
+            >
+              <ActionBtn label="취소" onClick={() => setBanTarget(null)} />
+              <ActionBtn label="확인" variant="danger" onClick={confirmBan} />
+            </div>
+          </div>
+        </div>
+      )}
       <Pagination
         page={page}
         total={total}
@@ -522,6 +725,8 @@ function ItemsTab() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("latest");
+  const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const PAGE_SIZE = 10;
@@ -530,19 +735,21 @@ function ItemsTab() {
     setLoading(true);
     try {
       // 백엔드 미구현 시 목데이터 fallback
-      const res = await AdminApi.getMembers({
+      const res = await AdminApi.getItems({
         page: page - 1,
         size: PAGE_SIZE,
+        keyword: search,
+        sort: sort === "latest" ? "createdAt,desc" : "createdAt,asc",
       });
-      setItems([]);
-      setTotal(0);
+      setItems(res.data.data?.content ?? []);
+      setTotal(res.data.data?.totalElements ?? 0);
     } catch {
       setItems([]);
       setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, search, sort]);
 
   useEffect(() => {
     fetchItems();
@@ -593,11 +800,13 @@ function ItemsTab() {
     },
   ];
 
-  const displayItems = items.length > 0 ? items : MOCK;
+  void MOCK;
+  const displayItems = items;
 
   return (
     <div>
       <div
+        className="admin-section-head"
         style={{
           display: "flex",
           alignItems: "center",
@@ -630,37 +839,74 @@ function ItemsTab() {
             }}
             placeholder="상품 이름으로 다검색..."
           />
-          <button
-            style={{
-              padding: "8px 14px",
-              borderRadius: 8,
-              border: "1px solid var(--border-color)",
-              background: "var(--bg-container-high)",
-              color: "var(--text-secondary)",
-              fontSize: 12,
-              cursor: "pointer",
-            }}
-          >
-            🔽 필터
-          </button>
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setFilterOpen((prev) => !prev)}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 8,
+                border: "1px solid var(--border-color)",
+                background: "var(--bg-container-high)",
+                color: "var(--text-secondary)",
+                fontSize: 12,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <img
+                src={adminfilter}
+                alt="필터"
+                style={{
+                  width: "14px",
+                  height: "14px",
+                  verticalAlign: "middle",
+                }}
+              />
+              필터
+            </button>
+            {filterOpen && (
+              <button
+                onClick={() => {
+                  setSort("latest");
+                  setPage(1);
+                  setFilterOpen(false);
+                }}
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 6px)",
+                  right: 0,
+                  zIndex: 5,
+                  minWidth: 92,
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border-color)",
+                  background: "var(--bg-container)",
+                  color: "var(--text-primary)",
+                  fontSize: 12,
+                  cursor: "pointer",
+                  boxShadow: "0 8px 20px rgba(0,0,0,.18)",
+                }}
+              >
+                최신순
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       <div
+        className="admin-table-scroll"
         style={{
           background: "var(--bg-container)",
           border: "1px solid var(--border-color)",
           borderRadius: 12,
-          overflowX: "auto",
+          overflow: "hidden",
         }}
       >
         <table
-          style={{
-            width: "100%",
-            minWidth: 760,
-            borderCollapse: "collapse",
-            fontSize: 12,
-          }}
+          style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}
         >
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
@@ -695,10 +941,23 @@ function ItemsTab() {
                   로딩 중...
                 </td>
               </tr>
+            ) : displayItems.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  style={{
+                    padding: 32,
+                    textAlign: "center",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  상품이 없습니다.
+                </td>
+              </tr>
             ) : (
               displayItems.map((item) => (
                 <tr
-                  key={item.id ?? item.itemId}
+                  key={item.itemId ?? item.id}
                   style={{ borderBottom: "1px solid rgba(70,69,84,.3)" }}
                 >
                   <td
@@ -708,7 +967,7 @@ function ItemsTab() {
                       fontFamily: "monospace",
                     }}
                   >
-                    {item.id ?? item.itemId}
+                    {item.itemId ?? item.id}
                   </td>
                   <td
                     style={{
@@ -717,7 +976,7 @@ function ItemsTab() {
                       fontWeight: 600,
                     }}
                   >
-                    {item.name ?? item.itemName}
+                    {item.title ?? item.name ?? item.itemName}
                   </td>
                   <td style={{ padding: "12px 16px" }}>
                     <div
@@ -732,7 +991,7 @@ function ItemsTab() {
                         👤
                       </span>
                       <span style={{ color: "var(--text-secondary)" }}>
-                        {item.seller ?? item.sellerNickname}
+                        {item.seller ?? item.sellerNickname ?? "-"}
                       </span>
                     </div>
                   </td>
@@ -744,7 +1003,7 @@ function ItemsTab() {
                       fontFamily: "monospace",
                     }}
                   >
-                    ₩{(item.price ?? 0).toLocaleString()}
+                    ₩{(item.basePrice ?? item.price ?? 0).toLocaleString()}
                   </td>
                   <td
                     style={{
@@ -752,13 +1011,23 @@ function ItemsTab() {
                       color: "var(--text-secondary)",
                     }}
                   >
-                    {item.date ?? item.createdAt?.slice(0, 10)}
+                    {item.createdAt?.slice(0, 10) ?? item.date}
                   </td>
                   <td style={{ padding: "12px 16px" }}>
                     <ActionBtn
-                      label="🗑"
+                      label={
+                        <img
+                          src={admindelete}
+                          alt="삭제"
+                          style={{
+                            width: "14px",
+                            height: "14px",
+                            verticalAlign: "middle",
+                          }}
+                        />
+                      }
                       variant="danger"
-                      onClick={() => handleDelete(item.id ?? item.itemId)}
+                      onClick={() => handleDelete(item.itemId ?? item.id)}
                     />
                   </td>
                 </tr>
@@ -781,8 +1050,12 @@ function ItemsTab() {
 
 const CATEGORY_OPTIONS = ["아이템", "게임머니", "계정", "기타"];
 
-function NewGameModal({ onClose, onSubmit }) {
-  const [name, setName] = useState("");
+function NewGameModal({ initialGame = null, onClose, onSubmit }) {
+  const isEdit = Boolean(initialGame);
+  const [name, setName] = useState(
+    initialGame?.name ?? initialGame?.gameName ?? "",
+  );
+  const [imageUrl, setImageUrl] = useState(initialGame?.gameImg ?? "");
   const [categories, setCategories] = useState(["아이템"]);
   const [serverInput, setServerInput] = useState("");
   const [servers, setServers] = useState([]);
@@ -802,12 +1075,18 @@ function NewGameModal({ onClose, onSubmit }) {
 
   const removeServer = (s) => setServers((prev) => prev.filter((x) => x !== s));
 
+  const handleImageFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageUrl(URL.createObjectURL(file));
+  };
+
   const handleSubmit = () => {
     if (!name.trim()) {
       alert("게임 이름을 입력해주세요.");
       return;
     }
-    onSubmit({ name, categories, servers });
+    onSubmit({ name, imageUrl, categories, servers });
   };
 
   return (
@@ -823,6 +1102,7 @@ function NewGameModal({ onClose, onSubmit }) {
       }}
     >
       <div
+        className="admin-modal-panel"
         style={{
           background: "var(--bg-container)",
           border: "1px solid var(--border-color)",
@@ -847,7 +1127,7 @@ function NewGameModal({ onClose, onSubmit }) {
               color: "var(--text-primary)",
             }}
           >
-            신규 게임 등록
+            {isEdit ? "게임 기본 정보 수정" : "신규 게임 등록"}
           </h3>
           <button
             onClick={onClose}
@@ -898,113 +1178,161 @@ function NewGameModal({ onClose, onSubmit }) {
               display: "block",
               fontSize: 11,
               color: "var(--text-secondary)",
-              marginBottom: 8,
+              marginBottom: 6,
             }}
           >
-            기본 카테고리 설정
+            게임 이미지
           </label>
-          <div style={{ display: "flex", gap: 12 }}>
-            {CATEGORY_OPTIONS.map((cat) => (
-              <label
-                key={cat}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: 12,
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={categories.includes(cat)}
-                  onChange={() => toggleCategory(cat)}
-                />
-                {cat}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 24 }}>
-          <label
-            style={{
-              display: "block",
-              fontSize: 11,
-              color: "var(--text-secondary)",
-              marginBottom: 8,
-            }}
-          >
-            초기 서버 설정
-          </label>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 6,
-              marginBottom: 8,
-            }}
-          >
-            {servers.map((s) => (
-              <span
-                key={s}
-                style={{
-                  fontSize: 11,
-                  padding: "3px 8px",
-                  borderRadius: 6,
-                  background: "rgba(192,193,255,.1)",
-                  color: "var(--color-primary)",
-                  border: "1px solid rgba(192,193,255,.2)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                {s}
-                <button
-                  onClick={() => removeServer(s)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--text-secondary)",
-                    cursor: "pointer",
-                    fontSize: 10,
-                    padding: 0,
-                  }}
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
+          {imageUrl && (
+            <img
+              src={imageUrl}
+              alt=""
+              style={{
+                width: "100%",
+                height: 120,
+                objectFit: "cover",
+                borderRadius: 8,
+                border: "1px solid var(--border-color)",
+                marginBottom: 8,
+              }}
+            />
+          )}
           <input
-            value={serverInput}
-            onChange={(e) => setServerInput(e.target.value)}
-            onKeyDown={handleServerKey}
-            placeholder="서버 이름을 입력하고 Enter를 누르세요"
+            type="file"
+            accept="image/*"
+            onChange={handleImageFileChange}
             style={{
               width: "100%",
               background: "var(--bg-container-high)",
               border: "1px solid var(--border-color)",
               borderRadius: 8,
-              padding: "8px 12px",
+              padding: "10px 12px",
               color: "var(--text-primary)",
-              fontSize: 12,
+              fontSize: 13,
               outline: "none",
               boxSizing: "border-box",
             }}
           />
-          <div
-            style={{
-              fontSize: 10,
-              color: "var(--text-secondary)",
-              marginTop: 4,
-            }}
-          >
-            여러 개의 서버는 Enter 키를 사용하여 다음 서버를 등록할 수 있습니다.
-          </div>
         </div>
+
+        {!isEdit && (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  color: "var(--text-secondary)",
+                  marginBottom: 8,
+                }}
+              >
+                기본 카테고리 설정
+              </label>
+              <div style={{ display: "flex", gap: 12 }}>
+                {CATEGORY_OPTIONS.map((cat) => (
+                  <label
+                    key={cat}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 12,
+                      color: "var(--text-primary)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={categories.includes(cat)}
+                      onChange={() => toggleCategory(cat)}
+                    />
+                    {cat}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  color: "var(--text-secondary)",
+                  marginBottom: 8,
+                }}
+              >
+                초기 서버 설정
+              </label>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  marginBottom: 8,
+                }}
+              >
+                {servers.map((s) => (
+                  <span
+                    key={s}
+                    style={{
+                      fontSize: 11,
+                      padding: "3px 8px",
+                      borderRadius: 6,
+                      background: "rgba(192,193,255,.1)",
+                      color: "var(--color-primary)",
+                      border: "1px solid rgba(192,193,255,.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    {s}
+                    <button
+                      onClick={() => removeServer(s)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-secondary)",
+                        cursor: "pointer",
+                        fontSize: 10,
+                        padding: 0,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <input
+                value={serverInput}
+                onChange={(e) => setServerInput(e.target.value)}
+                onKeyDown={handleServerKey}
+                placeholder="서버 이름을 입력하고 Enter를 누르세요"
+                style={{
+                  width: "100%",
+                  background: "var(--bg-container-high)",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  color: "var(--text-primary)",
+                  fontSize: 12,
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--text-secondary)",
+                  marginTop: 4,
+                }}
+              >
+                여러 개의 서버는 Enter 키를 사용하여 다음 서버를 등록할 수
+                있습니다.
+              </div>
+            </div>
+          </>
+        )}
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button
@@ -1034,7 +1362,7 @@ function NewGameModal({ onClose, onSubmit }) {
               cursor: "pointer",
             }}
           >
-            등록하기
+            {isEdit ? "수정하기" : "등록하기"}
           </button>
         </div>
       </div>
@@ -1043,9 +1371,6 @@ function NewGameModal({ onClose, onSubmit }) {
 }
 
 function GamesTab() {
-  const isNarrow =
-    typeof window !== "undefined" &&
-    window.matchMedia("(max-width: 768px)").matches;
   const [games, setGames] = useState([
     {
       gameId: 1,
@@ -1063,6 +1388,7 @@ function GamesTab() {
   ]);
   const [selectedGame, setSelectedGame] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [editingGame, setEditingGame] = useState(null);
 
   useEffect(() => {
     if (games.length > 0 && !selectedGame) setSelectedGame(games[0]);
@@ -1071,32 +1397,79 @@ function GamesTab() {
   const handleCreateGame = async (data) => {
     try {
       const res = await AdminApi.createGame({
-        gameName: data.name,
-        categories: data.categories,
+        gameName: data.name.trim(),
+        gameImg: data.imageUrl?.trim() || null,
       });
       const newGame = res.data.data;
+      const gameId = newGame.gameId ?? newGame.id;
+      for (const category of data.categories) {
+        await AdminApi.createCategory({ gameId, categoryName: category });
+      }
       // 서버 일괄 등록
       for (const s of data.servers) {
-        await AdminApi.createServer(newGame.gameId, { serverName: s });
+        await AdminApi.createServer(gameId, { serverName: s });
       }
-      setGames((prev) => [
-        ...prev,
-        {
-          ...newGame,
-          servers: data.servers.map((s, i) => ({ serverId: i, name: s })),
-        },
-      ]);
+      const createdGame = {
+        ...newGame,
+        gameId,
+        name: newGame.name ?? newGame.gameName ?? data.name,
+        gameImg: newGame.gameImg ?? data.imageUrl,
+        status: newGame.status ?? "ACTIVE",
+        servers: data.servers.map((s, i) => ({ serverId: i, name: s })),
+      };
+      setGames((prev) => [...prev, createdGame]);
+      setSelectedGame(createdGame);
       setShowModal(false);
     } catch {
       // 백엔드 미구현 시 로컬 추가
       const mock = {
         gameId: Date.now(),
         name: data.name,
+        gameImg: data.imageUrl,
         status: "ACTIVE",
         servers: data.servers.map((s, i) => ({ serverId: i, name: s })),
       };
       setGames((prev) => [...prev, mock]);
       setSelectedGame(mock);
+      setShowModal(false);
+    }
+  };
+
+  const handleUpdateGame = async (data) => {
+    if (!editingGame) return;
+    const gameId = editingGame.gameId ?? editingGame.id;
+    try {
+      const res = await AdminApi.updateGame(gameId, {
+        gameName: data.name.trim(),
+        gameImg: data.imageUrl?.trim() || null,
+      });
+      const updated = {
+        ...editingGame,
+        ...res.data.data,
+        gameId,
+        name: res.data.data?.name ?? res.data.data?.gameName ?? data.name,
+        gameImg: res.data.data?.gameImg ?? data.imageUrl,
+      };
+      setGames((prev) =>
+        prev.map((game) =>
+          (game.gameId ?? game.id) === gameId ? updated : game,
+        ),
+      );
+      setSelectedGame(updated);
+    } catch {
+      const updated = {
+        ...editingGame,
+        name: data.name,
+        gameImg: data.imageUrl,
+      };
+      setGames((prev) =>
+        prev.map((game) =>
+          (game.gameId ?? game.id) === gameId ? updated : game,
+        ),
+      );
+      setSelectedGame(updated);
+    } finally {
+      setEditingGame(null);
       setShowModal(false);
     }
   };
@@ -1120,6 +1493,7 @@ function GamesTab() {
   return (
     <div>
       <div
+        className="admin-section-head"
         style={{
           display: "flex",
           alignItems: "center",
@@ -1144,7 +1518,10 @@ function GamesTab() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setEditingGame(null);
+            setShowModal(true);
+          }}
           style={{
             padding: "9px 16px",
             borderRadius: 8,
@@ -1161,11 +1538,8 @@ function GamesTab() {
       </div>
 
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: isNarrow ? "1fr" : "220px 1fr",
-          gap: 16,
-        }}
+        className="admin-games-layout"
+        style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 16 }}
       >
         {/* 게임 목록 */}
         <div
@@ -1204,23 +1578,37 @@ function GamesTab() {
                 gap: 10,
               }}
             >
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  background: "var(--color-primary-container)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 10,
-                  fontWeight: 900,
-                  color: "var(--on-primary)",
-                  flexShrink: 0,
-                }}
-              >
-                {g.name.slice(0, 2)}
-              </div>
+              {g.gameImg ? (
+                <img
+                  src={g.gameImg}
+                  alt=""
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    objectFit: "cover",
+                    flexShrink: 0,
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    background: "var(--color-primary-container)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 10,
+                    fontWeight: 900,
+                    color: "var(--on-primary)",
+                    flexShrink: 0,
+                  }}
+                >
+                  {g.name.slice(0, 2)}
+                </div>
+              )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
@@ -1269,22 +1657,35 @@ function GamesTab() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 8,
-                    background: "var(--color-primary-container)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 14,
-                    fontWeight: 900,
-                    color: "var(--on-primary)",
-                  }}
-                >
-                  {selectedGame.name.slice(0, 2)}
-                </div>
+                {selectedGame.gameImg ? (
+                  <img
+                    src={selectedGame.gameImg}
+                    alt=""
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 8,
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 8,
+                      background: "var(--color-primary-container)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 14,
+                      fontWeight: 900,
+                      color: "var(--on-primary)",
+                    }}
+                  >
+                    {selectedGame.name.slice(0, 2)}
+                  </div>
+                )}
                 <div>
                   <div
                     style={{
@@ -1304,7 +1705,10 @@ function GamesTab() {
                 <ActionBtn
                   label="기본 정보 수정"
                   variant="default"
-                  onClick={() => {}}
+                  onClick={() => {
+                    setEditingGame(selectedGame);
+                    setShowModal(true);
+                  }}
                 />
                 <ActionBtn
                   label={
@@ -1336,12 +1740,24 @@ function GamesTab() {
               >
                 <div
                   style={{
+                    display: "flex",
+                    alignItems: "center",
                     fontSize: 12,
                     fontWeight: 700,
                     color: "var(--text-primary)",
                   }}
                 >
-                  🖥 게임 서버 목록
+                  <img
+                    src={admingameserver}
+                    alt="게임서버"
+                    style={{
+                      width: "14px",
+                      height: "16px",
+                      marginRight: "6px",
+                      verticalAlign: "middle",
+                    }}
+                  />
+                  게임 서버 목록
                 </div>
                 <button
                   onClick={async () => {
@@ -1481,8 +1897,12 @@ function GamesTab() {
 
       {showModal && (
         <NewGameModal
-          onClose={() => setShowModal(false)}
-          onSubmit={handleCreateGame}
+          initialGame={editingGame}
+          onClose={() => {
+            setEditingGame(null);
+            setShowModal(false);
+          }}
+          onSubmit={editingGame ? handleUpdateGame : handleCreateGame}
         />
       )}
     </div>
@@ -1505,10 +1925,10 @@ function AdminLogin({ onLogin }) {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8111/api/admin/login", {
+      const res = await fetch("http://localhost:8111/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ identifier: username, password }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -1516,9 +1936,17 @@ function AdminLogin({ onLogin }) {
         setPassword("");
         return;
       }
+      if (json.data?.role !== "ROLE_ADMIN") {
+        setError("관리자 계정이 아닙니다.");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("role");
+        return;
+      }
       localStorage.setItem("accessToken", json.data.accessToken);
       localStorage.setItem("refreshToken", json.data.refreshToken);
-      onLogin({ username, role: "슈퍼관리자" });
+      localStorage.setItem("role", json.data.role);
+      onLogin({ username, role: json.data.role });
     } catch {
       setError("서버에 연결할 수 없습니다.");
     } finally {
@@ -1696,11 +2124,37 @@ function AdminLogin({ onLogin }) {
 
 // ── 대시보드 ───────────────────────────────────────────────────
 
-function AdminDashboard({ admin, onLogout }) {
+function AdminResponsiveStyles() {
+  return (
+    <style>{`
+      .admin-table-scroll { overflow-x: auto !important; }
+      .admin-table-scroll table { min-width: 720px; }
+      @media (max-width: 900px) {
+        .admin-dashboard { flex-direction: column; }
+        .admin-sidebar {
+          width: auto !important;
+          min-height: auto !important;
+          border-right: 0 !important;
+          border-bottom: 1px solid var(--border-color);
+        }
+        .admin-nav { display: flex; overflow-x: auto; gap: 4px; }
+        .admin-nav button { white-space: nowrap; width: auto !important; flex: 0 0 auto; }
+        .admin-content { padding: 16px !important; }
+        .admin-section-head { align-items: flex-start !important; flex-direction: column; gap: 12px; }
+        .admin-games-layout { grid-template-columns: 1fr !important; }
+        .admin-modal-panel { width: min(420px, calc(100vw - 32px)) !important; max-height: 88vh; overflow: auto; padding: 20px !important; }
+      }
+      @media (max-width: 520px) {
+        .admin-content { padding: 12px !important; }
+        .admin-table-scroll table { min-width: 640px; }
+      }
+    `}</style>
+  );
+}
+
+function AdminDashboard({ onLogout }) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("members");
-  const isNarrow =
-    typeof window !== "undefined" &&
-    window.matchMedia("(max-width: 768px)").matches;
 
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
@@ -1710,9 +2164,9 @@ function AdminDashboard({ admin, onLogout }) {
 
   return (
     <div
+      className="admin-dashboard"
       style={{
         display: "flex",
-        flexDirection: isNarrow ? "column" : "row",
         minHeight: "100vh",
         background: "var(--bg-primary)",
       }}
@@ -1720,16 +2174,13 @@ function AdminDashboard({ admin, onLogout }) {
       <Sidebar
         active={activeTab}
         onChange={setActiveTab}
-        adminName={admin.username}
         onLogout={handleLogout}
+        onGoMain={() => navigate("/")}
       />
+      <AdminResponsiveStyles />
       <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-          padding: isNarrow ? 16 : 28,
-          overflow: "auto",
-        }}
+        className="admin-content"
+        style={{ flex: 1, padding: 28, overflow: "auto" }}
       >
         {activeTab === "members" && <MembersTab />}
         {activeTab === "items" && <ItemsTab />}
@@ -1741,38 +2192,35 @@ function AdminDashboard({ admin, onLogout }) {
 
 // ── 진입점 ─────────────────────────────────────────────────────
 
-// ── 진입점 (AdminPage.js 맨 아래 부분을 이 코드로 교체하세요) ─────────────────────
-
 export default function AdminPage() {
-  const [adminUser, setAdminUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { isLoggedIn, user, logout } = useAuth();
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    // 💡 1. 이미 통합 로그인창에서 로그인하면서 저장해 둔 토큰이 있는지 확인합니다.
-    const token =
-      localStorage.getItem("token") || localStorage.getItem("accessToken");
-
-    if (token) {
-      // 💡 2. 토큰이 존재한다면, 이미 인증된 관리자로 간주하고 대시보드를 열어줍니다.
-      // username은 로컬스토리지나 context에서 가져와도 되고, 여기선 임시로 세팅합니다.
-      setAdminUser({ username: "wondealer_admin" });
+    if (!isLoggedIn) {
+      navigate("/login", { replace: true });
+      return;
     }
-    setLoading(false);
-  }, []);
+    if (user?.authority !== "ROLE_ADMIN") {
+      navigate("/login", { replace: true });
+      return;
+    }
+    setChecked(true);
+  }, [isLoggedIn, user, navigate]);
 
-  // 로딩 중일 때는 아무것도 안 띄우거나 로딩 스피너를 보여줍니다.
-  if (loading)
+  if (!checked) {
     return (
       <div style={{ padding: 28, color: "var(--text-secondary)" }}>
-        로딩 중...
+        관리자 권한 확인 중...
       </div>
     );
+  }
 
-  // 💡 3. 원래는 adminUser가 없으면 무조건 로그인 창을 띄웠지만,
-  // 이제는 위 useEffect 덕분에 이미 로그인되어 있다면 바로 대시보드(AdminDashboard)가 열립니다!
-  return adminUser ? (
-    <AdminDashboard admin={adminUser} onLogout={() => setAdminUser(null)} />
-  ) : (
-    <AdminLogin onLoginSuccess={(user) => setAdminUser(user)} />
+  return (
+    <AdminDashboard
+      admin={{ username: user?.nickname || "관리자" }}
+      onLogout={logout}
+    />
   );
 }
