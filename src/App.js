@@ -17,10 +17,11 @@ import LoginPage from "./pages/auth/LoginPage";
 import SignUpPage from "./pages/auth/SignUpPage";
 import FindIdPage from "./pages/auth/FindIdPage";
 import FindPasswordPage from "./pages/auth/FindPasswordPage";
-import OAuthCallbackPage from "./pages/auth/OAuthCallbackPage";
 import EmailVerifyPage from "./pages/auth/EmailVerifyPage";
 import MyPage from "./pages/mypage/MyPage";
 import AdminPage from "./pages/admin/AdminPage";
+import LoginSuccess from "./pages/auth/LoginSuccess";
+import OAuthCallbackPage from "./pages/auth/OAuthCallbackPage";
 
 const Layout = () => (
   <>
@@ -35,9 +36,9 @@ const Layout = () => (
 function App() {
   return (
     <Routes>
-      <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+      <Route path="/login-success" element={<LoginSuccess />} />
       <Route path="/verify-email" element={<EmailVerifyPage />} />
-
+      <Route path="/oauth/callback" element={<OAuthCallbackPage />} />{" "}
       <Route element={<Layout />}>
         <Route path="/" element={<MainPage />} />
         <Route path="/items" element={<ItemListPage />} />

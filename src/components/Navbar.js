@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import ItemApi from "../api/item.api";
 
 import walletIcon from "../img/walletIcon.svg";
 import chatIcon from "../img/chatIcon.svg";
@@ -13,22 +14,33 @@ import moon from "../img/moon.svg";
 const Navbar = () => {
   const { isLoggedIn, user, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // 현재 URL 주소 감지
+  const location = useLocation();
   const { theme, setTheme } = useTheme();
 
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [games, setGames] = useState([]); // ✅ 게임 목록
 
-  // 현재 주소가 관리자(/admin) 페이지인지 확인
   const isAdminPage = location.pathname.startsWith("/admin");
 
-  // 첫 번째 버전의 안전한 다중 조건 닉네임 파싱 로직 유지
-  const nickname =
+  // 닉네임 표시: nickname 우선, 없으면 email 앞부분
+  const displayName =
     user?.nickname ||
     user?.name ||
-    user?.username ||
     (user?.email ? user.email.split("@")[0] : "") ||
-    "닉네임";
+    user?.username ||
+    "사용자";
+
+  // ✅ 게임 목록 로드 (관리자 페이지 제외)
+  useEffect(() => {
+    if (isAdminPage) return;
+    ItemApi.getGames()
+      .then((r) => {
+        const list = r.data?.data ?? r.data ?? [];
+        setGames(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {});
+  }, [isAdminPage]);
 
   const handleLogout = () => {
     logout();
@@ -36,15 +48,28 @@ const Navbar = () => {
     navigate("/");
   };
 
+  // ✅ 게임명 매칭 → /items?gameId=xxx, 없으면 /items?keyword=xxx
   const handleSearch = (e) => {
-    if (e.key && e.key !== "Enter") return;
+    if (e?.key !== undefined && e.key !== "Enter") return;
 
-    if (!searchKeyword.trim()) {
+    const kw = searchKeyword.trim();
+    if (!kw) {
       alert("검색어를 입력하세요.");
       return;
     }
-    // 주소 형식 일치화 처리
-    navigate(`/search?q=${encodeURIComponent(searchKeyword)}`);
+
+    const matched = games.find((g) =>
+      (g.gameName ?? g.name ?? "").toLowerCase().includes(kw.toLowerCase()),
+    );
+
+    if (matched) {
+      const gameId = matched.gameId ?? matched.id;
+      navigate(`/items?gameId=${gameId}`);
+    } else {
+      navigate(`/items?keyword=${encodeURIComponent(kw)}`);
+    }
+
+    setSearchKeyword("");
   };
 
   const handleProtectedNavigation = (path) => {
@@ -62,7 +87,6 @@ const Navbar = () => {
         <Logo onClick={() => navigate("/")}>
           <LogoImg src={logo} alt="WONDEALER" />
         </Logo>
-        {/* 관리자 페이지가 아닐 때만 메뉴 버튼 출력 */}
         {!isAdminPage && (
           <>
             <MenuButton onClick={() => navigate("/items/new")}>
@@ -79,7 +103,6 @@ const Navbar = () => {
       </LeftGroup>
 
       <RightGroup>
-        {/* 관리자 페이지가 아닐 때만 검색바 및 기능 아이콘 출력 */}
         {!isAdminPage && (
           <>
             <SearchBar>
@@ -131,13 +154,13 @@ const Navbar = () => {
         {isLoggedIn ? (
           <UserMenuContainer>
             <NicknameButton onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              <span>{nickname}</span>
+              <span>{displayName}</span>
               <span className="arrow">{isMenuOpen ? "▲" : "▼"}</span>
             </NicknameButton>
 
             {isMenuOpen && (
               <DropdownMenu>
-                <DropdownItem className="title">{nickname}</DropdownItem>
+                <DropdownItem className="title">{displayName}</DropdownItem>
                 {!isAdminPage && (
                   <DropdownItem
                     onClick={() => {
@@ -166,7 +189,7 @@ const Navbar = () => {
 };
 
 // ==========================================
-// Styled Components 스타일 정의 (디자인 일치화 완료)
+// Styled Components
 // ==========================================
 
 const Nav = styled.nav`
@@ -352,7 +375,6 @@ const NavButton = styled.button`
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
-  border: none;
 
   &:hover {
     background-color: var(--bg-container-high);

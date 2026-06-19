@@ -4,7 +4,6 @@ import styled, { createGlobalStyle, ThemeProvider } from "styled-components";
 import ItemApi from "../../api/item.api";
 import { useTheme } from "../../context/ThemeContext";
 
-// ── Themes ──────────────────────────────────────────────────────
 const darkTheme = {
   bgPrimary: "#0b0c10",
   bgContainer: "#12131a",
@@ -39,7 +38,6 @@ const lightTheme = {
   toggleBorder: "#d1d3e8",
 };
 
-// ── Icons ────────────────────────────────────────────────────────
 const Icon = {
   Search: () => (
     <svg
@@ -122,16 +120,7 @@ export default function ItemListPage() {
   const isDark = themeMode !== "light";
   const theme = isDark ? darkTheme : lightTheme;
 
-  const toggleTheme = () => {
-    setTheme(isDark ? "light" : "dark");
-  };
-
-  // filter state — URL 쿼리로 초기화
-  const initialGameId = (() => {
-    const v = searchParams.get("gameId");
-    const n = Number(v);
-    return v && !Number.isNaN(n) ? n : null;
-  })();
+  const toggleTheme = () => setTheme(isDark ? "light" : "dark");
 
   const [games, setGames] = useState([]);
   const [servers, setServers] = useState([]);
@@ -140,29 +129,41 @@ export default function ItemListPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const [selectedGameId, setSelectedGameId] = useState(initialGameId);
+  const [selectedGameId, setSelectedGameId] = useState(null);
   const [selectedServerId, setSelectedServerId] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
-  const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
-  const [inputKeyword, setInputKeyword] = useState(
-    searchParams.get("keyword") || "",
-  );
+  const [keyword, setKeyword] = useState("");
+  const [inputKeyword, setInputKeyword] = useState("");
   const [page, setPage] = useState(1);
 
-  // 게임 목록
+  // ✅ 게임 목록 로드
   useEffect(() => {
     ItemApi.getGames()
-      .then((r) => setGames(r.data?.data ?? []))
+      .then((r) => {
+        const list = r.data?.data ?? r.data ?? [];
+        setGames(Array.isArray(list) ? list : []);
+      })
       .catch(() => {});
   }, []);
 
-  // 게임 변경 시 서버·카테고리 리셋 + 재조회
+  // ✅ URL 파라미터 변경 감지 → state 동기화
   useEffect(() => {
+    const gameIdParam = searchParams.get("gameId");
+    const keywordParam = searchParams.get("keyword") || "";
+    const gameIdNum = gameIdParam ? Number(gameIdParam) : null;
+
+    setSelectedGameId(gameIdNum && !Number.isNaN(gameIdNum) ? gameIdNum : null);
+    setKeyword(keywordParam);
+    setInputKeyword(keywordParam);
     setSelectedServerId(null);
     setSelectedCategoryId(null);
+    setPage(1);
+  }, [searchParams]);
+
+  // ✅ 게임 변경 시 서버·카테고리 로드
+  useEffect(() => {
     setServers([]);
     setCategories([]);
-    setPage(1);
 
     if (!selectedGameId) return;
 
@@ -191,7 +192,7 @@ export default function ItemListPage() {
       .catch(() => {});
   }, [selectedGameId]);
 
-  // 아이템 조회
+  // ✅ 아이템 조회
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
@@ -224,16 +225,17 @@ export default function ItemListPage() {
   };
 
   const handleGameSelect = (gameId) => {
-    setSelectedGameId(gameId);
+    setSelectedServerId(null);
+    setSelectedCategoryId(null);
     setKeyword("");
     setInputKeyword("");
     setPage(1);
+    // ✅ URL 업데이트 → searchParams useEffect가 selectedGameId 자동 반영
     setSearchParams(gameId ? { gameId: String(gameId) } : {});
   };
 
   const totalPages = Math.ceil(total / SIZE) || 1;
 
-  // 현재 게임명
   const currentGameName = selectedGameId
     ? (games.find((g) => (g.gameId ?? g.id) === selectedGameId)?.gameName ??
       "게임")
@@ -451,7 +453,7 @@ const GlobalStyle = createGlobalStyle`
   *, *::before, *::after { box-sizing: border-box; }
 `;
 
-// ── Styled Components ────────────────────────────────────────────
+// ── Styled Components (기존 그대로) ──────────────────────────────
 const PageLayout = styled.div`
   background-color: ${({ theme }) => theme.bgPrimary};
   color: ${({ theme }) => theme.textPrimary};
@@ -461,7 +463,6 @@ const PageLayout = styled.div`
   transition:
     background-color 0.2s,
     color 0.2s;
-
   @media (max-width: 1024px) {
     padding: 32px 5%;
   }
@@ -472,14 +473,12 @@ const PageLayout = styled.div`
     padding: 16px 4%;
   }
 `;
-
 const TopSection = styled.div`
   display: flex;
   flex-direction: column;
   margin-bottom: 32px;
   gap: 20px;
 `;
-
 const HeaderRow = styled.div`
   display: flex;
   justify-content: space-between;
@@ -487,24 +486,20 @@ const HeaderRow = styled.div`
   flex-wrap: wrap;
   gap: 12px;
 `;
-
 const PageTitle = styled.h1`
   font-size: 24px;
   font-weight: 800;
   color: ${({ theme }) => theme.textPrimary};
   margin: 0;
-
   @media (max-width: 480px) {
     font-size: 20px;
   }
 `;
-
 const HeaderActions = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
 `;
-
 const ThemeToggle = styled.button`
   width: 36px;
   height: 36px;
@@ -519,12 +514,10 @@ const ThemeToggle = styled.button`
   transition:
     border-color 0.2s,
     color 0.2s;
-
   &:hover {
     color: ${({ theme }) => theme.textPrimary};
   }
 `;
-
 const AddBtn = styled.button`
   background: ${({ theme }) => theme.colorPrimary};
   color: #fff;
@@ -536,23 +529,19 @@ const AddBtn = styled.button`
   cursor: pointer;
   white-space: nowrap;
   transition: opacity 0.2s;
-
   &:hover {
     opacity: 0.88;
   }
-
   @media (max-width: 480px) {
     padding: 8px 14px;
     font-size: 13px;
   }
 `;
-
 const GameTabContainer = styled.div`
   display: flex;
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 4px;
-
   &::-webkit-scrollbar {
     height: 3px;
   }
@@ -561,7 +550,6 @@ const GameTabContainer = styled.div`
     border-radius: 4px;
   }
 `;
-
 const GameTabButton = styled.button`
   background-color: ${({ theme, $active }) =>
     $active ? theme.colorPrimary : theme.bgContainerLow};
@@ -577,21 +565,18 @@ const GameTabButton = styled.button`
   transition:
     background-color 0.18s,
     color 0.18s;
-
   &:hover {
     background-color: ${({ theme, $active }) =>
       $active ? theme.colorPrimary : theme.borderHover};
-    color: ${({ $active }) => ($active ? "#fff" : "#fff")};
+    color: #fff;
   }
 `;
-
 const FilterArea = styled.div`
   display: flex;
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
 `;
-
 const SearchForm = styled.form`
   display: flex;
   align-items: center;
@@ -601,16 +586,13 @@ const SearchForm = styled.form`
   padding: 4px 16px;
   width: 300px;
   transition: border-color 0.2s;
-
   &:focus-within {
     border-color: ${({ theme }) => theme.colorPrimary};
   }
-
   @media (max-width: 480px) {
     width: 100%;
   }
 `;
-
 const SearchInput = styled.input`
   border: none;
   background: transparent;
@@ -619,12 +601,10 @@ const SearchInput = styled.input`
   color: ${({ theme }) => theme.textPrimary};
   font-size: 14px;
   outline: none;
-
   &::placeholder {
     color: ${({ theme }) => theme.textSecondary};
   }
 `;
-
 const SearchButton = styled.button`
   background: none;
   border: none;
@@ -633,13 +613,11 @@ const SearchButton = styled.button`
   display: flex;
   align-items: center;
 `;
-
 const CategoryTabContainer = styled.div`
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 `;
-
 const CategoryTab = styled.button`
   background-color: ${({ theme, $active }) =>
     $active ? theme.colorPrimary : "transparent"};
@@ -653,40 +631,32 @@ const CategoryTab = styled.button`
   font-size: 13px;
   font-weight: 500;
   transition: 0.15s;
-
   &:hover {
     background-color: ${({ theme }) => theme.colorPrimary};
     color: #fff;
     border-color: ${({ theme }) => theme.colorPrimary};
   }
 `;
-
 const MainContentContainer = styled.div`
   display: flex;
   gap: 36px;
-
   @media (max-width: 992px) {
     flex-direction: column;
     gap: 20px;
   }
 `;
-
-// 사이드바: 992px 이하에서 가로 스크롤 목록으로 전환
 const ServerSidebar = styled.aside`
   width: 200px;
   flex-shrink: 0;
-
   @media (max-width: 992px) {
     width: 100%;
   }
 `;
-
 const SidebarTitle = styled.h2`
   font-size: 15px;
   font-weight: 600;
   color: ${({ theme }) => theme.colorPrimary};
   margin: 0 0 16px;
-
   span {
     display: block;
     font-size: 10px;
@@ -695,12 +665,10 @@ const SidebarTitle = styled.h2`
     margin-top: 3px;
     letter-spacing: 0.5px;
   }
-
   @media (max-width: 992px) {
     margin-bottom: 10px;
   }
 `;
-
 const ServerList = styled.ul`
   list-style: none;
   padding: 0;
@@ -708,13 +676,11 @@ const ServerList = styled.ul`
   display: flex;
   flex-direction: column;
   gap: 4px;
-
   @media (max-width: 992px) {
     flex-direction: row;
     overflow-x: auto;
     padding-bottom: 6px;
     gap: 6px;
-
     &::-webkit-scrollbar {
       height: 3px;
     }
@@ -724,7 +690,6 @@ const ServerList = styled.ul`
     }
   }
 `;
-
 const ServerItem = styled.li`
   padding: 10px 14px;
   border-radius: 6px;
@@ -738,12 +703,10 @@ const ServerItem = styled.li`
   transition:
     background-color 0.15s,
     color 0.15s;
-
   &:hover {
     background-color: ${({ theme }) => theme.bgContainerLow};
     color: ${({ theme }) => theme.textPrimary};
   }
-
   @media (max-width: 992px) {
     white-space: nowrap;
     padding: 7px 14px;
@@ -753,14 +716,12 @@ const ServerItem = styled.li`
     border-radius: 20px;
   }
 `;
-
 const ServerEmpty = styled.li`
   font-size: 12px;
   color: ${({ theme }) => theme.textMuted};
   padding: 8px 10px;
   list-style: none;
 `;
-
 const ItemListSection = styled.section`
   flex: 1;
   display: flex;
@@ -768,16 +729,13 @@ const ItemListSection = styled.section`
   gap: 10px;
   min-width: 0;
 `;
-
 const TotalIndicator = styled.div`
   font-size: 13px;
   color: ${({ theme }) => theme.textSecondary};
-
   strong {
     color: ${({ theme }) => theme.textPrimary};
   }
 `;
-
 const ItemCard = styled.div`
   display: flex;
   align-items: center;
@@ -790,13 +748,11 @@ const ItemCard = styled.div`
     border-color 0.2s,
     transform 0.2s,
     box-shadow 0.2s;
-
   &:hover {
     border-color: ${({ theme }) => theme.colorPrimary};
     transform: translateX(4px);
     box-shadow: 0 2px 12px rgba(99, 91, 255, 0.08);
   }
-
   @media (max-width: 576px) {
     flex-direction: column;
     align-items: flex-start;
@@ -807,7 +763,6 @@ const ItemCard = styled.div`
     }
   }
 `;
-
 const ItemThumbnail = styled.div`
   width: 48px;
   height: 48px;
@@ -819,17 +774,14 @@ const ItemThumbnail = styled.div`
   font-size: 22px;
   margin-right: 18px;
   flex-shrink: 0;
-
   @media (max-width: 576px) {
     margin-right: 0;
   }
 `;
-
 const ItemInfo = styled.div`
   flex: 1;
   min-width: 0;
 `;
-
 const ItemName = styled.h3`
   font-size: 15px;
   font-weight: 500;
@@ -839,32 +791,26 @@ const ItemName = styled.h3`
   overflow: hidden;
   text-overflow: ellipsis;
 `;
-
 const ItemMeta = styled.div`
   font-size: 12px;
   color: ${({ theme }) => theme.textSecondary};
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0;
 `;
-
 const GameTag = styled.span`
   color: ${({ theme }) => theme.colorPrimary};
   font-weight: 600;
 `;
-
 const Divider = styled.span`
   margin: 0 6px;
   color: ${({ theme }) => theme.borderHover};
 `;
-
 const ItemActionGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 24px;
   flex-shrink: 0;
-
   @media (max-width: 576px) {
     width: 100%;
     justify-content: space-between;
@@ -872,27 +818,22 @@ const ItemActionGroup = styled.div`
     padding-top: 12px;
   }
 `;
-
 const PriceContainer = styled.div`
   text-align: right;
-
   @media (max-width: 576px) {
     text-align: left;
   }
 `;
-
 const PriceLabel = styled.div`
   font-size: 10px;
   color: ${({ theme }) => theme.textMuted};
   margin-bottom: 2px;
 `;
-
 const PriceValue = styled.div`
   font-size: 17px;
   font-weight: 800;
   color: ${({ theme }) => theme.textPrimary};
 `;
-
 const BuyButton = styled.button`
   background: ${({ theme }) => theme.colorPrimary};
   color: #fff;
@@ -904,19 +845,16 @@ const BuyButton = styled.button`
   cursor: pointer;
   white-space: nowrap;
   transition: background-color 0.2s;
-
   &:hover {
     background-color: ${({ theme }) => theme.colorPrimaryHover};
   }
 `;
-
 const StatusText = styled.div`
   padding: 80px 0;
   text-align: center;
   color: ${({ theme }) => theme.textSecondary};
   font-size: 14px;
 `;
-
 const PaginationContainer = styled.div`
   display: flex;
   justify-content: center;
@@ -925,7 +863,6 @@ const PaginationContainer = styled.div`
   margin-top: 28px;
   flex-wrap: wrap;
 `;
-
 const PaginationArrow = styled.button`
   background: ${({ theme }) => theme.bgContainerLow};
   border: 1px solid ${({ theme }) => theme.borderColor};
@@ -938,7 +875,6 @@ const PaginationArrow = styled.button`
   align-items: center;
   justify-content: center;
   transition: opacity 0.2s;
-
   &:disabled {
     opacity: 0.3;
     cursor: default;
@@ -947,7 +883,6 @@ const PaginationArrow = styled.button`
     border-color: ${({ theme }) => theme.colorPrimary};
   }
 `;
-
 const PaginationNumber = styled.button`
   background: ${({ theme, $active }) =>
     $active ? theme.colorPrimary : theme.bgContainerLow};
@@ -962,8 +897,7 @@ const PaginationNumber = styled.button`
   font-weight: ${({ $active }) => ($active ? "700" : "400")};
   cursor: pointer;
   transition: background-color 0.15s;
-
-  &:not([data-active]):hover {
+  &:hover {
     border-color: ${({ theme }) => theme.colorPrimary};
   }
 `;

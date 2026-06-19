@@ -11,24 +11,38 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const nickname = localStorage.getItem("nickname");
     const authority = localStorage.getItem("authority");
-    return nickname ? { nickname, authority } : null;
+    const email = localStorage.getItem("email");
+    // ✅ accessToken 있을 때만 user 복원
+    const token = localStorage.getItem("accessToken");
+    return token && (nickname || email) ? { nickname, authority, email } : null;
   });
 
   const login = (userData) => {
     Common.setAccessToken(userData.accessToken);
-    Common.setRefreshToken(userData.refreshToken);
-    if (userData.nickname) Common.setNickname(userData.nickname);
-    if (userData.authority) localStorage.setItem("authority", userData.authority);
+    if (userData.refreshToken) Common.setRefreshToken(userData.refreshToken);
+
+    const nickname = userData.nickname ?? null;
+    const email = userData.email ?? null;
+    const authority = userData.authority ?? null;
+
+    if (nickname) localStorage.setItem("nickname", nickname);
+    if (email) localStorage.setItem("email", email);
+    if (authority) localStorage.setItem("authority", authority);
+
+    const nextUser = { nickname, email, authority };
+
+    // ✅ 동기적으로 즉시 반영
     setIsLoggedIn(true);
-    setUser({ nickname: userData.nickname, authority: userData.authority });
+    setUser(nextUser); // 이게 호출되면 Navbar 즉시 리렌더
   };
 
-  // 프로필 저장 후 닉네임 등 context 반영용
   const updateUser = (partial) => {
     setUser((prev) => {
       const next = { ...prev, ...partial };
       if (partial.nickname) localStorage.setItem("nickname", partial.nickname);
-      if (partial.authority) localStorage.setItem("authority", partial.authority);
+      if (partial.email) localStorage.setItem("email", partial.email);
+      if (partial.authority)
+        localStorage.setItem("authority", partial.authority);
       return next;
     });
   };

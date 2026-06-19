@@ -8,7 +8,6 @@ export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
 
-  // 💡 useRef를 활용한 완벽한 중복 호출 차단 락(Lock) 메커니즘
   const isProcessing = useRef(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -16,36 +15,49 @@ export default function OAuthCallbackPage() {
     const code = searchParams.get("code");
     if (!code) return;
 
-    // React 18 StrictMode 또는 중복 렌더링으로 인한 두 번 호출 차단
+    // ✅ 중복 호출 완전 차단
     if (isProcessing.current) return;
     isProcessing.current = true;
 
     (async () => {
       try {
-        // 인증 전 스토리지 정리
-        localStorage.clear();
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
 
-        // 1. 백엔드로 구글 인가 코드 전달
         const res = await AuthApi.googleLoginWithCode(code);
         const result = res.data?.data || res.data;
 
-        // 2. 로그인 성공 처리
+        console.log("구글 응답:", JSON.stringify(result));
+        console.log("백엔드 응답 전체:", JSON.stringify(result, null, 2));
+
         if (result && result.accessToken) {
+          // ✅ 구글 닉네임 우선, 없으면 이메일 앞부분, 그것도 없으면 기본값
+          const googleNickname =
+            result.nickname ||
+            result.name ||
+            (result.email ? result.email.split("@")[0] : "") ||
+            result.username ||
+            "구글 사용자";
+
           login({
             accessToken: result.accessToken,
-            refreshToken: result.refreshToken,
-            nickname: result.nickname || result.username || "구글 사용자",
+            refreshToken: result.refreshToken ?? null,
+            nickname: googleNickname,
+            email: result.email ?? null,
+            authority: result.authority ?? null,
           });
+
           navigate("/", { replace: true });
         } else {
           throw new Error("응답 데이터에 AccessToken이 누락되었습니다.");
         }
       } catch (err) {
-        console.error("🔴 구글 인증 최종 디버깅:", err);
+        console.error("구글 인증 실패:", err);
+
+        // ✅ 락 해제 — 재시도 가능하게
+        isProcessing.current = false;
 
         const status = err.response?.status || "Network Error/CORS";
-
-        // 💡 고정된 메시지 대신 '실제 백엔드가 준 에러 메시지'를 동적으로 바인딩
         const serverMessage =
           err.response?.data?.message ||
           err.message ||
@@ -54,7 +66,7 @@ export default function OAuthCallbackPage() {
         setErrorMsg(`인증 실패 (${status}): ${serverMessage}`);
       }
     })();
-  }, [searchParams, navigate, login]);
+  }, []); // ✅ 의존성 배열 비움 — 마운트 1회만 실행
 
   return (
     <div className="auth-page">

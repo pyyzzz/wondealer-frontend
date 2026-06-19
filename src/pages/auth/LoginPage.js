@@ -1,4 +1,3 @@
-// LoginPage.jsx
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -7,18 +6,8 @@ import logo from "../../img/logo.svg";
 import "./auth.css";
 import "./auth-theme.css";
 
-const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
-
 function getGoogleOAuthUrl() {
-  const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: `${window.location.origin}/oauth/callback`,
-    response_type: "code",
-    scope: "openid email profile",
-    access_type: "offline",
-    prompt: "select_account",
-  });
-  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  return "http://localhost:8111/oauth2/authorization/google";
 }
 
 export default function LoginPage() {
@@ -72,10 +61,6 @@ export default function LoginPage() {
   }
 
   function handleGoogleLogin() {
-    if (!GOOGLE_CLIENT_ID) {
-      setError(".env에 REACT_APP_GOOGLE_CLIENT_ID가 설정되어 있지 않습니다.");
-      return;
-    }
     window.location.href = getGoogleOAuthUrl();
   }
 
