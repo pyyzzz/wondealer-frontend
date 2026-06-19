@@ -121,6 +121,13 @@ const ItemNewPage = () => {
     };
   }, [gameId]);
 
+  useEffect(() => {
+    if (categories.length === 0) return;
+    const indexByUiCategory = { item: 0, money: 1, account: 2 };
+    const nextCategory = categories[indexByUiCategory[uiCategory] ?? 0];
+    setCategoryId(nextCategory ? String(nextCategory.categoryId ?? nextCategory.id) : "");
+  }, [categories, uiCategory]);
+
   const getRawPrice = (val) => Number(String(val).replace(/,/g, "")) || 0;
 
   const handlePriceChange = (e) => {
@@ -266,21 +273,6 @@ const ItemNewPage = () => {
               </Select>
             </FormGroup>
           </RowGrid>
-          <FormGroup style={{ marginTop: 20 }}>
-            <label>카테고리 *</label>
-            <Select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              disabled={!gameId}
-            >
-              <option value="">카테고리를 선택하세요</option>
-              {categories.map((c) => (
-                <option key={c.categoryId ?? c.id} value={c.categoryId ?? c.id}>
-                  {c.categoryName ?? c.name}
-                </option>
-              ))}
-            </Select>
-          </FormGroup>
         </SectionContainer>
 
         {/* 03 물품 상세 */}
