@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { AuthApi } from "../../api/auth.api";
 import logo from "../../img/logo.svg";
 import "./auth.css";
+import "./auth-theme.css";
 
 export default function EmailVerifyPage() {
   const [searchParams] = useSearchParams();

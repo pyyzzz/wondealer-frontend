@@ -27,11 +27,23 @@ const GlobalStyle = createGlobalStyle`
     --color-danger:          #ff516a;
     --color-warning:         #f59e0b;
     --color-error:           #ffb4ab;
+    --color-success:         #4edea3;
 
     --border-color:          #464554;
     --border-light:          #5a596a;
     --border-focus:          #8083ff;
     --outline:               #908fa0;
+    --primary:               #c0c1ff;
+    --primary-container:     #8083ff;
+    --surface-container:     #1f1f24;
+    --surface-container-high:#292a2e;
+    --surface-bright:        #38393e;
+    --on-surface:            #e3e2e8;
+    --on-surface-variant:    #c7c4d7;
+    --outline-variant:       #464554;
+    --on-tertiary-container: #ffffff;
+    --rgb-primary:           192, 193, 255;
+    --rgb-danger:            255, 81, 106;
   }
 
   /* ── 라이트모드 CSS 변수 ── */
@@ -57,11 +69,23 @@ const GlobalStyle = createGlobalStyle`
     --color-danger:          #b90538;
     --color-warning:         #d97706;
     --color-error:           #ba1a1a;
+    --color-success:         #00845f;
 
     --border-color:          #c7c4d7;
     --border-light:          #b0aec4;
     --border-focus:          #4648d4;
     --outline:               #767586;
+    --primary:               #4648d4;
+    --primary-container:     #6063ee;
+    --surface-container:     #e7eeff;
+    --surface-container-high:#dee8ff;
+    --surface-bright:        #f9f9ff;
+    --on-surface:            #111c2d;
+    --on-surface-variant:    #464554;
+    --outline-variant:       #c7c4d7;
+    --on-tertiary-container: #ffffff;
+    --rgb-primary:           70, 72, 212;
+    --rgb-danger:            185, 5, 56;
   }
 
   body {

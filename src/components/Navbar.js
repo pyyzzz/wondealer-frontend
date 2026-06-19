@@ -13,13 +13,22 @@ import moon from "../img/moon.svg";
 const Navbar = () => {
   const { isLoggedIn, user, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // 현재 url 주소 감지
+  const location = useLocation(); // 현재 URL 주소 감지
   const { theme, setTheme } = useTheme();
 
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // 현재 주소가 관리자(/admin) 페이지인지 확인
   const isAdminPage = location.pathname.startsWith("/admin");
+
+  // 첫 번째 버전의 안전한 다중 조건 닉네임 파싱 로직 유지
+  const nickname =
+    user?.nickname ||
+    user?.name ||
+    user?.username ||
+    (user?.email ? user.email.split("@")[0] : "") ||
+    "닉네임";
 
   const handleLogout = () => {
     logout();
@@ -34,6 +43,7 @@ const Navbar = () => {
       alert("검색어를 입력하세요.");
       return;
     }
+    // 주소 형식 일치화 처리
     navigate(`/search?q=${encodeURIComponent(searchKeyword)}`);
   };
 
@@ -52,6 +62,7 @@ const Navbar = () => {
         <Logo onClick={() => navigate("/")}>
           <LogoImg src={logo} alt="WONDEALER" />
         </Logo>
+        {/* 관리자 페이지가 아닐 때만 메뉴 버튼 출력 */}
         {!isAdminPage && (
           <>
             <MenuButton onClick={() => navigate("/items/new")}>
@@ -68,6 +79,7 @@ const Navbar = () => {
       </LeftGroup>
 
       <RightGroup>
+        {/* 관리자 페이지가 아닐 때만 검색바 및 기능 아이콘 출력 */}
         {!isAdminPage && (
           <>
             <SearchBar>
@@ -82,11 +94,15 @@ const Navbar = () => {
 
             <IconButton
               onClick={() => handleProtectedNavigation("/mypage/wallet")}
+              title="지갑"
             >
               <IconImg src={walletIcon} alt="지갑" />
             </IconButton>
 
-            <IconButton onClick={() => handleProtectedNavigation("/chat")}>
+            <IconButton
+              onClick={() => handleProtectedNavigation("/chat")}
+              title="채팅"
+            >
               <IconImg src={chatIcon} alt="채팅" />
             </IconButton>
           </>
@@ -97,6 +113,7 @@ const Navbar = () => {
             $active={theme === "dark"}
             aria-pressed={theme === "dark"}
             onClick={() => setTheme("dark")}
+            title="다크 모드"
           >
             <IconImg src={moon} alt="다크 모드" />
           </IconButton>
@@ -105,6 +122,7 @@ const Navbar = () => {
             $active={theme === "light"}
             aria-pressed={theme === "light"}
             onClick={() => setTheme("light")}
+            title="라이트 모드"
           >
             <IconImg src={sun} alt="라이트 모드" />
           </IconButton>
@@ -113,15 +131,13 @@ const Navbar = () => {
         {isLoggedIn ? (
           <UserMenuContainer>
             <NicknameButton onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              <span>{user?.nickname || "닉네임"}</span>
+              <span>{nickname}</span>
               <span className="arrow">{isMenuOpen ? "▲" : "▼"}</span>
             </NicknameButton>
 
             {isMenuOpen && (
               <DropdownMenu>
-                <DropdownItem className="title">
-                  {user?.nickname || "닉네임"}
-                </DropdownItem>
+                <DropdownItem className="title">{nickname}</DropdownItem>
                 {!isAdminPage && (
                   <DropdownItem
                     onClick={() => {
@@ -149,6 +165,10 @@ const Navbar = () => {
   );
 };
 
+// ==========================================
+// Styled Components 스타일 정의 (디자인 일치화 완료)
+// ==========================================
+
 const Nav = styled.nav`
   display: flex;
   align-items: center;
@@ -163,6 +183,11 @@ const Nav = styled.nav`
 
   @media (max-width: 768px) {
     padding: 0 16px;
+  }
+
+  @media (max-width: 420px) {
+    padding: 0 10px;
+    gap: 8px;
   }
 `;
 
@@ -181,6 +206,7 @@ const RightGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 
   @media (max-width: 768px) {
     gap: 8px;
@@ -197,7 +223,6 @@ const Logo = styled.div`
   @media (max-width: 768px) {
     margin-right: -25px;
   }
-
   @media (max-width: 580px) {
     margin-right: 0;
   }
@@ -216,11 +241,15 @@ const LogoImg = styled.img`
     height: 80px;
     margin-left: -20px;
   }
-
   @media (max-width: 580px) {
     width: 140px;
     height: 60px;
     margin-left: -15px;
+  }
+
+  @media (max-width: 420px) {
+    width: 112px;
+    margin-left: -8px;
   }
 `;
 
@@ -263,10 +292,11 @@ const MenuButton = styled.button`
 const SearchBar = styled.div`
   display: flex;
   align-items: center;
-  background-color: var(--surface-container-low);
+  background-color: #ffffff;
   border-radius: 30px;
   padding: 4px 4px 4px 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-color, #e1e4e6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   width: 260px;
   height: 38px;
 
@@ -283,12 +313,12 @@ const SearchInput = styled.input`
   border: none;
   background: none;
   font-size: 14px;
-  color: var(--on-surface);
+  color: #121317 !important;
   outline: none;
   padding: 0;
 
   &::placeholder {
-    color: var(--outline);
+    color: #9aa0a6;
   }
 `;
 
@@ -322,6 +352,7 @@ const NavButton = styled.button`
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
+  border: none;
 
   &:hover {
     background-color: var(--bg-container-high);
@@ -331,28 +362,6 @@ const NavButton = styled.button`
     font-size: 12px;
     padding: 6px 8px;
   }
-`;
-
-const IconImg = styled.img`
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  object-fit: contain;
-  display: block;
-`;
-
-const ThemeSwitcher = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-`;
-
-const Separator = styled.span`
-  color: var(--text-secondary);
-  font-size: 14px;
-  font-weight: 200;
-  margin: 0 2px;
-  user-select: none;
 `;
 
 const SignUpButton = styled(NavButton)`
@@ -369,9 +378,14 @@ const SignUpButton = styled(NavButton)`
 `;
 
 const IconButton = styled.button`
-  font-size: 18px;
+  background: none;
+  border: none;
   padding: 6px;
   border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: ${(props) =>
     props.$active ? "var(--bg-container-high)" : "transparent"};
   outline: ${(props) =>
@@ -382,8 +396,37 @@ const IconButton = styled.button`
   }
 
   @media (max-width: 580px) {
-    font-size: 16px;
     padding: 4px;
+  }
+`;
+
+const IconImg = styled.img`
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  object-fit: contain;
+  display: block;
+`;
+
+const ThemeSwitcher = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  @media (max-width: 420px) {
+    gap: 0;
+  }
+`;
+
+const Separator = styled.span`
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 200;
+  margin: 0 2px;
+  user-select: none;
+
+  @media (max-width: 420px) {
+    display: none;
   }
 `;
 
@@ -419,6 +462,21 @@ const NicknameButton = styled.button`
     padding: 6px 10px;
     font-size: 12px;
     gap: 4px;
+  }
+
+  span:first-child {
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 420px) {
+    padding: 6px 8px;
+
+    span:first-child {
+      max-width: 64px;
+    }
   }
 `;
 

@@ -403,366 +403,74 @@ const ItemEditPage = () => {
 
 // ── Styled Components ──────────────────────────────────────────────
 const PageContainer = styled.div`
-  background-color: #0b0c10;
-  color: #ffffff;
-  min-height: 100vh;
   padding: 40px 8%;
-  box-sizing: border-box;
-`;
-const HeaderSection = styled.div`
-  margin-bottom: 32px;
-`;
-const Breadcrumb = styled.p`
-  font-size: 11px;
-  color: #6c5ce7;
-  font-weight: bold;
-  letter-spacing: 1px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  display: inline-block;
-`;
-const PageTitle = styled.h1`
-  font-size: 26px;
-  font-weight: 700;
-  margin-bottom: 12px;
-`;
-const PageDesc = styled.p`
-  font-size: 13px;
-  color: #888da8;
-  line-height: 1.6;
-  max-width: 700px;
-`;
-const SectionContainer = styled.div`
-  background-color: #12131a;
-  border: 1px solid #1f2029;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 24px;
-`;
-const SectionTitle = styled.h2`
-  font-size: 15px;
-  font-weight: 500;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  span {
-    color: #8083ff;
-    font-size: 13px;
+  @media (max-width: 768px) {
+    padding: 20px 4%;
   }
 `;
+
 const CategoryGroup = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-`;
-const Card = styled.div`
-  background-color: ${(props) => (props.isActive ? "#1a1b26" : "#171821")};
-  border: 1px solid ${(props) => (props.isActive ? "#6c5ce7" : "#252631")};
-  border-radius: 8px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  cursor: default;
-  position: relative;
-`;
-const IconWrapper = styled.div`
-  background-color: #1f202e;
-  padding: 10px;
-  border-radius: 8px;
-  flex-shrink: 0;
-`;
-const CardContent = styled.div`
-  padding-right: 20px;
-  h3 {
-    font-size: 14px;
-    font-weight: 400;
-    margin-bottom: 4px;
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
   }
-  p {
-    font-size: 11px;
-    color: #c7c4d7;
-    line-height: 1.4;
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
   }
 `;
-const CheckBadge = styled.div`
-  position: absolute;
-  top: 50%;
-  right: 16px;
-  transform: translateY(-50%);
-  background-color: #6c5ce7;
-  color: white;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-`;
+
 const RowGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 20px;
-`;
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  label {
-    font-size: 13px;
-    color: #e3e2e8;
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
   }
 `;
-const Select = styled.select`
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 12px;
-  color: #ffffff;
-  font-size: 13px;
-  outline: none;
-  width: 100%;
-`;
-const Input = styled.input`
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 12px;
-  color: #ffffff;
-  font-size: 13px;
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-`;
-const InputWrapper = styled.div`
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  input {
-    width: 100%;
-    background-color: #171821;
-    border: 1px solid #252631;
-    border-radius: 6px;
-    padding: 12px 70px 12px 12px;
-    color: #ffffff;
-    font-size: 13px;
-    outline: none;
-    box-sizing: border-box;
-  }
-`;
-const TextArea = styled.textarea`
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 12px;
-  color: #ffffff;
-  font-size: 13px;
-  outline: none;
-  resize: none;
-  line-height: 1.5;
-  width: 100%;
-  box-sizing: border-box;
-`;
+
 const BottomGrid = styled.div`
   display: grid;
   grid-template-columns: ${(props) =>
     props.isMoney ? "1fr" : "repeat(2, 1fr)"};
   gap: 24px;
-  margin-bottom: 32px;
-`;
-const PriceBox = styled.div`
-  background-color: #0b0c10;
-  border: 1px solid #1f2029;
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-`;
-const PriceRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  label {
-    font-size: 13px;
-    color: #a5a8b7;
-  }
-  &.sub-row {
-    border-top: 1px solid #1f2029;
-    padding-top: 14px;
-    .minus-price {
-      color: #ef4444;
-      font-size: 13px;
-    }
-  }
-  &.total-row {
-    border-top: 1px solid #1f2029;
-    padding-top: 14px;
-    .total-price {
-      color: #10b981;
-      font-size: 15px;
-      font-weight: 700;
-    }
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
   }
 `;
-const PriceInputWrapper = styled.div`
-  display: flex;
-  align-items: center;
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 8px 12px;
-  width: ${(props) => (props.isMoney ? "30%" : "50%")};
-  min-width: 150px;
-  input {
-    background: transparent;
-    border: none;
-    outline: none;
-    color: white;
-    width: 100%;
-    text-align: right;
-    font-size: 14px;
-    padding-right: 6px;
-  }
-  span {
-    color: #a5a8b7;
-    font-size: 13px;
-  }
-`;
-const UploadContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-`;
-const HiddenFileInput = styled.input`
-  display: none;
-`;
-const UploadMainZone = styled.div`
-  border: 1px dashed #4e5161;
-  border-radius: 8px;
-  padding: 32px 24px;
-  background-color: #171821;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  flex: 1;
-  &:hover {
-    border-color: #6c5ce7;
-  }
-`;
-const UploadIcon = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 12px;
-  .upload-main-icon {
-    width: 44px;
-    height: 44px;
-    object-fit: contain;
-  }
-`;
-const UploadTextMain = styled.p`
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 4px;
-`;
-const UploadTextSub = styled.p`
-  font-size: 11px;
-  color: #686b7c;
-`;
+
 const PreviewRow = styled.div`
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 8px;
-`;
-const PreviewSlot = styled.div`
-  background-color: #171821;
-  border: 1px solid ${(props) => (props.hasImage ? "#4e5161" : "#252631")};
-  border-radius: 6px;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #4e5161;
-  font-size: 12px;
-  position: relative;
-  overflow: hidden;
-  .uploaded-preview {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .preview-icon {
-    width: 24px;
-    height: 24px;
-    object-fit: contain;
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(3, 1fr);
   }
 `;
-const RemoveButton = styled.button`
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: #ffffff;
-  border: none;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  transition: background-color 0.2s;
-  &:hover {
-    background-color: #ef4444;
-  }
-`;
-const ErrorBox = styled.div`
-  padding: 12px 16px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 8px;
-  font-size: 13px;
-  color: #ef4444;
-  margin-bottom: 24px;
-`;
+
 const ButtonGroup = styled.div`
   display: flex;
   justify-content: center;
   gap: 25px;
-  width: 100%;
+  @media (max-width: 600px) {
+    flex-direction: column;
+    width: 100%;
+  }
 `;
+
 const CancelButton = styled.button`
-  background-color: #12131a;
-  border: 1px solid #252631;
-  color: #ffffff;
-  padding: 14px 0;
   width: 220px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+  @media (max-width: 600px) {
+    width: 100%;
+  }
 `;
+
 const SubmitButton = styled.button`
-  background-color: #c0c1ff;
-  border: none;
-  color: #1000a9;
-  padding: 14px 0;
   width: 220px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  opacity: ${(props) => (props.disabled ? 0.6 : 1)};
-  pointer-events: ${(props) => (props.disabled ? "none" : "auto")};
+  @media (max-width: 600px) {
+    width: 100%;
+  }
 `;
 
 export default ItemEditPage;

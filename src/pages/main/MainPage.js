@@ -355,7 +355,11 @@ const HeroSection = styled.div`
     position: absolute;
     inset: 0;
     background: url(${heroBgImage}) no-repeat center/cover;
-    filter: brightness(1.4) contrast(1.1);
+    filter: brightness(0.6) contrast(1.1);
+
+    @media (prefers-color-scheme: light) {
+      filter: brightness(1.1) contrast(0.9);
+    }
     z-index: 1;
   }
 `;
@@ -372,21 +376,24 @@ const HeroContent = styled.div`
   max-width: 600px;
   padding: 0 20px;
   color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 `;
 const MainTitle = styled.h1`
   font-size: 42px;
   font-weight: 800;
   line-height: 1.3;
-  margin-top: 12px;
-  letter-spacing: -0.5px;
   color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+
   @media (max-width: 768px) {
-    font-size: 32px;
+    font-size: 34px;
   }
+
   @media (max-width: 480px) {
-    font-size: 26px;
+    font-size: 28px;
   }
 `;
+
 const Description = styled.p`
   font-size: 15px;
   color: rgba(255, 255, 255, 0.85);
@@ -457,6 +464,11 @@ const QuickMenuSection = styled.div`
     margin-top: -24px;
     gap: 16px 12px;
   }
+
+  @media (max-width: 420px) {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 0 16px;
+  }
 `;
 const QuickMenuCard = styled.div`
   display: flex;
@@ -468,21 +480,24 @@ const QuickMenuCard = styled.div`
     transform: translateY(-5px);
   }
 `;
+
 const QuickIconCircle = styled.div`
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background-color: #111c2d;
+  background-color: var(--bg-container-high);
   display: flex;
   justify-content: center;
   align-items: center;
   font-size: 28px;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+
   img {
     width: 50%;
     height: 50%;
     object-fit: contain;
   }
+
   @media (max-width: 480px) {
     width: 52px;
     height: 52px;
@@ -496,6 +511,7 @@ const QuickGameLabel = styled.span`
   margin-top: 12px;
   text-align: center;
   white-space: nowrap;
+
   @media (max-width: 480px) {
     font-size: 11px;
     margin-top: 8px;
@@ -550,30 +566,30 @@ const RankGrid = styled.div`
 const RankCard = styled.div`
   display: flex;
   align-items: center;
-  background-color: var(--bg-surface-lowest, black);
+  background-color: var(--bg-surface-lowest);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px 24px;
   cursor: pointer;
   transition: background-color 0.2s;
   &:hover {
-    background-color: var(--bg-container-high);
-    border-color: var(--color-primary);
+    background-color: var(--bg-container-high, #f4f4f4);
+    border-color: var(--color-primary, #6339f9);
   }
+
   @media (max-width: 480px) {
-    padding: 12px 16px;
+    padding: 14px 16px;
   }
 `;
+
 const RankNumber = styled.span`
   font-size: 18px;
   font-weight: 700;
   color: ${(p) =>
-    p.$rank <= 3 ? "var(--color-primary, #6339f9)" : "var(--text-secondary)"};
+    p.$rank <= 3
+      ? "var(--color-primary, #6339f9)"
+      : "var(--text-secondary, #666)"};
   width: 24px;
-  @media (max-width: 480px) {
-    font-size: 16px;
-    width: 20px;
-  }
 `;
 const GameImageWrapper = styled.div`
   width: 36px;
@@ -621,7 +637,7 @@ const LoadingText = styled.div`
   font-size: 15px;
 `;
 const EmptyBox = styled.div`
-  background: var(--bg-surface-lowest, black);
+  background: var(--bg-surface-lowest);
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 40px 16px;
@@ -631,7 +647,7 @@ const EmptyBox = styled.div`
   grid-column: span 2;
 `;
 const TableWrapper = styled.div`
-  background-color: var(--bg-surface-lowest, black);
+  background-color: var(--bg-surface-lowest);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
@@ -645,30 +661,34 @@ const ItemTable = styled.table`
   border-collapse: collapse;
   text-align: left;
   font-size: 14px;
-  @media (max-width: 768px) {
-    min-width: 600px;
-  }
+
   th,
   td {
     padding: 16px 24px;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color); /* 테마 변수 적용 */
     vertical-align: middle;
   }
+
   th {
-    background-color: var(--bg-container-low);
+    background-color: var(--bg-container-low); /* 테마 변수 적용 */
     color: var(--text-secondary);
-    font-weight: 500;
-    font-size: 12px;
   }
-  tr:last-child td {
-    border-bottom: none;
-  }
+
   .gray-text {
     color: var(--text-secondary);
   }
   .price-text {
     font-weight: 700;
     color: var(--color-primary);
+  }
+
+  @media (max-width: 768px) {
+    min-width: 680px;
+
+    th,
+    td {
+      padding: 12px 14px;
+    }
   }
 `;
 const ItemInfoCell = styled.div`
@@ -682,13 +702,12 @@ const ItemInfoCell = styled.div`
 const ItemImgPlaceholder = styled.div`
   width: 40px;
   height: 40px;
-  background-color: var(--bg-container-high);
+  background-color: var(--bg-container-high); /* 라이트/다크 구분 */
   border-radius: 6px;
   display: flex;
   justify-content: center;
   align-items: center;
   font-size: 20px;
-  flex-shrink: 0;
   overflow: hidden;
   img {
     width: 100%;

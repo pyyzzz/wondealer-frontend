@@ -437,8 +437,8 @@ const AuctionNewPage = () => {
 };
 
 const PageContainer = styled.div`
-  background-color: #0b0c10;
-  color: #fff;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
   padding: 40px 8%;
   box-sizing: border-box;
@@ -457,7 +457,7 @@ const HeaderSection = styled.div`
 `;
 const Breadcrumb = styled.p`
   font-size: 11px;
-  color: #6c5ce7;
+  color: var(--color-primary);
   font-weight: bold;
   letter-spacing: 1px;
   margin-bottom: 8px;
@@ -481,7 +481,7 @@ const PageTitle = styled.h1`
 `;
 const PageDesc = styled.p`
   font-size: 13px;
-  color: #888da8;
+  color: var(--text-secondary);
   line-height: 1.6;
   max-width: 700px;
   @media (max-width: 768px) {
@@ -495,18 +495,18 @@ const PageDesc = styled.p`
   }
 `;
 const SectionContainer = styled.div`
-  background-color: #12131a;
-  border: 1px solid #1f2029;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+
   @media (max-width: 768px) {
     padding: 16px;
     margin-bottom: 16px;
-  }
-  @media (max-width: 480px) {
-    padding: 14px;
-    border-radius: 8px;
   }
 `;
 const SectionTitle = styled.h2`
@@ -517,7 +517,7 @@ const SectionTitle = styled.h2`
   align-items: center;
   gap: 8px;
   span {
-    color: #8083ff;
+    color: var(--color-primary);
     font-size: 13px;
   }
   @media (max-width: 480px) {
@@ -540,20 +540,21 @@ const FormGroup = styled.div`
   gap: 8px;
   label {
     font-size: 13px;
-    color: #e3e2e8;
+    color: var(--text-primary);
   }
   @media (max-width: 480px) {
     label {
       font-size: 12px;
+      color: var(--text-primary);
     }
   }
 `;
 const Select = styled.select`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   width: 100%;
@@ -562,7 +563,11 @@ const Select = styled.select`
     cursor: not-allowed;
   }
   &:focus {
-    border-color: #6c5ce7;
+    border-color: var(--border-focus);
+  }
+  option {
+    background-color: var(--bg-container-low);
+    color: var(--text-primary);
   }
   @media (max-width: 480px) {
     padding: 10px;
@@ -570,20 +575,20 @@ const Select = styled.select`
   }
 `;
 const Input = styled.input`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   width: 100%;
   box-sizing: border-box;
   &::placeholder {
-    color: #4e5161;
+    color: var(--outline);
   }
   &:focus {
-    border-color: #6c5ce7;
+    border-color: var(--border-focus);
   }
   @media (max-width: 480px) {
     padding: 10px;
@@ -591,11 +596,11 @@ const Input = styled.input`
   }
 `;
 const TextArea = styled.textarea`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   resize: none;
@@ -603,10 +608,10 @@ const TextArea = styled.textarea`
   width: 100%;
   box-sizing: border-box;
   &::placeholder {
-    color: #4e5161;
+    color: var(--outline);
   }
   &:focus {
-    border-color: #6c5ce7;
+    border-color: var(--border-focus);
   }
   @media (max-width: 480px) {
     padding: 10px;
@@ -629,8 +634,8 @@ const BottomGrid = styled.div`
   }
 `;
 const AuctionBox = styled.div`
-  background-color: #0b0c10;
-  border: 1px solid #1f2029;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px;
   display: flex;
@@ -640,27 +645,27 @@ const AuctionBox = styled.div`
 const PriceInputWrapper = styled.div`
   display: flex;
   align-items: center;
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 10px 12px;
   width: 100%;
   box-sizing: border-box;
   &:focus-within {
-    border-color: #6c5ce7;
+    border-color: var(--border-focus);
   }
   input {
     background: transparent;
     border: none;
     outline: none;
-    color: #fff;
+    color: var(--text-primary);
     width: 100%;
     text-align: right;
     font-size: 14px;
     padding-right: 6px;
   }
   span {
-    color: #a5a8b7;
+    color: var(--text-secondary);
     font-size: 13px;
     flex-shrink: 0;
   }
@@ -672,9 +677,13 @@ const TabButtonGroup = styled.div`
   width: 100%;
 `;
 const TabButton = styled.button`
-  background-color: ${(p) => (p.$isActive ? "#6c5ce7" : "#171821")};
-  border: 1px solid ${(p) => (p.$isActive ? "#6c5ce7" : "#252631")};
-  color: ${(p) => (p.$isActive ? "#fff" : "#a5a8b7")};
+  background-color: ${(props) =>
+    props.$isActive ? "var(--color-primary)" : "var(--bg-container-low)"};
+  border: 1px solid
+    ${(props) =>
+      props.$isActive ? "var(--color-primary)" : "var(--border-color)"};
+  color: ${(props) =>
+    props.$isActive ? "var(--on-primary)" : "var(--text-secondary)"};
   padding: 10px 0;
   border-radius: 6px;
   font-size: 12px;
@@ -687,26 +696,25 @@ const TabButton = styled.button`
     opacity: 0.7;
   }
   &:hover {
-    border-color: #6c5ce7;
-    color: #fff;
+    border-color: var(--color-primary);
   }
 `;
 const TimeNotice = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
   .label {
     font-size: 11px;
-    color: #888da8;
+    color: var(--text-secondary);
     margin: 0 0 4px;
   }
   .time {
     font-size: 13px;
-    color: #10b981;
+    color: var(--color-success);
     font-weight: 600;
     margin: 0;
   }
@@ -730,10 +738,10 @@ const HiddenFileInput = styled.input`
   display: none;
 `;
 const UploadMainZone = styled.div`
-  border: 1px dashed #4e5161;
+  border: 1px dashed var(--outline);
   border-radius: 8px;
   padding: 32px 24px;
-  background-color: #171821;
+  background-color: var(--bg-container-low);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -743,7 +751,7 @@ const UploadMainZone = styled.div`
   flex: 1;
   transition: border-color 0.2s;
   &:hover {
-    border-color: #6c5ce7;
+    border-color: var(--color-primary);
   }
   @media (max-width: 480px) {
     padding: 24px 16px;
@@ -767,7 +775,7 @@ const UploadTextMain = styled.p`
 `;
 const UploadTextSub = styled.p`
   font-size: 11px;
-  color: #686b7c;
+  color: var(--text-secondary);
 `;
 const PreviewRow = styled.div`
   display: grid;
@@ -775,8 +783,9 @@ const PreviewRow = styled.div`
   gap: 8px;
 `;
 const PreviewSlot = styled.div`
-  background-color: #171821;
-  border: 1px solid ${(p) => (p.$hasImage ? "#4e5161" : "#252631")};
+  background-color: var(--bg-container-low);
+  border: 1px solid
+    ${(props) => (props.hasImage ? "var(--outline)" : "var(--border-color)")};
   border-radius: 6px;
   aspect-ratio: 1;
   display: flex;
@@ -784,6 +793,7 @@ const PreviewSlot = styled.div`
   justify-content: center;
   position: relative;
   overflow: hidden;
+  color: var(--outline);
   .uploaded-preview {
     width: 100%;
     height: 100%;
@@ -812,7 +822,7 @@ const RemoveButton = styled.button`
   justify-content: center;
   transition: background-color 0.2s;
   &:hover {
-    background-color: #ef4444;
+    background-color: var(--color-danger);
   }
 `;
 const ErrorBox = styled.div`
@@ -821,7 +831,7 @@ const ErrorBox = styled.div`
   border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: 8px;
   font-size: 13px;
-  color: #ef4444;
+  color: var(--color-danger);
   margin-bottom: 24px;
 `;
 const ButtonGroup = styled.div`
@@ -835,9 +845,9 @@ const ButtonGroup = styled.div`
   }
 `;
 const CancelButton = styled.button`
-  background-color: #12131a;
-  border: 1px solid #252631;
-  color: #fff;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 14px 0;
   width: 220px;
   border-radius: 8px;
@@ -846,7 +856,7 @@ const CancelButton = styled.button`
   cursor: pointer;
   transition: border-color 0.2s;
   &:hover {
-    border-color: #6c5ce7;
+    border-color: var(--color-primary);
   }
   @media (max-width: 640px) {
     width: 160px;
@@ -859,9 +869,9 @@ const CancelButton = styled.button`
   }
 `;
 const SubmitButton = styled.button`
-  background-color: #c0c1ff;
+  background-color: var(--color-primary);
   border: none;
-  color: #1000a9;
+  color: var(--on-primary);
   padding: 14px 0;
   width: 220px;
   border-radius: 8px;

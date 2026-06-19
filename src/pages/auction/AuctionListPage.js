@@ -10,8 +10,8 @@ import timer from "../../img/timer.svg";
 // ── Styled Components ───────────────────────
 
 const PageLayout = styled.div`
-  background-color: #0b0c10;
-  color: #ffffff;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
   padding: 40px 5%;
   box-sizing: border-box;
@@ -49,12 +49,16 @@ const FilterArea = styled.div`
 const SearchForm = styled.form`
   display: flex;
   align-items: center;
-  background-color: #ffffff;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 25px;
   padding: 4px 16px;
   width: 280px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
+  &:focus-within {
+    border-color: var(--border-focus);
+  }
   @media (max-width: 480px) {
     width: 100%;
   }
@@ -67,16 +71,16 @@ const SearchInput = styled.input`
   padding: 8px 4px;
   width: 100%;
   font-size: 14px;
-  color: #333333;
+  color: var(--text-primary);
   &::placeholder {
-    color: #999999;
+    color: var(--outline);
   }
 `;
 
 const SearchButton = styled.button`
   background: none;
   border: none;
-  color: #6c5ce7;
+  color: var(--color-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -93,7 +97,7 @@ const CategoryTabContainer = styled.div`
     height: 4px;
   }
   &::-webkit-scrollbar-thumb {
-    background: #252631;
+    background: var(--outline);
     border-radius: 4px;
   }
 `;
@@ -102,16 +106,18 @@ const CategoryTab = styled.button`
   height: 38px;
   padding: 0 22px;
   border-radius: 20px;
-  border: 1px solid #3b3d50;
-  background-color: ${(props) => (props.$isActive ? "#635BFF" : "#1B1C25")};
-  color: ${(props) => (props.$isActive ? "#ffffff" : "#B0B2C3")};
+  border: 1px solid var(--border-color);
+  background-color: ${(props) =>
+    props.$isActive ? "var(--color-primary)" : "var(--bg-container-low)"};
+  color: ${(props) =>
+    props.$isActive ? "var(--on-primary)" : "var(--text-secondary)"};
   font-size: 14px;
   white-space: nowrap;
   cursor: pointer;
   transition: 0.2s;
   &:hover {
-    background-color: #635bff;
-    color: white;
+    background-color: var(--color-primary);
+    color: var(--on-primary);
   }
 `;
 
@@ -134,13 +140,13 @@ const ServerSidebar = styled.aside`
 const SidebarTitle = styled.h2`
   font-size: 18px;
   font-weight: 600;
-  color: #c0c1ff;
+  color: var(--color-primary);
   margin-bottom: 20px;
   display: flex;
   flex-direction: column;
   span {
     font-size: 10px;
-    color: #555870;
+    color: var(--text-secondary);
     margin-top: 4px;
   }
 `;
@@ -152,9 +158,15 @@ const ServerList = styled.ul`
   display: flex;
   flex-direction: column;
   gap: 6px;
+
   @media (max-width: 992px) {
     flex-direction: row;
     overflow-x: auto;
+    padding-bottom: 8px;
+
+    &::-webkit-scrollbar {
+      height: 4px;
+    }
   }
 `;
 
@@ -163,12 +175,26 @@ const ServerItem = styled.li`
   border-radius: 8px;
   font-size: 14px;
   cursor: pointer;
-  background-color: ${(props) => (props.$isActive ? "#8083FF" : "transparent")};
-  color: ${(props) => (props.$isActive ? "#0D0096" : "#C7C4D7")};
+  transition: none;
+
+  background-color: ${(props) =>
+    props.$isActive ? "var(--color-primary)" : "transparent"};
+  color: ${(props) =>
+    props.$isActive ? "var(--on-primary)" : "var(--text-secondary)"};
   font-weight: ${(props) => (props.$isActive ? "600" : "400")};
-  white-space: nowrap;
+
   &:hover {
-    background-color: rgba(128, 131, 255, 0.1);
+    background-color: ${(props) =>
+      props.$isActive
+        ? "var(--color-primary)"
+        : "var(--bg-container-low)"} !important;
+    color: ${(props) =>
+      props.$isActive ? "var(--on-primary)" : "var(--text-primary)"} !important;
+  }
+
+  @media (max-width: 992px) {
+    white-space: nowrap;
+    padding: 8px 16px;
   }
 `;
 
@@ -182,15 +208,15 @@ const ItemListSection = styled.section`
 const ItemCard = styled.div`
   display: flex;
   align-items: center;
-  background-color: #12131a;
-  border: 1px solid #1f2029;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px 24px;
   transition:
     transform 0.2s,
     border-color 0.2s;
   &:hover {
-    border-color: #3b3d54;
+    border-color: var(--color-primary);
     transform: translateX(4px);
   }
   @media (max-width: 640px) {
@@ -206,7 +232,7 @@ const ItemThumbnail = styled.div`
   border-radius: 8px;
   overflow: hidden;
   margin-right: 20px;
-  background-color: #1c1d26;
+  background-color: var(--bg-container-low);
   img {
     width: 100%;
     height: 100%;
@@ -220,13 +246,13 @@ const ItemInfo = styled.div`
 const ItemName = styled.h3`
   font-size: 15px;
   font-weight: 500;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 6px;
 `;
 const ItemMeta = styled.div`
   font-size: 12px;
-  color: #62667d;
-  display: flex;
+  color: var(--text-secondary);
+  display: inline-flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
@@ -240,9 +266,12 @@ const TimerBadge = styled.div`
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 4px;
-  background-color: ${(props) => (props.$isUrgent ? "#FF516A" : "#1B1C25")};
-  color: ${(props) => (props.$isUrgent ? "#ffffff" : "#8083FF")};
-  border: 1px solid ${(props) => (props.$isUrgent ? "transparent" : "#3b3d50")};
+  background-color: ${(props) =>
+    props.$isUrgent ? "var(--color-danger)" : "var(--color-primary)"};
+  color: ${(props) =>
+    props.$isUrgent ? "var(--on-tertiary-container)" : "var(--on-primary)"};
+  border: 1px solid
+    ${(props) => (props.$isUrgent ? "transparent" : "var(--border-color)")};
 `;
 
 const TimerIcon = styled.img`
@@ -257,7 +286,7 @@ const ItemActionGroup = styled.div`
   @media (max-width: 640px) {
     width: 100%;
     justify-content: space-between;
-    border-top: 1px solid #1f2029;
+    border-top: 1px solid var(--border-color);
     padding-top: 12px;
   }
 `;
@@ -267,18 +296,18 @@ const PriceContainer = styled.div`
 `;
 const PriceLabel = styled.div`
   font-size: 10px;
-  color: #52556a;
+  color: var(--text-secondary);
   margin-bottom: 2px;
 `;
 const PriceValue = styled.div`
   font-size: 18px;
   font-weight: 700;
-  color: #c0c1ff;
+  color: var(--color-primary);
 `;
 
 const BuyButton = styled.button`
-  background-color: #635bff;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--on-primary);
   border: none;
   border-radius: 6px;
   padding: 10px 20px;
@@ -286,14 +315,44 @@ const BuyButton = styled.button`
   font-weight: 600;
   cursor: pointer;
   &:hover {
-    background-color: #4f46e5;
+    background-color: var(--primary-container);
+  }
+`;
+const PaginationNumber = styled.button`
+  background: transparent;
+  color: ${(props) =>
+    props.$isActive ? "var(--color-primary)" : "var(--text-secondary)"};
+  border: none;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  font-weight: ${(props) => (props.$isActive ? "700" : "400")};
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: ${(props) =>
+      props.$isActive ? "var(--color-primary)" : "transparent"};
+  }
+
+  &:hover {
+    color: var(--text-primary);
   }
 `;
 
 const StatusText = styled.div`
   text-align: center;
   padding: 80px 0;
-  color: #62667d;
+  color: var(--text-secondary);
 `;
 
 const PaginationContainer = styled.div`
@@ -303,13 +362,24 @@ const PaginationContainer = styled.div`
   margin-top: 30px;
 `;
 const PaginationBtn = styled.button`
-  background: ${(props) => (props.$active ? "#635bff" : "#12131a")};
-  color: white;
-  border: 1px solid #1f2029;
+  background: ${(props) =>
+    props.$active ? "var(--color-primary)" : "var(--bg-container)"};
+  color: ${(props) =>
+    props.$active ? "var(--on-primary)" : "var(--text-secondary)"};
+  border: 1px solid var(--border-color);
   width: 32px;
   height: 32px;
   border-radius: 4px;
   cursor: pointer;
+`;
+
+const ParticipantBadge = styled.span`
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-container-low);
+  padding: 2px 6px;
+  border-radius: 4px;
 `;
 
 // ── Constants & Helpers ───────────────────────
@@ -550,12 +620,12 @@ const AuctionListPage = () => {
                 </ItemThumbnail>
                 <ItemInfo>
                   <ItemName>{auc.itemTitle}</ItemName>
-                  <ItemMeta>
+                <ItemMeta>
                     <span>
                       {auc.gameName} / {auc.serverName || "전체"}
                     </span>
                     <AuctionTimer endTimeStr={auc.endTime} />
-                    <span style={{ color: "#888" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>
                       {auc.bidCount || 0}명 참여
                     </span>
                   </ItemMeta>

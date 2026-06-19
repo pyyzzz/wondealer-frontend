@@ -368,8 +368,8 @@ const ItemNewPage = () => {
 
 // ── Styled Components ──────────────────────────────────────────
 const PageContainer = styled.div`
-  background-color: #0b0c10;
-  color: #fff;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
   padding: 40px 8%;
   box-sizing: border-box;
@@ -388,7 +388,7 @@ const HeaderSection = styled.div`
 `;
 const Breadcrumb = styled.p`
   font-size: 11px;
-  color: #6c5ce7;
+  color: var(--color-primary);
   font-weight: bold;
   letter-spacing: 1px;
   margin-bottom: 8px;
@@ -412,7 +412,7 @@ const PageTitle = styled.h1`
 `;
 const PageDesc = styled.p`
   font-size: 13px;
-  color: #888da8;
+  color: var(--text-secondary);
   line-height: 1.6;
   max-width: 700px;
   @media (max-width: 768px) {
@@ -426,8 +426,8 @@ const PageDesc = styled.p`
   }
 `;
 const SectionContainer = styled.div`
-  background-color: #12131a;
-  border: 1px solid #1f2029;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
@@ -448,7 +448,7 @@ const SectionTitle = styled.h2`
   align-items: center;
   gap: 8px;
   span {
-    color: #8083ff;
+    color: var(--color-primary);
     font-size: 13px;
   }
   @media (max-width: 480px) {
@@ -466,8 +466,10 @@ const CategoryGroup = styled.div`
   }
 `;
 const Card = styled.div`
-  background-color: ${(p) => (p.$isActive ? "#1a1b26" : "#171821")};
-  border: 1px solid ${(p) => (p.$isActive ? "#6c5ce7" : "#252631")};
+  background-color: ${(p) =>
+    p.$isActive ? "var(--bg-container-high)" : "var(--bg-container-low)"};
+  border: 1px solid
+    ${(p) => (p.$isActive ? "var(--color-primary)" : "var(--border-color)")};
   border-radius: 8px;
   padding: 20px;
   display: flex;
@@ -477,8 +479,8 @@ const Card = styled.div`
   position: relative;
   transition: all 0.2s;
   &:hover {
-    border-color: #6c5ce7;
-    background-color: #1a1b26;
+    border-color: var(--color-primary);
+    background-color: var(--bg-container-high);
   }
   @media (max-width: 768px) {
     padding: 14px;
@@ -490,7 +492,7 @@ const Card = styled.div`
   }
 `;
 const IconWrapper = styled.div`
-  background-color: #1f202e;
+  background-color: var(--bg-container);
   padding: 10px;
   border-radius: 8px;
   flex-shrink: 0;
@@ -519,7 +521,7 @@ const CardContent = styled.div`
   }
   p {
     font-size: 11px;
-    color: #c7c4d7;
+    color: var(--text-secondary);
     line-height: 1.4;
   }
   @media (max-width: 480px) {
@@ -533,8 +535,8 @@ const CheckBadge = styled.div`
   top: 50%;
   right: 14px;
   transform: translateY(-50%);
-  background-color: #6c5ce7;
-  color: #fff;
+  background-color: var(--color-primary);
+  color: var(--on-primary);
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -558,7 +560,7 @@ const FormGroup = styled.div`
   gap: 8px;
   label {
     font-size: 13px;
-    color: #e3e2e8;
+    color: var(--text-primary);
   }
   @media (max-width: 480px) {
     label {
@@ -567,11 +569,11 @@ const FormGroup = styled.div`
   }
 `;
 const Select = styled.select`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   width: 100%;
@@ -579,23 +581,33 @@ const Select = styled.select`
     opacity: 0.5;
     cursor: not-allowed;
   }
+  &:focus {
+    border-color: var(--border-focus);
+  }
+  option {
+    background-color: var(--bg-container-low);
+    color: var(--text-primary);
+  }
   @media (max-width: 480px) {
     padding: 10px;
     font-size: 12px;
   }
 `;
 const Input = styled.input`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   width: 100%;
   box-sizing: border-box;
   &::placeholder {
-    color: #4e5161;
+    color: var(--outline);
+  }
+  &:focus {
+    border-color: var(--border-focus);
   }
   @media (max-width: 480px) {
     padding: 10px;
@@ -603,11 +615,11 @@ const Input = styled.input`
   }
 `;
 const TextArea = styled.textarea`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   resize: none;
@@ -615,7 +627,10 @@ const TextArea = styled.textarea`
   width: 100%;
   box-sizing: border-box;
   &::placeholder {
-    color: #4e5161;
+    color: var(--outline);
+  }
+  &:focus {
+    border-color: var(--border-focus);
   }
   @media (max-width: 480px) {
     padding: 10px;
@@ -623,8 +638,8 @@ const TextArea = styled.textarea`
   }
 `;
 const PriceBox = styled.div`
-  background-color: #0b0c10;
-  border: 1px solid #1f2029;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px;
   display: flex;
@@ -639,21 +654,21 @@ const PriceRow = styled.div`
   gap: 8px;
   label {
     font-size: 13px;
-    color: #a5a8b7;
+    color: var(--text-secondary);
   }
   &.sub-row {
-    border-top: 1px solid #1f2029;
+    border-top: 1px solid var(--border-color);
     padding-top: 14px;
     .minus-price {
-      color: #ef4444;
+      color: var(--color-danger);
       font-size: 13px;
     }
   }
   &.total-row {
-    border-top: 1px solid #1f2029;
+    border-top: 1px solid var(--border-color);
     padding-top: 14px;
     .total-price {
-      color: #10b981;
+      color: var(--color-success);
       font-size: 15px;
       font-weight: 700;
     }
@@ -670,8 +685,8 @@ const PriceRow = styled.div`
 const PriceInputWrapper = styled.div`
   display: flex;
   align-items: center;
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container-low);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 8px 12px;
   min-width: 150px;
@@ -683,11 +698,14 @@ const PriceInputWrapper = styled.div`
     width: 100%;
     min-width: unset;
   }
+  &:focus-within {
+    border-color: var(--border-focus);
+  }
   input {
     background: transparent;
     border: none;
     outline: none;
-    color: #fff;
+    color: var(--text-primary);
     width: 100%;
     text-align: right;
     font-size: 14px;
@@ -697,7 +715,7 @@ const PriceInputWrapper = styled.div`
     }
   }
   span {
-    color: #a5a8b7;
+    color: var(--text-secondary);
     font-size: 13px;
     flex-shrink: 0;
   }
@@ -708,7 +726,7 @@ const ErrorBox = styled.div`
   border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: 8px;
   font-size: 13px;
-  color: #ef4444;
+  color: var(--color-danger);
   margin-bottom: 24px;
 `;
 const ButtonGroup = styled.div`
@@ -722,9 +740,9 @@ const ButtonGroup = styled.div`
   }
 `;
 const CancelButton = styled.button`
-  background-color: #12131a;
-  border: 1px solid #252631;
-  color: #fff;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 14px 0;
   width: 220px;
   border-radius: 8px;
@@ -733,7 +751,7 @@ const CancelButton = styled.button`
   cursor: pointer;
   transition: border-color 0.2s;
   &:hover {
-    border-color: #6c5ce7;
+    border-color: var(--color-primary);
   }
   @media (max-width: 640px) {
     width: 160px;
@@ -746,9 +764,9 @@ const CancelButton = styled.button`
   }
 `;
 const SubmitButton = styled.button`
-  background-color: #c0c1ff;
+  background-color: var(--color-primary);
   border: none;
-  color: #1000a9;
+  color: var(--on-primary);
   padding: 14px 0;
   width: 220px;
   border-radius: 8px;

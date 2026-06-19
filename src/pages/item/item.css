@@ -65,7 +65,7 @@
 /* Item Grid */
 .item-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 14px;
   margin-bottom: 28px;
 }
@@ -119,6 +119,7 @@
   align-items: center;
   gap: 6px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 .page-btn {
   min-width: 34px;
@@ -165,7 +166,7 @@
 
 .detail-grid {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   gap: 32px;
 }
 @media (max-width: 700px) {
@@ -264,6 +265,7 @@
 .list-search {
   display: flex;
   gap: 8px;
+  min-width: 0;
 }
 .list-search-input {
   padding: 9px 14px;
@@ -287,6 +289,7 @@
   font-size: 13px;
   font-weight: 700;
   transition: opacity 0.15s;
+  white-space: nowrap;
 }
 .list-search-btn:hover {
   opacity: 0.88;
@@ -333,6 +336,26 @@
       minmax(160px, 1fr)
     ); /* 모바일에서 카드 크기 조정 */
     gap: 10px;
+  }
+}
+
+@media (max-width: 560px) {
+  .filter-row {
+    align-items: flex-start;
+  }
+
+  .filter-label {
+    width: 100%;
+  }
+
+  .list-search {
+    flex-wrap: wrap;
+  }
+
+  .list-search-input,
+  .list-search-btn,
+  .add-btn {
+    width: 100%;
   }
 }
 

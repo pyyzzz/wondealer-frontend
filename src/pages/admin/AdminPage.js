@@ -10,13 +10,17 @@ const NAV_ITEMS = [
 ];
 
 function Sidebar({ active, onChange, adminName, onLogout }) {
+  const isNarrow =
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 768px)").matches;
   return (
     <div
       style={{
-        width: 200,
-        minHeight: "100vh",
+        width: isNarrow ? "100%" : 200,
+        minHeight: isNarrow ? "auto" : "100vh",
         background: "var(--bg-container)",
-        borderRight: "1px solid var(--border-color)",
+        borderRight: isNarrow ? "none" : "1px solid var(--border-color)",
+        borderBottom: isNarrow ? "1px solid var(--border-color)" : "none",
         display: "flex",
         flexDirection: "column",
         flexShrink: 0,
@@ -212,7 +216,7 @@ function SearchBar({ value, onChange, placeholder }) {
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       style={{
-        width: 260,
+        width: "min(260px, 100%)",
         background: "var(--bg-container-high)",
         border: "1px solid var(--border-color)",
         borderRadius: 8,
@@ -354,11 +358,16 @@ function MembersTab() {
           background: "var(--bg-container)",
           border: "1px solid var(--border-color)",
           borderRadius: 12,
-          overflow: "hidden",
+          overflowX: "auto",
         }}
       >
         <table
-          style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}
+          style={{
+            width: "100%",
+            minWidth: 680,
+            borderCollapse: "collapse",
+            fontSize: 12,
+          }}
         >
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
@@ -642,11 +651,16 @@ function ItemsTab() {
           background: "var(--bg-container)",
           border: "1px solid var(--border-color)",
           borderRadius: 12,
-          overflow: "hidden",
+          overflowX: "auto",
         }}
       >
         <table
-          style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}
+          style={{
+            width: "100%",
+            minWidth: 760,
+            borderCollapse: "collapse",
+            fontSize: 12,
+          }}
         >
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
@@ -1029,6 +1043,9 @@ function NewGameModal({ onClose, onSubmit }) {
 }
 
 function GamesTab() {
+  const isNarrow =
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 768px)").matches;
   const [games, setGames] = useState([
     {
       gameId: 1,
@@ -1144,7 +1161,11 @@ function GamesTab() {
       </div>
 
       <div
-        style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 16 }}
+        style={{
+          display: "grid",
+          gridTemplateColumns: isNarrow ? "1fr" : "220px 1fr",
+          gap: 16,
+        }}
       >
         {/* 게임 목록 */}
         <div
@@ -1677,6 +1698,9 @@ function AdminLogin({ onLogin }) {
 
 function AdminDashboard({ admin, onLogout }) {
   const [activeTab, setActiveTab] = useState("members");
+  const isNarrow =
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 768px)").matches;
 
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
@@ -1688,6 +1712,7 @@ function AdminDashboard({ admin, onLogout }) {
     <div
       style={{
         display: "flex",
+        flexDirection: isNarrow ? "column" : "row",
         minHeight: "100vh",
         background: "var(--bg-primary)",
       }}
@@ -1698,7 +1723,14 @@ function AdminDashboard({ admin, onLogout }) {
         adminName={admin.username}
         onLogout={handleLogout}
       />
-      <div style={{ flex: 1, padding: 28, overflow: "auto" }}>
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          padding: isNarrow ? 16 : 28,
+          overflow: "auto",
+        }}
+      >
         {activeTab === "members" && <MembersTab />}
         {activeTab === "items" && <ItemsTab />}
         {activeTab === "games" && <GamesTab />}
@@ -1709,11 +1741,38 @@ function AdminDashboard({ admin, onLogout }) {
 
 // ── 진입점 ─────────────────────────────────────────────────────
 
+// ── 진입점 (AdminPage.js 맨 아래 부분을 이 코드로 교체하세요) ─────────────────────
+
 export default function AdminPage() {
   const [adminUser, setAdminUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // 💡 1. 이미 통합 로그인창에서 로그인하면서 저장해 둔 토큰이 있는지 확인합니다.
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("accessToken");
+
+    if (token) {
+      // 💡 2. 토큰이 존재한다면, 이미 인증된 관리자로 간주하고 대시보드를 열어줍니다.
+      // username은 로컬스토리지나 context에서 가져와도 되고, 여기선 임시로 세팅합니다.
+      setAdminUser({ username: "wondealer_admin" });
+    }
+    setLoading(false);
+  }, []);
+
+  // 로딩 중일 때는 아무것도 안 띄우거나 로딩 스피너를 보여줍니다.
+  if (loading)
+    return (
+      <div style={{ padding: 28, color: "var(--text-secondary)" }}>
+        로딩 중...
+      </div>
+    );
+
+  // 💡 3. 원래는 adminUser가 없으면 무조건 로그인 창을 띄웠지만,
+  // 이제는 위 useEffect 덕분에 이미 로그인되어 있다면 바로 대시보드(AdminDashboard)가 열립니다!
   return adminUser ? (
     <AdminDashboard admin={adminUser} onLogout={() => setAdminUser(null)} />
   ) : (
-    <AdminLogin onLogin={setAdminUser} />
+    <AdminLogin onLoginSuccess={(user) => setAdminUser(user)} />
   );
 }

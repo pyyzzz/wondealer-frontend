@@ -211,9 +211,10 @@ export default function ItemDetailPage() {
   );
 }
 
-const PageWrap = styled.div`
-  background: #0b0c10;
-  color: #fff;
+// --- 스타일 컴포넌트 정의 시작 ---
+export const PageWrap = styled.div`
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
   padding: 40px 8%;
   box-sizing: border-box;
@@ -224,14 +225,16 @@ const PageWrap = styled.div`
     padding: 20px 4%;
   }
 `;
-const CenterMsg = styled.div`
+
+export const CenterMsg = styled.div`
   text-align: center;
   padding: 80px;
-  color: #888da8;
+  color: var(--text-secondary);
 `;
-const Breadcrumb = styled.p`
+
+export const Breadcrumb = styled.p`
   font-size: 11px;
-  color: #6c5ce7;
+  color: var(--color-primary);
   font-weight: 700;
   letter-spacing: 1px;
   margin-bottom: 24px;
@@ -241,7 +244,8 @@ const Breadcrumb = styled.p`
     opacity: 0.8;
   }
 `;
-const DetailGrid = styled.div`
+
+export const DetailGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 48px;
@@ -250,15 +254,17 @@ const DetailGrid = styled.div`
     gap: 24px;
   }
 `;
-const MediaSection = styled.div`
+
+export const MediaSection = styled.div`
   display: flex;
   flex-direction: column;
   gap: 16px;
 `;
-const MainImageBox = styled.div`
+
+export const MainImageBox = styled.div`
   position: relative;
-  background: #12131a;
-  border: 1px solid #1f2029;
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   height: 380px;
   display: flex;
@@ -269,61 +275,78 @@ const MainImageBox = styled.div`
     height: 240px;
   }
 `;
-const ImgPlaceholder = styled.div`
+
+export const ImgPlaceholder = styled.div`
   font-size: 80px;
 `;
-const GradeBadge = styled.div`
+
+export const GradeBadge = styled.div`
   position: absolute;
   top: 14px;
   left: 14px;
-  background: linear-gradient(135deg, #f72585, #7209b7);
-  color: #fff;
+  background: linear-gradient(
+    135deg,
+    var(--color-accent),
+    var(--color-primary)
+  );
+  color: var(--text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   font-size: 11px;
   font-weight: 700;
   padding: 4px 10px;
   border-radius: 6px;
+  z-index: 2;
 `;
-const DotRow = styled.div`
+
+export const DotRow = styled.div`
   display: flex;
   justify-content: center;
   gap: 8px;
 `;
-const Dot = styled.div`
+
+export const Dot = styled.div`
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: ${(p) => (p.$active ? "#6c5ce7" : "#2d2f3e")};
+  background: ${(p) =>
+    p.$active ? "var(--color-primary)" : "var(--border-color)"};
   cursor: pointer;
 `;
-const StatBar = styled.div`
-  background: #12131a;
-  border: 1px solid #1f2029;
+
+export const StatBar = styled.div`
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 14px 20px;
   display: flex;
   gap: 24px;
   flex-wrap: wrap;
 `;
-const StatItem = styled.div`
+
+export const StatItem = styled.div`
   display: flex;
   flex-direction: column;
   gap: 2px;
 `;
-const StatLabel = styled.span`
+
+export const StatLabel = styled.span`
   font-size: 10px;
-  color: #888da8;
+  color: var(--text-secondary);
 `;
-const StatVal = styled.span`
+
+export const StatVal = styled.span`
   font-size: 13px;
   font-weight: 600;
-  color: #c0c1ff;
+  color: var(--color-primary);
 `;
-const InfoSection = styled.div`
+
+export const InfoSection = styled.div`
   display: flex;
   flex-direction: column;
   gap: 20px;
 `;
-const ItemTitle = styled.h1`
+
+export const ItemTitle = styled.h1`
   font-size: 22px;
   font-weight: 700;
   line-height: 1.3;
@@ -331,52 +354,60 @@ const ItemTitle = styled.h1`
     font-size: 18px;
   }
 `;
-const MetaGrid = styled.div`
+
+export const MetaGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  background: #12131a;
-  border: 1px solid #1f2029;
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 16px;
 `;
-const MetaItem = styled.div`
+
+export const MetaItem = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
 `;
-const MetaLabel = styled.span`
+
+export const MetaLabel = styled.span`
   font-size: 10px;
-  color: #888da8;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 `;
-const MetaVal = styled.span`
+
+export const MetaVal = styled.span`
   font-size: 13px;
   font-weight: 600;
-  color: ${(p) => (p.$grade ? "#f72585" : "#fff")};
+  color: ${(p) => (p.$grade ? "var(--color-accent)" : "var(--text-primary)")};
 `;
-const Description = styled.p`
+
+export const Description = styled.p`
   font-size: 13px;
-  color: #888da8;
+  color: var(--text-secondary);
   line-height: 1.7;
-  background: #12131a;
-  border: 1px solid #1f2029;
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 16px;
 `;
-const SellerBox = styled.div`
+
+export const SellerBox = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #12131a;
-  border: 1px solid #1f2029;
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 14px 16px;
 `;
-const SellerIcon = styled.div`
+
+export const SellerIcon = styled.div`
   font-size: 24px;
-  background: #1f2029;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -384,61 +415,71 @@ const SellerIcon = styled.div`
   align-items: center;
   justify-content: center;
 `;
-const SellerInfo = styled.div`
+
+export const SellerInfo = styled.div`
   flex: 1;
 `;
-const SellerName = styled.div`
+
+export const SellerName = styled.div`
   font-size: 14px;
   font-weight: 600;
 `;
-const SellerMeta = styled.div`
+
+export const SellerMeta = styled.div`
   font-size: 11px;
-  color: #888da8;
+  color: var(--text-secondary);
   margin-top: 2px;
 `;
-const PriceSection = styled.div`
-  background: #12131a;
-  border: 1px solid #1f2029;
+
+export const PriceSection = styled.div`
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 20px;
 `;
-const PriceLabel = styled.div`
+
+export const PriceLabel = styled.div`
   font-size: 11px;
-  color: #888da8;
+  color: var(--text-secondary);
   margin-bottom: 8px;
 `;
-const PriceMain = styled.div`
+
+export const PriceMain = styled.div`
   font-size: 28px;
   font-weight: 800;
   @media (max-width: 480px) {
     font-size: 22px;
   }
 `;
-const PriceCurrency = styled.span`
+
+export const PriceCurrency = styled.span`
   font-size: 14px;
-  color: #888da8;
+  color: var(--text-secondary);
 `;
-const ErrorBox = styled.div`
+
+export const ErrorBox = styled.div`
   padding: 12px 16px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(var(--rgb-danger), 0.08);
+  border: 1px solid rgba(var(--rgb-danger), 0.2);
   border-radius: 8px;
   font-size: 13px;
-  color: #ef4444;
+  color: var(--color-danger);
 `;
-const MyItemNotice = styled.div`
+
+export const MyItemNotice = styled.div`
   padding: 14px 16px;
-  background: rgba(108, 92, 231, 0.08);
-  border: 1px dashed #6c5ce7;
+  background: rgba(var(--rgb-primary), 0.08);
+  border: 1px dashed var(--color-primary);
   border-radius: 8px;
   font-size: 13px;
-  color: #8083ff;
+  color: var(--color-primary);
   text-align: center;
 `;
-const ChatOnlyBtn = styled.button`
+
+export const ChatOnlyBtn = styled.button`
   width: 100%;
   padding: 18px;
-  background: #6c5ce7;
+  background: var(--color-primary);
   border: none;
   border-radius: 10px;
   color: #fff;
@@ -451,12 +492,14 @@ const ChatOnlyBtn = styled.button`
     opacity: 0.85;
   }
 `;
-const EscrowBanner = styled.div`
-  background: #12131a;
-  border: 1px solid #1f2029;
+
+export const EscrowBanner = styled.div`
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 14px 16px;
   font-size: 12px;
-  color: #10b981;
+  color: var(--color-success);
   line-height: 1.5;
 `;
+// --- 스타일 컴포넌트 정의 끝 ---

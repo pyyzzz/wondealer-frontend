@@ -11,6 +11,7 @@
   padding: 32px 16px;
   display: flex;
   gap: 24px;
+  min-width: 0;
 }
 
 /* ── Sidebar ── */
@@ -149,6 +150,7 @@
   border: 1px solid #27272a;
   border-radius: 14px;
   padding: 20px;
+  min-width: 0;
 }
 .mp-card:hover {
   border-color: #3f3f46;
@@ -1484,5 +1486,76 @@
   }
   .mp-charge-preset-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .mp-container {
+    padding: 20px 12px;
+    gap: 16px;
+  }
+
+  .mp-card {
+    padding: 16px;
+  }
+
+  .mp-nav {
+    overflow-x: auto;
+  }
+
+  .mp-stats-grid,
+  .mp-items-stats,
+  .mp-charge-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mp-items-header,
+  .mp-support-header,
+  .mp-danger-row,
+  .mp-modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mp-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .mp-action-row,
+  .mp-btn-row {
+    flex-direction: column;
+  }
+
+  .mp-btn-primary,
+  .mp-btn-secondary,
+  .mp-btn-danger {
+    width: 100%;
+  }
+
+  .mp-activity-item,
+  .mp-notice-item,
+  .mp-support-headset-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mp-support-headset-img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  .mp-table,
+  .mp-notice-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mp-charge-balance-amount,
+  .mp-withdraw-bal,
+  .mp-mileage-amount {
+    font-size: 22px;
   }
 }

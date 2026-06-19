@@ -697,10 +697,16 @@ const fadeIn = keyframes`from{opacity:0;transform:scale(.97)}to{opacity:1;transf
 const Wrap = styled.div`
   display: flex;
   height: 100vh;
+  height: 100dvh;
   background: #0a0a0f;
   color: #f1f1f5;
   font-family: "Pretendard", "Noto Sans KR", sans-serif;
   overflow: hidden;
+
+  @media (max-width: 760px) {
+    flex-direction: column;
+    overflow: auto;
+  }
 `;
 const ListPanel = styled.div`
   width: 300px;
@@ -709,6 +715,17 @@ const ListPanel = styled.div`
   border-right: 1px solid #2a2a3e;
   display: flex;
   flex-direction: column;
+
+  @media (max-width: 1024px) {
+    width: 260px;
+  }
+
+  @media (max-width: 760px) {
+    width: 100%;
+    max-height: 34dvh;
+    border-right: none;
+    border-bottom: 1px solid #2a2a3e;
+  }
 `;
 const ListHeader = styled.div`
   padding: 20px 16px 12px;
@@ -835,10 +852,16 @@ const EmptyMsg = styled.div`
 `;
 const ChatArea = styled.div`
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   border-right: 1px solid #2a2a3e;
+
+  @media (max-width: 760px) {
+    min-height: 66dvh;
+    border-right: none;
+  }
 `;
 const ChatHeader = styled.div`
   padding: 12px 16px;
@@ -856,6 +879,7 @@ const HeaderTitle = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 `;
 const OnlinePill = styled.span`
   padding: 2px 8px;
@@ -996,6 +1020,10 @@ const MsgBubbleWrap = styled.div`
   align-items: ${(p) => (p.$isMe ? "flex-end" : "flex-start")};
   max-width: 65%;
   gap: 3px;
+
+  @media (max-width: 760px) {
+    max-width: 82%;
+  }
 `;
 const MsgBubble = styled.div`
   padding: 10px 14px;
@@ -1116,6 +1144,10 @@ const ShiftHint = styled.span`
   color: #52525b;
   padding: 0 8px 10px;
   white-space: nowrap;
+
+  @media (max-width: 760px) {
+    display: none;
+  }
 `;
 const SendBtn = styled.button`
   width: 38px;
@@ -1156,6 +1188,14 @@ const SidePanel = styled.div`
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
+
+  @media (max-width: 1024px) {
+    width: 180px;
+  }
+
+  @media (max-width: 760px) {
+    display: none;
+  }
 `;
 const SideSection = styled.div`
   display: flex;
@@ -1307,6 +1347,11 @@ const PayBox = styled.div`
   border-radius: 18px;
   overflow: hidden;
   animation: ${fadeIn} 0.2s ease;
+
+  @media (max-width: 520px) {
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+  }
 `;
 const PaySection = styled.div`
   padding: 18px 20px;
@@ -1424,6 +1469,10 @@ const PayBtns = styled.div`
   display: flex;
   gap: 8px;
   padding: 16px 20px;
+
+  @media (max-width: 420px) {
+    flex-direction: column;
+  }
 `;
 const PayCancel = styled.button`
   flex: 1;

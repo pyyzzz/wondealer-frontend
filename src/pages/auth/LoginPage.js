@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import AuthApi from "../../api/auth.api";
 import logo from "../../img/logo.svg";
 import "./auth.css";
+import "./auth-theme.css";
 
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 

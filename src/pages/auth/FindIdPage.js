@@ -4,6 +4,7 @@ import axios from "axios";
 import Common from "../../utils/Common";
 import logoSvg from "../../img/logo.svg";
 import "./auth.css";
+import "./auth-theme.css";
 
 const api = axios.create({ baseURL: Common.API_URL });
 
