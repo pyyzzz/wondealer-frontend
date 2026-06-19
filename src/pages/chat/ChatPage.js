@@ -3,13 +3,15 @@ import { useSearchParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import ChatApi from "../../api/chat.api";
+import AxiosInstance from "../../api/AxiosInstance";
 import useWebSocket from "../../hooks/useWebSocket";
+import PaymentPage from "../payment/PaymentPage";
 
 // ── 결제 모달 ─────────────────────────────────────────────────
 function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
   const [method, setMethod] = useState("mileage");
-  const price = room?.itemPrice ?? room?.basePrice ?? room?.price ?? 0;
-  const fee = Math.floor(price * 0.05);
+  const price = getRoomPrice(room);
+  const fee = 0;
   const total = price + fee;
   const lack = method === "mileage" && (myMileage ?? 0) < total;
   const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
@@ -18,7 +20,7 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
     <Overlay>
       <PayBox>
         <PaySection>
-          <PaySectionTitle>나의 화재매역 현황</PaySectionTitle>
+          <PaySectionTitle>나의 구매내역 현황</PaySectionTitle>
           <PayItemRow>
             <PayItemIcon>📦</PayItemIcon>
             <PayItemInfo>
@@ -45,7 +47,13 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
                 <div style={{ fontWeight: 700, fontSize: 13 }}>
                   원페이 (마일리지)
                 </div>
-                <div style={{ fontSize: 11, color: "var(--chat-text-muted)", marginTop: 2 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--chat-text-muted)",
+                    marginTop: 2,
+                  }}
+                >
                   보유: {fmt(myMileage ?? 0)} M
                 </div>
               </div>
@@ -58,7 +66,13 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
               <span>💳</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>카드 결제</div>
-                <div style={{ fontSize: 11, color: "var(--chat-text-muted)", marginTop: 2 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--chat-text-muted)",
+                    marginTop: 2,
+                  }}
+                >
                   포트원 연동
                 </div>
               </div>
@@ -75,12 +89,20 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
             </PriceRow2>
             <PriceRow2>
               <span>에스크로 수수료 (5%)</span>
-              <span style={{ color: "var(--chat-danger)" }}>+{fmt(fee)} 원</span>
+              <span style={{ color: "var(--chat-danger)" }}>
+                +{fmt(fee)} 원
+              </span>
             </PriceRow2>
             <Divider />
             <PriceRow2 $total>
               <span>총 결제 금액</span>
-              <span style={{ color: "var(--chat-primary-text)", fontSize: 18, fontWeight: 800 }}>
+              <span
+                style={{
+                  color: "var(--chat-primary-text)",
+                  fontSize: 18,
+                  fontWeight: 800,
+                }}
+              >
                 {fmt(total)} 원
               </span>
             </PriceRow2>
@@ -145,6 +167,41 @@ function roomItem(r) {
 }
 function roomLast(r) {
   return r.lastMessage ?? "";
+}
+function roomItemId(r) {
+  return (
+    r?.itemId ??
+    r?.item?.itemId ??
+    r?.item?.id ??
+    r?.productId ??
+    r?.product?.id ??
+    null
+  );
+}
+function getRoomPrice(r) {
+  return Number(
+    r?.itemPrice ??
+      r?.tradePrice ??
+      r?.basePrice ??
+      r?.price ??
+      r?.amount ??
+      r?.item?.price ??
+      r?.item?.basePrice ??
+      r?.product?.price ??
+      0,
+  );
+}
+function roomProduct(r) {
+  return {
+    id: roomItemId(r),
+    itemId: roomItemId(r),
+    name: roomItem(r),
+    price: getRoomPrice(r),
+    imageUrl: r?.thumbnailImg ?? r?.imageUrl ?? r?.item?.thumbnailImg ?? "",
+    server: r?.serverName ?? r?.gameServer ?? r?.gameName ?? "",
+    seller: r?.sellerNickname ?? r?.seller?.nickname ?? "",
+    quantity: 1,
+  };
 }
 function roomLastTime(r) {
   return r.lastMessageAt ?? r.lastMessageTime ?? r.lastMsgTime ?? null;
@@ -312,10 +369,14 @@ function Sidebar({ room, myNickname, onPay, onComplete }) {
           {room.partnerOnline && <OnlineDot />}
         </PartnerRow>
         <VerifyRow>
-          <span style={{ fontSize: 12, color: "var(--chat-text-muted)" }}>본인인증</span>
+          <span style={{ fontSize: 12, color: "var(--chat-text-muted)" }}>
+            본인인증
+          </span>
           <span
             style={{
-              color: room.partnerVerified ? "var(--chat-success)" : "var(--chat-text-subtle)",
+              color: room.partnerVerified
+                ? "var(--chat-success)"
+                : "var(--chat-text-subtle)",
               fontSize: 16,
             }}
           >
@@ -344,7 +405,11 @@ function Sidebar({ room, myNickname, onPay, onComplete }) {
               <span
                 style={{
                   fontSize: 12,
-                  color: active ? "var(--chat-text)" : done ? "var(--chat-text-muted)" : "var(--chat-text-subtle)",
+                  color: active
+                    ? "var(--chat-text)"
+                    : done
+                      ? "var(--chat-text-muted)"
+                      : "var(--chat-text-subtle)",
                 }}
               >
                 {label}
@@ -394,6 +459,17 @@ export default function ChatPage() {
       setMessages((prev) => {
         if (msgId(msg) && prev.some((m) => msgId(m) === msgId(msg)))
           return prev;
+        const optimisticIndex = prev.findIndex(
+          (m) =>
+            m.isOptimistic &&
+            msgSenderNickname(m) === myNickname &&
+            msgContent(m) === msgContent(msg),
+        );
+        if (optimisticIndex >= 0) {
+          return prev.map((m, index) =>
+            index === optimisticIndex ? { ...msg, isRead: msgRead(msg) } : m,
+          );
+        }
         return [...prev, msg];
       });
       setRooms((prev) =>
@@ -409,7 +485,7 @@ export default function ChatPage() {
         ),
       );
     },
-    [selectedId],
+    [myNickname, selectedId],
   );
 
   const { sendMessage } = useWebSocket(topic, dest, handleIncoming);
@@ -476,13 +552,64 @@ export default function ChatPage() {
     if (isDone || !input.trim() || !selectedId) return;
     const content = input.trim();
     setInput("");
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `local-${Date.now()}`,
+        content,
+        senderNickname: myNickname,
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        type: "CHAT",
+        isOptimistic: true,
+      },
+    ]);
     sendMessage({ content, type: "CHAT" });
   }
 
   async function handlePayConfirm(method) {
     if (!activeRoom) return;
+    const itemId = roomItemId(activeRoom);
+    const price = getRoomPrice(activeRoom);
+    if (!itemId) {
+      alert("상품 정보를 찾을 수 없어 결제를 진행할 수 없습니다.");
+      return;
+    }
+    if (!price) {
+      alert("상품 금액 정보를 찾을 수 없어 결제를 진행할 수 없습니다.");
+      return;
+    }
     try {
-      await ChatApi.payForRoom(selectedId, method);
+      let paymentId = null;
+      if (method === "card") {
+        if (!window.PortOne) {
+          alert(
+            "결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해 주세요.",
+          );
+          return;
+        }
+        paymentId = `trade-${itemId}-${Date.now()}`;
+        const paymentResponse = await window.PortOne.requestPayment({
+          storeId: process.env.REACT_APP_PORTONE_STORE_ID,
+          channelKey: process.env.REACT_APP_PORTONE_CHANNEL_KEY,
+          paymentId,
+          orderName: roomItem(activeRoom),
+          totalAmount: price,
+          currency: "KRW",
+          payMethod: "CARD",
+        });
+        if (paymentResponse?.code != null) {
+          throw new Error(
+            paymentResponse.message || "카드 결제가 취소되었습니다.",
+          );
+        }
+      }
+
+      await AxiosInstance.post("/api/trades", {
+        itemId,
+        paymentMethod: method === "card" ? "PORTONE" : "WONPAY",
+        ...(paymentId ? { paymentId } : {}),
+      });
       setRooms((prev) =>
         prev.map((r) =>
           String(roomId(r)) === String(selectedId)
@@ -532,11 +659,20 @@ export default function ChatPage() {
       `}</style>
 
       {showPay && activeRoom && (
-        <PaymentModal
-          room={activeRoom}
-          myMileage={myMileage}
-          onConfirm={handlePayConfirm}
-          onCancel={() => setShowPay(false)}
+        <PaymentPage
+          isOpen={showPay}
+          product={roomProduct(activeRoom)}
+          onClose={() => setShowPay(false)}
+          onPaymentSuccess={() => {
+            setRooms((prev) =>
+              prev.map((r) =>
+                String(roomId(r)) === String(selectedId)
+                  ? { ...r, tradeStatus: "PAID", lastMessage: "결제 완료" }
+                  : r,
+              ),
+            );
+            setShowPay(false);
+          }}
         />
       )}
 
@@ -573,7 +709,9 @@ export default function ChatPage() {
 
           <MsgList>
             {msgLoad ? (
-              <EmptyMsg style={{ color: "var(--chat-text-subtle)" }}>메시지 로딩 중...</EmptyMsg>
+              <EmptyMsg style={{ color: "var(--chat-text-subtle)" }}>
+                메시지 로딩 중...
+              </EmptyMsg>
             ) : messages.length === 0 ? (
               <EmptyMsg>
                 아직 메시지가 없습니다. 먼저 인사해 보세요! 👋
@@ -597,14 +735,24 @@ export default function ChatPage() {
                             <div style={{ fontSize: 13, fontWeight: 700 }}>
                               결제 완료되었습니다.
                             </div>
-                            <div style={{ fontSize: 11, color: "var(--chat-text-muted)" }}>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: "var(--chat-text-muted)",
+                              }}
+                            >
                               안전하게 거래를 진행해 주세요.
                             </div>
                           </div>
                         </PayCardHeader>
                         <PayCardBody>
                           <PayCardRow>
-                            <span style={{ fontSize: 11, color: "var(--chat-text-muted)" }}>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                color: "var(--chat-text-muted)",
+                              }}
+                            >
                               결제 수단
                             </span>
                             <span style={{ fontSize: 12, fontWeight: 600 }}>
@@ -612,7 +760,12 @@ export default function ChatPage() {
                             </span>
                           </PayCardRow>
                           <PayCardRow>
-                            <span style={{ fontSize: 11, color: "var(--chat-text-muted)" }}>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                color: "var(--chat-text-muted)",
+                              }}
+                            >
                               총 결제금액
                             </span>
                             <span
@@ -714,7 +867,9 @@ export default function ChatPage() {
       ) : (
         <NoChat>
           <span style={{ fontSize: 48 }}>💬</span>
-          <p style={{ color: "var(--chat-text-subtle)", marginTop: 16 }}>채팅방을 선택해 주세요</p>
+          <p style={{ color: "var(--chat-text-subtle)", marginTop: 16 }}>
+            채팅방을 선택해 주세요
+          </p>
         </NoChat>
       )}
 
@@ -808,8 +963,10 @@ const RoomItem = styled.div`
   padding: 14px 16px;
   cursor: pointer;
   border-bottom: 1px solid var(--chat-border);
-  background: ${(p) => (p.$active ? "var(--chat-surface-high)" : "transparent")};
-  border-left: 3px solid ${(p) => (p.$active ? "var(--chat-primary)" : "transparent")};
+  background: ${(p) =>
+    p.$active ? "var(--chat-surface-high)" : "transparent"};
+  border-left: 3px solid
+    ${(p) => (p.$active ? "var(--chat-primary)" : "transparent")};
   transition: background 0.15s;
   &:hover {
     background: var(--chat-surface-high);
@@ -1063,7 +1220,8 @@ const MsgBubble = styled.div`
   border-radius: 16px;
   border-bottom-right-radius: ${(p) => (p.$isMe ? "4px" : "16px")};
   border-bottom-left-radius: ${(p) => (p.$isMe ? "16px" : "4px")};
-  background: ${(p) => (p.$isMe ? "var(--chat-primary)" : "var(--chat-surface-high)")};
+  background: ${(p) =>
+    p.$isMe ? "var(--chat-primary)" : "var(--chat-surface-high)"};
   color: ${(p) => (p.$isMe ? "var(--chat-on-primary)" : "var(--chat-text)")};
   font-size: 13px;
   line-height: 1.5;
@@ -1141,8 +1299,10 @@ const InputArea = styled.form`
 `;
 const InputBox = styled.div`
   flex: 1;
-  background: ${(p) => (p.$disabled ? "var(--chat-panel)" : "var(--chat-surface)")};
-  border: 1px solid ${(p) => (p.$disabled ? "var(--chat-border)" : "var(--chat-border-strong)")};
+  background: ${(p) =>
+    p.$disabled ? "var(--chat-panel)" : "var(--chat-surface)"};
+  border: 1px solid
+    ${(p) => (p.$disabled ? "var(--chat-border)" : "var(--chat-border-strong)")};
   border-radius: 12px;
   display: flex;
   align-items: flex-end;
@@ -1192,9 +1352,12 @@ const SendBtn = styled.button`
   height: 38px;
   border-radius: 10px;
   flex-shrink: 0;
-  background: ${(p) => (p.$active ? "var(--chat-primary)" : "var(--chat-surface)")};
-  border: 1px solid ${(p) => (p.$active ? "var(--chat-primary)" : "var(--chat-border-strong)")};
-  color: ${(p) => (p.$active ? "var(--chat-on-primary)" : "var(--chat-text-subtle)")};
+  background: ${(p) =>
+    p.$active ? "var(--chat-primary)" : "var(--chat-surface)"};
+  border: 1px solid
+    ${(p) => (p.$active ? "var(--chat-primary)" : "var(--chat-border-strong)")};
+  color: ${(p) =>
+    p.$active ? "var(--chat-on-primary)" : "var(--chat-text-subtle)"};
   font-size: 16px;
   cursor: pointer;
   display: flex;
@@ -1316,8 +1479,10 @@ const StepItem = styled.div`
   gap: 8px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: ${(p) => (p.$active ? "var(--chat-primary-soft)" : "var(--chat-surface)")};
-  border: 1px solid ${(p) => (p.$active ? "var(--chat-primary)" : "var(--chat-border)")};
+  background: ${(p) =>
+    p.$active ? "var(--chat-primary-soft)" : "var(--chat-surface)"};
+  border: 1px solid
+    ${(p) => (p.$active ? "var(--chat-primary)" : "var(--chat-border)")};
 `;
 const StepDot = styled.div`
   width: 20px;
@@ -1325,14 +1490,27 @@ const StepDot = styled.div`
   border-radius: 99px;
   flex-shrink: 0;
   background: ${(p) =>
-    p.$done ? "var(--chat-primary)" : p.$active ? "var(--chat-primary-soft)" : "var(--chat-surface)"};
-  border: 1px solid ${(p) => (p.$done || p.$active ? "var(--chat-primary)" : "var(--chat-border-strong)")};
+    p.$done
+      ? "var(--chat-primary)"
+      : p.$active
+        ? "var(--chat-primary-soft)"
+        : "var(--chat-surface)"};
+  border: 1px solid
+    ${(p) =>
+      p.$done || p.$active
+        ? "var(--chat-primary)"
+        : "var(--chat-border-strong)"};
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 9px;
   font-weight: 700;
-  color: ${(p) => (p.$done ? "var(--chat-on-primary)" : p.$active ? "var(--chat-primary)" : "var(--chat-text-subtle)")};
+  color: ${(p) =>
+    p.$done
+      ? "var(--chat-on-primary)"
+      : p.$active
+        ? "var(--chat-primary)"
+        : "var(--chat-text-subtle)"};
 `;
 const PayBtn = styled.button`
   width: 100%;
@@ -1432,8 +1610,10 @@ const PayMethod = styled.div`
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  background: ${(p) => (p.$active ? "var(--chat-primary-soft)" : "var(--chat-panel)")};
-  border: 1px solid ${(p) => (p.$active ? "var(--chat-primary)" : "var(--chat-border-strong)")};
+  background: ${(p) =>
+    p.$active ? "var(--chat-primary-soft)" : "var(--chat-panel)"};
+  border: 1px solid
+    ${(p) => (p.$active ? "var(--chat-primary)" : "var(--chat-border-strong)")};
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
@@ -1472,7 +1652,7 @@ const PriceRow2 = styled.div`
   align-items: center;
   font-size: ${(p) => (p.$total ? "14px" : "13px")};
   font-weight: ${(p) => (p.$total ? 700 : 400)};
-  color: ${(p) => (p.$total ? "var(--chat-on-primary)" : "var(--chat-text-muted)")};
+  color: ${(p) => (p.$total ? "var(--chat-text)" : "var(--chat-text-muted)")};
   padding: ${(p) => (p.$total ? "8px 0 0" : "4px 0")};
 `;
 const Divider = styled.div`
@@ -1518,9 +1698,11 @@ const PayConfirm = styled.button`
   padding: 12px 0;
   border-radius: 10px;
   cursor: pointer;
-  background: ${(p) => (p.disabled ? "var(--chat-surface-high)" : "var(--chat-primary)")};
+  background: ${(p) =>
+    p.disabled ? "var(--chat-surface-high)" : "var(--chat-primary)"};
   border: none;
-  color: ${(p) => (p.disabled ? "var(--chat-text-subtle)" : "var(--chat-on-primary)")};
+  color: ${(p) =>
+    p.disabled ? "var(--chat-text-subtle)" : "var(--chat-on-primary)"};
   font-size: 13px;
   font-weight: 700;
   opacity: ${(p) => (p.disabled ? 0.5 : 1)};

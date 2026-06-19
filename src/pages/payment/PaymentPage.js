@@ -1,9 +1,34 @@
 import React, { useState, useEffect } from "react";
 import WalletApi from "../../api/wallet.api";
+import AxiosInstance from "../../api/AxiosInstance";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 
 const fmt = (n) => Number(n ?? 0).toLocaleString("ko-KR");
+
+const loadPortOneSdk = () =>
+  new Promise((resolve, reject) => {
+    if (window.PortOne) {
+      resolve(window.PortOne);
+      return;
+    }
+
+    const existingScript = document.querySelector('script[src*="portone.io"]');
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(window.PortOne), {
+        once: true,
+      });
+      existingScript.addEventListener("error", reject, { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://cdn.portone.io/v2/browser-sdk.js";
+    script.async = true;
+    script.onload = () => resolve(window.PortOne);
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
 
 const Icon = {
   X: () => (
@@ -84,8 +109,14 @@ const PaymentPage = ({
     thirdParty: false,
   });
 
-  const productPrice = product?.price ?? 0;
-  const serviceFee = Math.floor(productPrice * 0.05);
+  const productPrice = Number(
+    product?.price ??
+      product?.basePrice ??
+      product?.itemPrice ??
+      product?.tradePrice ??
+      0,
+  );
+  const serviceFee = 0;
   const totalAmount = productPrice + serviceFee;
 
   // 필수 약관 동의 여부 체크 변수
@@ -123,73 +154,62 @@ const PaymentPage = ({
     setLoading(true);
 
     try {
+      const itemId = product?.id ?? product?.itemId ?? product?.productId;
+      if (!itemId) {
+        throw new Error("상품 정보를 찾을 수 없어 결제를 진행할 수 없습니다.");
+      }
+      if (!productPrice) {
+        throw new Error(
+          "상품 금액 정보를 찾을 수 없어 결제를 진행할 수 없습니다.",
+        );
+      }
+
       if (paymentMethod === "WONPAY") {
         if (balance < totalAmount) {
-          alert("마일리지가 부족합니다. 마일리지를 충전하세요.");
-          setLoading(false);
+          alert("마일리지가 부족합니다. 마일리지를 충전해 주세요.");
           return;
         }
 
-        const response = await fetch("/api/payments/wonpay", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-          },
-          body: JSON.stringify({
-            productId: product.id,
-            amount: totalAmount,
-          }),
+        await AxiosInstance.post("/api/trades", {
+          itemId,
+          paymentMethod: "WONPAY",
         });
 
-        if (!response.ok) {
-          throw new Error("마일리지 결제 처리 중 오류가 발생했습니다.");
-        }
-
-        // 백엔드 응답에서 남은 잔액 계산 혹은 수신 데이터가 있다면 파싱
-        const resData = await response.json();
-        const newBalance =
-          resData?.data?.balance ?? resData?.balance ?? balance - totalAmount;
-
-        alert("WonPay 마일리지 결제가 완료되었습니다!");
-        if (onPaymentSuccess) onPaymentSuccess(newBalance);
+        if (onPaymentSuccess) onPaymentSuccess(balance - totalAmount);
         onClose();
       } else {
-        const readyResponse = await WalletApi.prepareCharge({
-          amount: totalAmount,
-        });
-        const readyData = readyResponse.data?.data ?? readyResponse.data;
-        const { paymentId, amount, orderName, currency } = readyData;
+        const PortOne = await loadPortOneSdk();
+        if (!PortOne) {
+          throw new Error(
+            "결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해 주세요.",
+          );
+        }
 
-        const portOneCurrency = currency === "CURRENCY_KRW" ? "KRW" : currency;
-
-        const portoneRes = await window.PortOne.requestPayment({
+        const paymentId = `trade-${itemId}-${Date.now()}`;
+        const portoneRes = await PortOne.requestPayment({
           storeId: process.env.REACT_APP_PORTONE_STORE_ID,
           channelKey: process.env.REACT_APP_PORTONE_CHANNEL_KEY,
-          paymentId: paymentId,
-          orderName: orderName || product.name,
-          totalAmount: amount,
-          currency: portOneCurrency,
+          paymentId,
+          orderName: product.name,
+          totalAmount: productPrice,
+          currency: "KRW",
           payMethod: "CARD",
         });
 
-        if (portoneRes.code !== undefined) {
-          alert(`카드 결제 실패/취소: ${portoneRes.message}`);
-          setLoading(false);
-          return;
+        if (portoneRes?.code != null) {
+          throw new Error(portoneRes.message || "카드 결제가 취소되었습니다.");
         }
 
-        const completeResponse = await WalletApi.completeCharge({
-          paymentId: paymentId,
+        const completeResponse = await AxiosInstance.post("/api/trades", {
+          itemId,
+          paymentMethod: "PORTONE",
+          paymentId,
         });
         const completeData =
           completeResponse.data?.data ?? completeResponse.data;
 
-        alert(
-          `카드 결제 및 검증이 완료되었습니다!\n현재 충전 잔액: ${fmt(completeData.balance)} 원`,
-        );
-
-        if (onPaymentSuccess) onPaymentSuccess(completeData.balance);
+        if (onPaymentSuccess)
+          onPaymentSuccess(completeData?.balance ?? balance);
         onClose();
       }
     } catch (error) {
@@ -199,7 +219,6 @@ const PaymentPage = ({
       setLoading(false);
     }
   };
-
   return (
     <ModalBackdrop>
       <ModalContainer>
@@ -292,7 +311,14 @@ const PaymentPage = ({
                   onChange={handleTermChange}
                 />
                 <TermsText>
-                  <b style={{ color: "#9ca3af", fontWeight: "600" }}>(필수)</b>{" "}
+                  <b
+                    style={{
+                      color: "var(--text-secondary)",
+                      fontWeight: "600",
+                    }}
+                  >
+                    (필수)
+                  </b>{" "}
                   <b className="underline">주문 정보 확인</b> 및 결제 서비스
                   이용약관에 동의합니다.
                 </TermsText>
@@ -305,7 +331,14 @@ const PaymentPage = ({
                   onChange={handleTermChange}
                 />
                 <TermsText>
-                  <b style={{ color: "#9ca3af", fontWeight: "600" }}>(필수)</b>{" "}
+                  <b
+                    style={{
+                      color: "var(--text-secondary)",
+                      fontWeight: "600",
+                    }}
+                  >
+                    (필수)
+                  </b>{" "}
                   디지털 자산 거래의 특성상 결제 후{" "}
                   <b className="highlight">청약철회가 제한</b>될 수 있음에
                   동의합니다.
@@ -319,7 +352,14 @@ const PaymentPage = ({
                   onChange={handleTermChange}
                 />
                 <TermsText>
-                  <b style={{ color: "#9ca3af", fontWeight: "600" }}>(선택)</b>{" "}
+                  <b
+                    style={{
+                      color: "var(--text-secondary)",
+                      fontWeight: "600",
+                    }}
+                  >
+                    (선택)
+                  </b>{" "}
                   이벤트 및 혜택 알림 수신 동의
                 </TermsText>
               </TermsLabel>
@@ -331,10 +371,14 @@ const PaymentPage = ({
           <ConfirmButton
             type="button"
             onClick={handleProcessPayment}
-            disabled={loading || !isAllRequiredTermsChecked}
+            disabled={loading}
             isLoading={loading}
           >
-            {loading ? "결제 처리 중..." : "결제하기"}
+            {loading
+              ? "결제 처리 중..."
+              : paymentMethod === "WONPAY"
+                ? "마일리지로 결제"
+                : "카드로 결제"}
           </ConfirmButton>
         </ModalFooter>
       </ModalContainer>
@@ -361,16 +405,16 @@ const ModalBackdrop = styled.div`
 `;
 
 const ModalContainer = styled.div`
-  background: #121214;
-  color: #e5e7eb;
+  background: var(--bg-container-low);
+  color: var(--text-primary);
   border-radius: 16px;
-  border: 1px solid #222226;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.28);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 560px;
+  max-width: 1120px;
   animation: modalFadeIn 0.2s ease-out;
 
   @keyframes modalFadeIn {
@@ -391,7 +435,7 @@ const ModalContainer = styled.div`
 
 const ModalHeader = styled.div`
   padding: 20px 24px;
-  border-bottom: 1px solid #222226;
+  border-bottom: 1px solid var(--outline-variant);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -404,7 +448,7 @@ const ModalHeader = styled.div`
 const ModalTitle = styled.div`
   font-size: 18px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
 
   @media (max-width: 576px) {
     font-size: 16px;
@@ -414,7 +458,7 @@ const ModalTitle = styled.div`
 const CloseButton = styled.button`
   background: none;
   border: none;
-  color: #6b7280;
+  color: var(--text-faint);
   cursor: pointer;
   padding: 4px;
   display: flex;
@@ -423,7 +467,7 @@ const CloseButton = styled.button`
   transition: color 0.2s;
 
   &:hover {
-    color: #ffffff;
+    color: var(--text-primary);
   }
 `;
 
@@ -431,9 +475,13 @@ const ModalBody = styled.div`
   padding: 24px;
   max-height: 70vh;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
   gap: 24px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
 
   @media (max-width: 576px) {
     padding: 16px;
@@ -456,19 +504,19 @@ const SectionHeaderRow = styled.div`
 const EscrowBadge = styled.div`
   display: inline-flex;
   align-items: center;
-  background: #222226;
-  color: #9ca3af;
+  background: var(--bg-container-high);
+  color: var(--text-secondary);
   font-size: 10px;
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 4px;
-  border: 1px solid #333338;
+  border: 1px solid var(--border-color);
   letter-spacing: 0.5px;
 `;
 
 const SummaryCard = styled.div`
-  background: #18181c;
-  border: 1px solid #222226;
+  background: var(--bg-container);
+  border: 1px solid var(--outline-variant);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -487,7 +535,7 @@ const ItemImage = styled.img`
   height: 64px;
   border-radius: 8px;
   object-fit: cover;
-  background: #222226;
+  background: var(--bg-container-high);
 
   @media (max-width: 576px) {
     width: 48px;
@@ -505,8 +553,8 @@ const ItemDetails = styled.div`
 const ItemTag = styled.span`
   font-size: 10px;
   font-weight: 700;
-  color: #9ca3af;
-  border: 1px solid #333338;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
   padding: 2px 4px;
   border-radius: 4px;
   width: fit-content;
@@ -515,7 +563,7 @@ const ItemTag = styled.span`
 const ItemName = styled.div`
   font-size: 15px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
 
   @media (max-width: 576px) {
     font-size: 14px;
@@ -524,7 +572,7 @@ const ItemName = styled.div`
 
 const ItemMeta = styled.div`
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 `;
 
 const ItemPriceBlock = styled.div`
@@ -540,7 +588,7 @@ const ItemPriceBlock = styled.div`
     gap: 8px;
     width: 100%;
     justify-content: space-between;
-    border-top: 1px solid #222226;
+    border-top: 1px solid var(--outline-variant);
     padding-top: 8px;
   }
 `;
@@ -548,18 +596,18 @@ const ItemPriceBlock = styled.div`
 const ItemPrice = styled.div`
   font-size: 16px;
   font-weight: 700;
-  color: #10b981;
+  color: var(--color-success);
 `;
 
 const ItemQuantity = styled.div`
   font-size: 11px;
-  color: #6b7280;
+  color: var(--text-faint);
 `;
 
 const SectionLabel = styled.div`
   font-weight: 600;
   font-size: 14px;
-  color: #ffffff;
+  color: var(--text-primary);
 `;
 
 const MethodGroup = styled.div`
@@ -583,13 +631,23 @@ const PresetButton = styled.button`
   cursor: pointer;
   transition: all 0.2s ease;
 
-  background: ${(props) => (props.isActive ? "#1e1b4b" : "#18181c")};
-  border: 2px solid ${(props) => (props.isActive ? "#6366f1" : "#222226")};
-  color: ${(props) => (props.isActive ? "#ffffff" : "#9ca3af")};
+  background: ${(props) =>
+    props.$isActive
+      ? "color-mix(in srgb, var(--color-primary) 14%, var(--bg-container))"
+      : "var(--bg-container)"};
+  border: 2px solid
+    ${(props) =>
+      props.$isActive ? "var(--color-primary)" : "var(--outline-variant)"};
+  color: ${(props) =>
+    props.$isActive ? "var(--text-primary)" : "var(--text-secondary)"};
 
   &:hover {
-    border-color: ${(props) => (props.isActive ? "#6366f1" : "#333338")};
-    background-color: ${(props) => (props.isActive ? "#1e1b4b" : "#222226")};
+    border-color: ${(props) =>
+      props.$isActive ? "var(--color-primary)" : "var(--border-color)"};
+    background-color: ${(props) =>
+      props.$isActive
+        ? "color-mix(in srgb, var(--color-primary) 18%, var(--bg-container))"
+        : "var(--bg-container-high)"};
   }
 
   @media (max-width: 576px) {
@@ -607,15 +665,22 @@ const ButtonTitle = styled.div`
 
 const ButtonSubText = styled.div`
   font-size: 11px;
-  color: #6b7280;
+  color: var(--text-faint);
   margin-top: 4px;
 `;
 
 const ReceiptCard = styled.div`
-  background: #18181c;
-  border: 1px solid #222226;
+  background: var(--bg-container);
+  border: 1px solid var(--outline-variant);
   border-radius: 12px;
   padding: 20px;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+
+  @media (max-width: 900px) {
+    grid-column: auto;
+    grid-row: auto;
+  }
 
   @media (max-width: 576px) {
     padding: 16px;
@@ -624,7 +689,7 @@ const ReceiptCard = styled.div`
 
 const ReceiptTitle = styled.div`
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 16px;
   font-size: 15px;
 `;
@@ -639,28 +704,28 @@ const ReceiptRow = styled.div`
   display: flex;
   justify-content: space-between;
   font-size: 14px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 
   &.total {
     font-weight: 700;
-    color: #ffffff;
+    color: var(--text-primary);
     margin-top: 4px;
   }
 `;
 
 const ReceiptVal = styled.span`
   font-weight: 500;
-  color: #ffffff;
+  color: var(--text-primary);
 `;
 
 const ReceiptDivider = styled.div`
   height: 1px;
-  background-color: #222226;
+  background-color: var(--outline-variant);
   margin: 8px 0;
 `;
 
 const TotalVal = styled.span`
-  color: #10b981;
+  color: var(--color-success);
   font-size: 20px;
 `;
 
@@ -671,7 +736,7 @@ const TermsList = styled.div`
   font-size: 12px;
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid #222226;
+  border-top: 1px solid var(--outline-variant);
 `;
 
 const TermsLabel = styled.label`
@@ -679,7 +744,7 @@ const TermsLabel = styled.label`
   align-items: flex-start;
   gap: 10px;
   cursor: pointer;
-  color: #9ca3af;
+  color: var(--text-secondary);
 `;
 
 const TermsText = styled.span`
@@ -689,23 +754,24 @@ const TermsText = styled.span`
     text-decoration: underline;
   }
   .highlight {
-    color: #f87171;
+    color: var(--color-danger);
   }
 `;
 
 const Checkbox = styled.input`
   width: 16px;
   height: 16px;
-  accent-color: #6366f1;
+  accent-color: var(--color-primary);
   cursor: pointer;
   margin-top: 1px;
 `;
 
 const ModalFooter = styled.div`
   padding: 16px 24px;
-  border-top: 1px solid #222226;
+  border-top: 1px solid var(--outline-variant);
   display: flex;
-  background-color: #18181c;
+  justify-content: flex-end;
+  background-color: var(--bg-container-low);
 
   @media (max-width: 576px) {
     padding: 12px 16px;
@@ -713,20 +779,21 @@ const ModalFooter = styled.div`
 `;
 
 const ConfirmButton = styled.button`
-  flex: 1;
+  width: min(100%, 392px);
   padding: 14px;
   border-radius: 8px;
   font-size: 15px;
   font-weight: 700;
   border: none;
-  color: #ffffff;
+  color: var(--on-primary);
   transition: all 0.2s;
 
-  background: ${(props) => (props.isLoading ? "#4338ca" : "#6366f1")};
+  background: ${(props) =>
+    props.isLoading ? "var(--border-focus)" : "var(--color-primary-container)"};
   cursor: ${(props) => (props.isLoading ? "not-allowed" : "pointer")};
 
   &:hover:not(:disabled) {
-    background: #4f46e5;
+    background: var(--color-primary);
   }
   &:disabled {
     opacity: 0.5;
