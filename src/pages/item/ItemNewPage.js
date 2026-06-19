@@ -99,7 +99,7 @@ const ItemNewPage = () => {
 
   useEffect(() => {
     // 로컬 스토리지에 로그인 토큰이 있는지 확인
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
 
     if (!token) {
       alert("로그인이 필요한 서비스입니다.");
@@ -703,23 +703,27 @@ const InputWrapper = styled.div`
 
   input {
     width: 100%;
-    background-color: #171821;
-    border: 1px solid #252631;
+    background-color: var(--bg-container);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 12px 70px 12px 12px;
-    color: #ffffff;
+    color: var(--text-primary);
     font-size: 13px;
     outline: none;
     box-sizing: border-box;
+
+    &::placeholder {
+      color: var(--text-secondary);       
+    }
   }
 `;
 
 const TextArea = styled.textarea`
-  background-color: #171821;
-  border: 1px solid #252631;
+  background-color: var(--bg-container);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   resize: none;
@@ -728,7 +732,7 @@ const TextArea = styled.textarea`
   box-sizing: border-box;
 
   &::placeholder {
-    color: #4e5161;
+    color: var(--text-secondary);
   }
 `;
 
@@ -831,10 +835,11 @@ const HiddenFileInput = styled.input`
 `;
 
 const UploadMainZone = styled.div`
-  border: 1px dashed #4e5161;
+  border: 1px dashed var(--border-color);
   border-radius: 8px;
   padding: 32px 24px;
-  background-color: #171821;
+  background-color: var(--bg-container-low);
+  color: var(--text-primary);
   cursor: pointer;
 
   display: flex;
@@ -845,7 +850,7 @@ const UploadMainZone = styled.div`
   flex: 1;
 
   &:hover {
-    border-color: #6c5ce7;
+    border-color: var(--color-primary);
   }
 `;
 
@@ -880,14 +885,14 @@ const PreviewRow = styled.div`
 `;
 
 const PreviewSlot = styled.div`
-  background-color: #171821;
-  border: 1px solid ${(props) => (props.hasImage ? "#4e5161" : "#252631")};
+  background-color: var(--bg-container);
+  border: 1px solid ${(props) => (props.hasImage ? "var(--color-primary)" : "var(--border-color)")};
   border-radius: 6px;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #4e5161;
+  color: var(--text-secondary);
   font-size: 12px;
   position: relative;
   overflow: hidden;

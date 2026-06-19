@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import axios from "axios";
 import Common from "../../utils/Common";
-import heroBgImage from "../../img/HeroSection.jpg";
+import heroBgImage from "../../img/HeroSection.webp";
+import herosectionlight from "../../img/HeroSectionlight.webp";
 
 // Axios 인스턴스 설정
 const api = axios.create({ baseURL: Common.API_URL });
@@ -46,7 +47,22 @@ const HeroSection = styled.div`
     background: url(${heroBgImage}) no-repeat center/cover;
     filter: brightness(1.4) contrast(1.1);
     z-index: 1;
+    transition: background 0.3s ease; /* 테마 바뀔 때 부드러운 전환 효과 */
   }
+
+  /* 💡 라이트모드 상태일 때: herosectionlight 이미지로 교체 */
+  [data-theme="light"] &::before {
+    background: url(${herosectionlight}) no-repeat center/cover;
+    filter: brightness(1.1) contrast(1.05); /* 라이트 이미지는 너무 타지 않게 밝기 살짝 조절 */
+  }
+  
+  /* (참고) 만약 data-theme 속성이 아닌 body에 .light 클래스가 붙는 방식이라면 아래 주석을 해제하세요 */
+  /*
+  .light &::before {
+    background: url(${herosectionlight}) no-repeat center/cover;
+    filter: brightness(1.1) contrast(1.05);
+  }
+  */
 `;
 
 const HeroOverlay = styled.div`
