@@ -1,3 +1,4 @@
+// AuctionDetailPage.js
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -40,7 +41,6 @@ function normalizeAuction(data) {
     images: item.images ?? [],
     imageUrl: item.images && item.images.length > 0 ? item.images[0] : null,
     sellerNickname: item.seller?.nickname ?? "",
-    // 백엔드는 endTime, currentPrice 필드명을 사용
     endAt: data.endTime ?? data.endAt,
     currentBid: data.currentPrice ?? data.currentBid,
   };
@@ -56,7 +56,7 @@ export default function AuctionDetailPage() {
   const [bidAmount, setBidAmount] = useState("");
   const [bidding, setBidding] = useState(false);
   const [timeStr, setTimeStr] = useState("");
-  const [showAllBids, setShowAllBids] = useState(false);
+  const [showBidModal, setShowBidModal] = useState(false);
   const [closing, setClosing] = useState(false);
 
   const getBidList = (response) => {
@@ -92,6 +92,24 @@ export default function AuctionDetailPage() {
     );
     return () => clearInterval(timer);
   }, [auction]);
+
+  // 모달이 열려 있을 때 배경 스크롤 잠금
+  useEffect(() => {
+    document.body.style.overflow = showBidModal ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showBidModal]);
+
+  // ESC 키로 모달 닫기
+  useEffect(() => {
+    if (!showBidModal) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setShowBidModal(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showBidModal]);
 
   const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
 
@@ -177,7 +195,7 @@ export default function AuctionDetailPage() {
         style={{
           textAlign: "center",
           padding: "80px",
-          color: "var(--text-faint)",
+          color: "var(--text-secondary)",
         }}
       >
         로딩 중...
@@ -189,7 +207,7 @@ export default function AuctionDetailPage() {
         style={{
           textAlign: "center",
           padding: "80px",
-          color: "var(--text-faint)",
+          color: "var(--text-secondary)",
         }}
       >
         경매를 찾을 수 없습니다.
@@ -209,7 +227,7 @@ export default function AuctionDetailPage() {
     ? Number(auction.instantBuyPrice)
     : null;
   const minBid = currentBid + minBidUnit;
-  const visibleBids = showAllBids ? bids : bids.slice(0, 3);
+  const visibleBids = bids.slice(0, 3);
 
   return (
     <div className="detail-wrap">
@@ -310,6 +328,7 @@ export default function AuctionDetailPage() {
                   placeholder={fmt(minBid)}
                   value={bidAmount}
                   onChange={(e) => setBidAmount(e.target.value)}
+                  inputMode="numeric"
                 />
                 <span className="detail-bid-input-suffix">원</span>
               </div>
@@ -350,7 +369,7 @@ export default function AuctionDetailPage() {
             </button>
           )}
 
-          {/* 입찰 내역 */}
+          {/* 입찰 내역 (요약 - 최대 3개) */}
           <div className="detail-bidlist-box">
             <div className="detail-bidlist-header">
               <span>입찰 내역</span>
@@ -391,9 +410,9 @@ export default function AuctionDetailPage() {
                   <button
                     type="button"
                     className="detail-bidlist-more"
-                    onClick={() => setShowAllBids((v) => !v)}
+                    onClick={() => setShowBidModal(true)}
                   >
-                    {showAllBids ? "접기" : "전체 내역 보기"}
+                    전체 내역 보기
                   </button>
                 )}
               </>
@@ -401,6 +420,57 @@ export default function AuctionDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* 전체 입찰 내역 모달 */}
+      {showBidModal && (
+        <div
+          className="bid-modal-overlay"
+          onClick={() => setShowBidModal(false)}
+        >
+          <div className="bid-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="bid-modal-header">
+              <span>전체 입찰 내역</span>
+              <button
+                type="button"
+                className="bid-modal-close"
+                onClick={() => setShowBidModal(false)}
+                aria-label="닫기"
+              >
+                ×
+              </button>
+            </div>
+            <div className="bid-modal-list">
+              {bids.map((bid, i) => {
+                const name = bid.bidderNickname || bid.bidder || "익명";
+                const isTop = i === 0;
+                return (
+                  <div
+                    key={bid.id ?? bid.bidId ?? i}
+                    className={`bid-modal-row ${isTop ? "top" : ""}`}
+                  >
+                    <span className="bid-modal-avatar">
+                      {name.charAt(0).toUpperCase()}
+                    </span>
+                    <div className="bid-modal-info">
+                      <span className="bid-modal-name">{name}</span>
+                      {isTop && (
+                        <span className="bid-modal-top-badge">최고가</span>
+                      )}
+                    </div>
+                    <span className="bid-modal-amount">
+                      {fmt(bid.amount)} KRW
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="bid-modal-footer">
+              <span>현재가</span>
+              <strong>{fmt(currentBid)} KRW</strong>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
