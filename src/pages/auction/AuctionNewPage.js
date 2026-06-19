@@ -112,6 +112,13 @@ const AuctionNewPage = () => {
   }, [gameId]);
 
   useEffect(() => {
+    const firstCategory = categories[0];
+    setCategoryId(
+      firstCategory ? String(firstCategory.categoryId ?? firstCategory.id) : "",
+    );
+  }, [categories]);
+
+  useEffect(() => {
     const now = new Date();
     now.setHours(now.getHours() + Number(duration));
     const pad = (n) => String(n).padStart(2, "0");
@@ -245,21 +252,6 @@ const AuctionNewPage = () => {
               </Select>
             </FormGroup>
           </RowGrid>
-          <FormGroup style={{ marginTop: 20 }}>
-            <label>카테고리 *</label>
-            <Select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              disabled={!gameId || categories.length === 0}
-            >
-              <option value="">카테고리를 선택하세요</option>
-              {categories.map((c) => (
-                <option key={c.categoryId ?? c.id} value={c.categoryId ?? c.id}>
-                  {c.categoryName ?? c.name}
-                </option>
-              ))}
-            </Select>
-          </FormGroup>
         </SectionContainer>
 
         <SectionContainer>
