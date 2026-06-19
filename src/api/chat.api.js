@@ -7,7 +7,7 @@ const ChatApi = {
   // POST /api/items/:itemId/inquiry — 문의 채팅방 생성 (채팅으로 거래하기 클릭 시)
   // 명세서 기준 경로로 변경: 기존 방이 있으면 isNew:false 로 기존 방을 그대로 반환함
   createChatRoom: (itemId) =>
-    AxiosInstance.post(`/api/items/${itemId}/inquiry`),
+    AxiosInstance.post("/api/chat/rooms", { itemId }),
 
   // GET /api/chat/rooms — 내 채팅방 목록 조회
   getChatRooms: (params) =>

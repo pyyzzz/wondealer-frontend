@@ -3,13 +3,15 @@ import { useSearchParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import ChatApi from "../../api/chat.api";
+import AxiosInstance from "../../api/AxiosInstance";
 import useWebSocket from "../../hooks/useWebSocket";
+import PaymentPage from "../payment/PaymentPage";
 
 // ── 결제 모달 ─────────────────────────────────────────────────
 function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
   const [method, setMethod] = useState("mileage");
-  const price = room?.itemPrice ?? room?.basePrice ?? room?.price ?? 0;
-  const fee = Math.floor(price * 0.05);
+  const price = getRoomPrice(room);
+  const fee = 0;
   const total = price + fee;
   const lack = method === "mileage" && (myMileage ?? 0) < total;
   const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
@@ -18,7 +20,7 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
     <Overlay>
       <PayBox>
         <PaySection>
-          <PaySectionTitle>나의 화재매역 현황</PaySectionTitle>
+          <PaySectionTitle>나의 구매내역 현황</PaySectionTitle>
           <PayItemRow>
             <PayItemIcon>📦</PayItemIcon>
             <PayItemInfo>
@@ -145,6 +147,41 @@ function roomItem(r) {
 }
 function roomLast(r) {
   return r.lastMessage ?? "";
+}
+function roomItemId(r) {
+  return (
+    r?.itemId ??
+    r?.item?.itemId ??
+    r?.item?.id ??
+    r?.productId ??
+    r?.product?.id ??
+    null
+  );
+}
+function getRoomPrice(r) {
+  return Number(
+    r?.itemPrice ??
+      r?.tradePrice ??
+      r?.basePrice ??
+      r?.price ??
+      r?.amount ??
+      r?.item?.price ??
+      r?.item?.basePrice ??
+      r?.product?.price ??
+      0,
+  );
+}
+function roomProduct(r) {
+  return {
+    id: roomItemId(r),
+    itemId: roomItemId(r),
+    name: roomItem(r),
+    price: getRoomPrice(r),
+    imageUrl: r?.thumbnailImg ?? r?.imageUrl ?? r?.item?.thumbnailImg ?? "",
+    server: r?.serverName ?? r?.gameServer ?? r?.gameName ?? "",
+    seller: r?.sellerNickname ?? r?.seller?.nickname ?? "",
+    quantity: 1,
+  };
 }
 function roomLastTime(r) {
   return r.lastMessageAt ?? r.lastMessageTime ?? r.lastMsgTime ?? null;
@@ -394,6 +431,17 @@ export default function ChatPage() {
       setMessages((prev) => {
         if (msgId(msg) && prev.some((m) => msgId(m) === msgId(msg)))
           return prev;
+        const optimisticIndex = prev.findIndex(
+          (m) =>
+            m.isOptimistic &&
+            msgSenderNickname(m) === myNickname &&
+            msgContent(m) === msgContent(msg),
+        );
+        if (optimisticIndex >= 0) {
+          return prev.map((m, index) =>
+            index === optimisticIndex ? { ...msg, isRead: msgRead(msg) } : m,
+          );
+        }
         return [...prev, msg];
       });
       setRooms((prev) =>
@@ -409,7 +457,7 @@ export default function ChatPage() {
         ),
       );
     },
-    [selectedId],
+    [myNickname, selectedId],
   );
 
   const { sendMessage } = useWebSocket(topic, dest, handleIncoming);
@@ -476,13 +524,60 @@ export default function ChatPage() {
     if (isDone || !input.trim() || !selectedId) return;
     const content = input.trim();
     setInput("");
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `local-${Date.now()}`,
+        content,
+        senderNickname: myNickname,
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        type: "CHAT",
+        isOptimistic: true,
+      },
+    ]);
     sendMessage({ content, type: "CHAT" });
   }
 
   async function handlePayConfirm(method) {
     if (!activeRoom) return;
+    const itemId = roomItemId(activeRoom);
+    const price = getRoomPrice(activeRoom);
+    if (!itemId) {
+      alert("상품 정보를 찾을 수 없어 결제를 진행할 수 없습니다.");
+      return;
+    }
+    if (!price) {
+      alert("상품 금액 정보를 찾을 수 없어 결제를 진행할 수 없습니다.");
+      return;
+    }
     try {
-      await ChatApi.payForRoom(selectedId, method);
+      let paymentId = null;
+      if (method === "card") {
+        if (!window.PortOne) {
+          alert("결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해 주세요.");
+          return;
+        }
+        paymentId = `trade-${itemId}-${Date.now()}`;
+        const paymentResponse = await window.PortOne.requestPayment({
+          storeId: process.env.REACT_APP_PORTONE_STORE_ID,
+          channelKey: process.env.REACT_APP_PORTONE_CHANNEL_KEY,
+          paymentId,
+          orderName: roomItem(activeRoom),
+          totalAmount: price,
+          currency: "KRW",
+          payMethod: "CARD",
+        });
+        if (paymentResponse?.code != null) {
+          throw new Error(paymentResponse.message || "카드 결제가 취소되었습니다.");
+        }
+      }
+
+      await AxiosInstance.post("/api/trades", {
+        itemId,
+        paymentMethod: method === "card" ? "PORTONE" : "WONPAY",
+        ...(paymentId ? { paymentId } : {}),
+      });
       setRooms((prev) =>
         prev.map((r) =>
           String(roomId(r)) === String(selectedId)
@@ -532,11 +627,20 @@ export default function ChatPage() {
       `}</style>
 
       {showPay && activeRoom && (
-        <PaymentModal
-          room={activeRoom}
-          myMileage={myMileage}
-          onConfirm={handlePayConfirm}
-          onCancel={() => setShowPay(false)}
+        <PaymentPage
+          isOpen={showPay}
+          product={roomProduct(activeRoom)}
+          onClose={() => setShowPay(false)}
+          onPaymentSuccess={() => {
+            setRooms((prev) =>
+              prev.map((r) =>
+                String(roomId(r)) === String(selectedId)
+                  ? { ...r, tradeStatus: "PAID", lastMessage: "결제 완료" }
+                  : r,
+              ),
+            );
+            setShowPay(false);
+          }}
         />
       )}
 
@@ -1472,7 +1576,7 @@ const PriceRow2 = styled.div`
   align-items: center;
   font-size: ${(p) => (p.$total ? "14px" : "13px")};
   font-weight: ${(p) => (p.$total ? 700 : 400)};
-  color: ${(p) => (p.$total ? "var(--chat-on-primary)" : "var(--chat-text-muted)")};
+  color: ${(p) => (p.$total ? "var(--chat-text)" : "var(--chat-text-muted)")};
   padding: ${(p) => (p.$total ? "8px 0 0" : "4px 0")};
 `;
 const Divider = styled.div`
