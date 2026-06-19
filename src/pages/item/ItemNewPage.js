@@ -1,21 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import ItemApi from "../../api/item.api";
 
 import item from "../../img/item.svg";
-import gameMoney from "../../img/gamemoney.svg";
 import account from "../../img/account.svg";
 
-const FALLBACK_GAMES = [
-  { gameId: 1, gameName: "로스트아크" },
-  { gameId: 2, gameName: "메이플스토리" },
-  { gameId: 3, gameName: "디아블로4" },
-  { gameId: 4, gameName: "리그 오브 레전드" },
-  { gameId: 5, gameName: "발로란트" },
-];
-
+// ✅ 게임머니 제거 — 아이템, 계정만
 const CATEGORY_META = [
   {
     key: "item",
@@ -23,13 +15,6 @@ const CATEGORY_META = [
     alt: "아이템",
     title: "아이템",
     desc: "무기, 방어구, 장신구 등 게임 내 개별 장비 거래",
-  },
-  {
-    key: "money",
-    src: gameMoney,
-    alt: "게임머니",
-    title: "게임머니",
-    desc: "골드, 메소, 아데나 등 게임 내 가상 화폐 거래",
   },
   {
     key: "account",
@@ -40,9 +25,20 @@ const CATEGORY_META = [
   },
 ];
 
+const FALLBACK_GAMES = [
+  { gameId: 1, gameName: "로스트아크" },
+  { gameId: 2, gameName: "메이플스토리" },
+  { gameId: 3, gameName: "디아블로4" },
+  { gameId: 4, gameName: "리그 오브 레전드" },
+  { gameId: 5, gameName: "발로란트" },
+];
+
+const MAX_IMAGES = 5;
+
 const ItemNewPage = () => {
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -66,7 +62,9 @@ const ItemNewPage = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // ✅ 게임 목록 — 백엔드 API 우선, 실패 시 Fallback(숫자 ID)
+  // ✅ 이미지 state
+  const [images, setImages] = useState([]); // { file, preview }[]
+
   useEffect(() => {
     let isMounted = true;
     ItemApi.getGames()
@@ -84,7 +82,6 @@ const ItemNewPage = () => {
     };
   }, []);
 
-  // ✅ 게임 선택 시 서버/카테고리 — 백엔드 숫자 ID로 호출
   useEffect(() => {
     if (!gameId) {
       setServers([]);
@@ -97,7 +94,6 @@ const ItemNewPage = () => {
     setCategoryId("");
     setServers([]);
     setCategories([]);
-
     let isMounted = true;
 
     ItemApi.getGameServers(gameId)
@@ -123,12 +119,32 @@ const ItemNewPage = () => {
 
   useEffect(() => {
     if (categories.length === 0) return;
-    const indexByUiCategory = { item: 0, money: 1, account: 2 };
+    const indexByUiCategory = { item: 0, account: 1 };
     const nextCategory = categories[indexByUiCategory[uiCategory] ?? 0];
     setCategoryId(
       nextCategory ? String(nextCategory.categoryId ?? nextCategory.id) : "",
     );
   }, [categories, uiCategory]);
+
+  // ✅ 이미지 추가
+  const handleImageAdd = (e) => {
+    const files = Array.from(e.target.files);
+    const remaining = MAX_IMAGES - images.length;
+    const toAdd = files.slice(0, remaining).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setImages((prev) => [...prev, ...toAdd]);
+    e.target.value = "";
+  };
+
+  // ✅ 이미지 삭제
+  const handleImageRemove = (idx) => {
+    setImages((prev) => {
+      URL.revokeObjectURL(prev[idx].preview);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
 
   const getRawPrice = (val) => Number(String(val).replace(/,/g, "")) || 0;
 
@@ -151,7 +167,6 @@ const ItemNewPage = () => {
     if (!description.trim()) return setError("물품 설명을 입력해 주세요.");
     if (basePrice <= 0) return setError("올바른 가격을 입력해 주세요.");
 
-    // ✅ NaN 방어
     const parsedCategoryId = Number(categoryId);
     const parsedServerId = serverId ? Number(serverId) : null;
     if (isNaN(parsedCategoryId) || parsedCategoryId <= 0) {
@@ -159,33 +174,33 @@ const ItemNewPage = () => {
     }
 
     setSaving(true);
-    let payload = null;
     try {
-      payload = {
-        categoryId: parsedCategoryId,
-        serverId: parsedServerId,
-        basePrice: Number(basePrice),
-        title: title.trim(),
-        description: description.trim(),
-      };
+      // ✅ 이미지가 있으면 FormData, 없으면 JSON
+      let response;
+      if (images.length > 0) {
+        const formData = new FormData();
+        formData.append("categoryId", parsedCategoryId);
+        if (parsedServerId) formData.append("serverId", parsedServerId);
+        formData.append("basePrice", basePrice);
+        formData.append("title", title.trim());
+        formData.append("description", description.trim());
+        images.forEach((img) => formData.append("images", img.file));
+        response = await ItemApi.createDirectItem(formData);
+      } else {
+        const payload = {
+          categoryId: parsedCategoryId,
+          serverId: parsedServerId,
+          basePrice,
+          title: title.trim(),
+          description: description.trim(),
+        };
+        response = await ItemApi.createDirectItem(payload);
+      }
 
-      console.log("🚀 전송 payload:", JSON.stringify(payload, null, 2));
-
-      const response = await ItemApi.createDirectItem(payload);
       console.log("✅ 등록 성공:", response.data);
-
       alert("판매 물품이 정상 등록되었습니다!");
-      setTitle("");
-      setDescription("");
-      setPrice("");
       navigate("/items");
     } catch (err) {
-      console.error("❌ 물품 등록 에러:", err.message);
-      console.error(
-        "❌ 서버 응답:",
-        JSON.stringify(err.response?.data, null, 2),
-      );
-      console.error("❌ payload:", JSON.stringify(payload, null, 2));
       const msg =
         err.response?.data?.message ??
         err.response?.data?.error ??
@@ -287,11 +302,9 @@ const ItemNewPage = () => {
             <Input
               type="text"
               placeholder={
-                uiCategory === "money"
-                  ? "빠른 거래 가능합니다 (스카니아 메소)"
-                  : uiCategory === "account"
-                    ? "구매자의 눈길을 끌 수 있는 제목을 입력하세요"
-                    : "예: [S급] 고강화 레전더리 소드 판매합니다"
+                uiCategory === "account"
+                  ? "구매자의 눈길을 끌 수 있는 제목을 입력하세요"
+                  : "예: [S급] 고강화 레전더리 소드 판매합니다"
               }
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -312,38 +325,108 @@ const ItemNewPage = () => {
           </FormGroup>
         </SectionContainer>
 
-        {/* 04 가격 */}
-        <SectionContainer>
-          <SectionTitle>
-            <span>04</span> 가격 설정
-          </SectionTitle>
-          <PriceBox>
-            <PriceRow>
-              <label>판매 희망 가격 *</label>
-              <PriceInputWrapper>
-                <input
-                  type="text"
-                  placeholder="0"
-                  value={price}
-                  onChange={handlePriceChange}
-                />
-                <span>₩</span>
-              </PriceInputWrapper>
-            </PriceRow>
-            <PriceRow className="sub-row">
-              <label>거래 수수료 (5%)</label>
-              <span className="minus-price">
-                -{commission.toLocaleString()} ₩
-              </span>
-            </PriceRow>
-            <PriceRow className="total-row">
-              <label>최종 정산 예정 금액</label>
-              <span className="total-price">
-                {finalPrice.toLocaleString()} ₩
-              </span>
-            </PriceRow>
-          </PriceBox>
-        </SectionContainer>
+        {/* 04 가격 + 05 이미지 — 2컬럼 */}
+        <TwoColSection>
+          {/* 04 가격 */}
+          <SectionContainer>
+            <SectionTitle>
+              <span>04</span> 가격 설정
+            </SectionTitle>
+            <PriceBox>
+              <PriceRow>
+                <label>판매 희망 가격 *</label>
+                <PriceInputWrapper>
+                  <input
+                    type="text"
+                    placeholder="0"
+                    value={price}
+                    onChange={handlePriceChange}
+                  />
+                  <span>₩</span>
+                </PriceInputWrapper>
+              </PriceRow>
+              <PriceRow className="sub-row">
+                <label>거래 수수료 (5%)</label>
+                <span className="minus-price">
+                  -{commission.toLocaleString()} ₩
+                </span>
+              </PriceRow>
+              <PriceRow className="total-row">
+                <label>최종 정산 예정 금액</label>
+                <span className="total-price">
+                  {finalPrice.toLocaleString()} ₩
+                </span>
+              </PriceRow>
+            </PriceBox>
+          </SectionContainer>
+
+          {/* 05 이미지 등록 */}
+          <SectionContainer>
+            <SectionTitle>
+              <span>05</span> 이미지 등록
+            </SectionTitle>
+            <ImageUploadArea>
+              {/* 메인 업로드 버튼 */}
+              <MainUploadBox
+                onClick={() =>
+                  images.length < MAX_IMAGES && fileInputRef.current.click()
+                }
+                $disabled={images.length >= MAX_IMAGES}
+              >
+                {images.length > 0 ? (
+                  <img src={images[0].preview} alt="대표 이미지" />
+                ) : (
+                  <>
+                    <UploadIcon>🖼️</UploadIcon>
+                    <UploadText>
+                      아이템 스크린샷을 업로드
+                      <br />
+                      <small>PNG, JPG 지원 (최대 {MAX_IMAGES}장)</small>
+                    </UploadText>
+                  </>
+                )}
+              </MainUploadBox>
+
+              {/* 썸네일 목록 */}
+              <ThumbnailRow>
+                {Array.from({ length: MAX_IMAGES }).map((_, idx) => (
+                  <ThumbnailSlot key={idx}>
+                    {images[idx] ? (
+                      <>
+                        <img
+                          src={images[idx].preview}
+                          alt={`이미지 ${idx + 1}`}
+                        />
+                        <RemoveBtn
+                          type="button"
+                          onClick={() => handleImageRemove(idx)}
+                        >
+                          ×
+                        </RemoveBtn>
+                      </>
+                    ) : (
+                      <EmptySlot
+                        onClick={() => fileInputRef.current.click()}
+                        $disabled={images.length >= MAX_IMAGES}
+                      >
+                        +
+                      </EmptySlot>
+                    )}
+                  </ThumbnailSlot>
+                ))}
+              </ThumbnailRow>
+            </ImageUploadArea>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: "none" }}
+              onChange={handleImageAdd}
+            />
+          </SectionContainer>
+        </TwoColSection>
 
         {error && <ErrorBox>{error}</ErrorBox>}
 
@@ -409,9 +492,6 @@ const PageDesc = styled.p`
   color: var(--text-secondary);
   line-height: 1.6;
   max-width: 700px;
-  @media (max-width: 768px) {
-    font-size: 12px;
-  }
   @media (max-width: 480px) {
     font-size: 11px;
     br {
@@ -450,11 +530,22 @@ const SectionTitle = styled.h2`
     margin-bottom: 14px;
   }
 `;
+
+// ✅ 가격 + 이미지 2컬럼
+const TwoColSection = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 24px;
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
 const CategoryGroup = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
-  @media (max-width: 640px) {
+  @media (max-width: 480px) {
     grid-template-columns: 1fr;
     gap: 10px;
   }
@@ -476,10 +567,6 @@ const Card = styled.div`
     border-color: var(--color-primary);
     background-color: var(--bg-container-high);
   }
-  @media (max-width: 768px) {
-    padding: 14px;
-    gap: 12px;
-  }
   @media (max-width: 480px) {
     padding: 12px;
     gap: 10px;
@@ -498,13 +585,6 @@ const IconWrapper = styled.div`
     height: 24px;
     object-fit: contain;
   }
-  @media (max-width: 480px) {
-    padding: 8px;
-    .category-icon {
-      width: 20px;
-      height: 20px;
-    }
-  }
 `;
 const CardContent = styled.div`
   padding-right: 24px;
@@ -517,11 +597,6 @@ const CardContent = styled.div`
     font-size: 11px;
     color: var(--text-secondary);
     line-height: 1.4;
-  }
-  @media (max-width: 480px) {
-    h3 {
-      font-size: 13px;
-    }
   }
 `;
 const CheckBadge = styled.div`
@@ -556,11 +631,6 @@ const FormGroup = styled.div`
     font-size: 13px;
     color: var(--text-primary);
   }
-  @media (max-width: 480px) {
-    label {
-      font-size: 12px;
-    }
-  }
 `;
 const Select = styled.select`
   background-color: var(--bg-container-low);
@@ -582,10 +652,6 @@ const Select = styled.select`
     background-color: var(--bg-container-low);
     color: var(--text-primary);
   }
-  @media (max-width: 480px) {
-    padding: 10px;
-    font-size: 12px;
-  }
 `;
 const Input = styled.input`
   background-color: var(--bg-container-low);
@@ -602,10 +668,6 @@ const Input = styled.input`
   }
   &:focus {
     border-color: var(--border-focus);
-  }
-  @media (max-width: 480px) {
-    padding: 10px;
-    font-size: 12px;
   }
 `;
 const TextArea = styled.textarea`
@@ -625,10 +687,6 @@ const TextArea = styled.textarea`
   }
   &:focus {
     border-color: var(--border-focus);
-  }
-  @media (max-width: 480px) {
-    padding: 10px;
-    font-size: 12px;
   }
 `;
 const PriceBox = styled.div`
@@ -667,14 +725,6 @@ const PriceRow = styled.div`
       font-weight: 700;
     }
   }
-  @media (max-width: 480px) {
-    label {
-      font-size: 12px;
-    }
-    &.total-row .total-price {
-      font-size: 14px;
-    }
-  }
 `;
 const PriceInputWrapper = styled.div`
   display: flex;
@@ -685,13 +735,6 @@ const PriceInputWrapper = styled.div`
   padding: 8px 12px;
   min-width: 150px;
   width: 50%;
-  @media (max-width: 768px) {
-    width: 55%;
-  }
-  @media (max-width: 480px) {
-    width: 100%;
-    min-width: unset;
-  }
   &:focus-within {
     border-color: var(--border-focus);
   }
@@ -713,7 +756,110 @@ const PriceInputWrapper = styled.div`
     font-size: 13px;
     flex-shrink: 0;
   }
+  @media (max-width: 480px) {
+    width: 100%;
+    min-width: unset;
+  }
 `;
+
+// ✅ 이미지 업로드 스타일
+const ImageUploadArea = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+const MainUploadBox = styled.div`
+  width: 100%;
+  height: 160px;
+  background-color: var(--bg-container-low);
+  border: 2px dashed
+    ${(p) => (p.$disabled ? "var(--border-color)" : "var(--color-primary)")};
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: ${(p) => (p.$disabled ? "not-allowed" : "pointer")};
+  opacity: ${(p) => (p.$disabled ? 0.5 : 1)};
+  overflow: hidden;
+  transition:
+    border-color 0.2s,
+    opacity 0.2s;
+  &:hover {
+    border-color: ${(p) =>
+      p.$disabled ? "var(--border-color)" : "var(--color-primary)"};
+    opacity: ${(p) => (p.$disabled ? 0.5 : 0.85)};
+  }
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+`;
+const UploadIcon = styled.div`
+  font-size: 32px;
+  margin-bottom: 8px;
+`;
+const UploadText = styled.div`
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.6;
+  small {
+    font-size: 11px;
+    color: var(--outline);
+  }
+`;
+const ThumbnailRow = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+const ThumbnailSlot = styled.div`
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+`;
+const RemoveBtn = styled.button`
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+`;
+const EmptySlot = styled.div`
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-container-low);
+  border: 1px dashed var(--border-color);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--text-secondary);
+  cursor: ${(p) => (p.$disabled ? "not-allowed" : "pointer")};
+  opacity: ${(p) => (p.$disabled ? 0.4 : 1)};
+`;
+
 const ErrorBox = styled.div`
   padding: 12px 16px;
   background: rgba(239, 68, 68, 0.08);
