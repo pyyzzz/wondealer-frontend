@@ -45,7 +45,7 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
                 <div style={{ fontWeight: 700, fontSize: 13 }}>
                   원페이 (마일리지)
                 </div>
-                <div style={{ fontSize: 11, color: "#888da8", marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: "var(--chat-text-muted)", marginTop: 2 }}>
                   보유: {fmt(myMileage ?? 0)} M
                 </div>
               </div>
@@ -58,7 +58,7 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
               <span>💳</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>카드 결제</div>
-                <div style={{ fontSize: 11, color: "#888da8", marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: "var(--chat-text-muted)", marginTop: 2 }}>
                   포트원 연동
                 </div>
               </div>
@@ -75,12 +75,12 @@ function PaymentModal({ room, myMileage, onConfirm, onCancel }) {
             </PriceRow2>
             <PriceRow2>
               <span>에스크로 수수료 (5%)</span>
-              <span style={{ color: "#ef4444" }}>+{fmt(fee)} 원</span>
+              <span style={{ color: "var(--chat-danger)" }}>+{fmt(fee)} 원</span>
             </PriceRow2>
             <Divider />
             <PriceRow2 $total>
               <span>총 결제 금액</span>
-              <span style={{ color: "#c0c1ff", fontSize: 18, fontWeight: 800 }}>
+              <span style={{ color: "var(--chat-primary-text)", fontSize: 18, fontWeight: 800 }}>
                 {fmt(total)} 원
               </span>
             </PriceRow2>
@@ -177,6 +177,27 @@ function msgSenderNickname(m) {
   return m.senderNickname ?? "";
 }
 
+function msgTradeStatus(m) {
+  return (
+    m.tradeStatus ??
+    m.status ??
+    m.roomStatus ??
+    m.trade?.status ??
+    m.tradeState ??
+    null
+  );
+}
+
+function isTradeCompleteMessage(m) {
+  const status = String(msgTradeStatus(m) ?? "").toUpperCase();
+  const content = String(msgContent(m) ?? "").replace(/\s/g, "");
+
+  return (
+    ["COMPLETED", "COMPLETE", "DONE", "TRADE_COMPLETED"].includes(status) ||
+    (content.includes("거래") && content.includes("완료"))
+  );
+}
+
 const STEPS = ["거래 대기", "결제 완료", "거래 완료"];
 const STATUS_STEP = {
   CONSULTING: 0,
@@ -228,10 +249,10 @@ function RoomList({ rooms, loading, selectedId, onSelect, search, onSearch }) {
               const stepIdx = getStep(status);
               const statusColor =
                 stepIdx === 2
-                  ? "#10b981"
+                  ? "var(--chat-success)"
                   : stepIdx === 1
-                    ? "#6c5ce7"
-                    : "#888da8";
+                    ? "var(--chat-primary)"
+                    : "var(--chat-text-muted)";
               return (
                 <RoomItem
                   key={rid}
@@ -291,10 +312,10 @@ function Sidebar({ room, myNickname, onPay, onComplete }) {
           {room.partnerOnline && <OnlineDot />}
         </PartnerRow>
         <VerifyRow>
-          <span style={{ fontSize: 12, color: "#888da8" }}>본인인증</span>
+          <span style={{ fontSize: 12, color: "var(--chat-text-muted)" }}>본인인증</span>
           <span
             style={{
-              color: room.partnerVerified ? "#10b981" : "#555",
+              color: room.partnerVerified ? "var(--chat-success)" : "var(--chat-text-subtle)",
               fontSize: 16,
             }}
           >
@@ -323,7 +344,7 @@ function Sidebar({ room, myNickname, onPay, onComplete }) {
               <span
                 style={{
                   fontSize: 12,
-                  color: active ? "#fff" : done ? "#888da8" : "#555",
+                  color: active ? "var(--chat-text)" : done ? "var(--chat-text-muted)" : "var(--chat-text-subtle)",
                 }}
               >
                 {label}
@@ -369,6 +390,7 @@ export default function ChatPage() {
 
   const handleIncoming = useCallback(
     (msg) => {
+      const isCompleted = isTradeCompleteMessage(msg);
       setMessages((prev) => {
         if (msgId(msg) && prev.some((m) => msgId(m) === msgId(msg)))
           return prev;
@@ -379,6 +401,7 @@ export default function ChatPage() {
           String(roomId(r)) === String(selectedId)
             ? {
                 ...r,
+                tradeStatus: isCompleted ? "COMPLETED" : r.tradeStatus,
                 lastMessage: msgContent(msg),
                 lastMessageTime: msgTime(msg),
               }
@@ -415,11 +438,19 @@ export default function ChatPage() {
       .then((res) => {
         const raw =
           res.data?.data?.content ?? res.data?.content ?? res.data ?? [];
-        setMessages([...raw].reverse());
+        const nextMessages = [...raw].reverse();
+        setMessages(nextMessages);
         ChatApi.readMessages(rId).catch(() => {});
+        const isCompleted = nextMessages.some(isTradeCompleteMessage);
         setRooms((prev) =>
           prev.map((r) =>
-            String(roomId(r)) === String(rId) ? { ...r, unreadCount: 0 } : r,
+            String(roomId(r)) === String(rId)
+              ? {
+                  ...r,
+                  unreadCount: 0,
+                  tradeStatus: isCompleted ? "COMPLETED" : r.tradeStatus,
+                }
+              : r,
           ),
         );
       })
@@ -435,10 +466,14 @@ export default function ChatPage() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ✅ 낙관적 업데이트 제거 — WebSocket 브로드캐스트로만 수신
+  useEffect(() => {
+    if (isDone) setInput("");
+  }, [isDone]);
+
+  //  낙관적 업데이트 제거 — WebSocket 브로드캐스트로만 수신
   function handleSend(e) {
     e.preventDefault();
-    if (!input.trim() || !selectedId) return;
+    if (isDone || !input.trim() || !selectedId) return;
     const content = input.trim();
     setInput("");
     sendMessage({ content, type: "CHAT" });
@@ -492,8 +527,8 @@ export default function ChatPage() {
         @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:4px}
-        ::-webkit-scrollbar-thumb{background:#2a2a3e;border-radius:4px}
-        input::placeholder,textarea::placeholder{color:#52525b}
+        ::-webkit-scrollbar-thumb{background:var(--chat-border-strong);border-radius:4px}
+        input::placeholder,textarea::placeholder{color:var(--chat-text-subtle)}
       `}</style>
 
       {showPay && activeRoom && (
@@ -519,7 +554,7 @@ export default function ChatPage() {
           <ChatHeader>
             <HeaderLeft>
               <HeaderTitle>
-                파트너(마족) / {roomPartner(activeRoom)}
+                {roomPartner(activeRoom)}
                 {activeRoom.partnerOnline && <OnlinePill>● ONLINE</OnlinePill>}
               </HeaderTitle>
               <HeaderSub>
@@ -538,7 +573,7 @@ export default function ChatPage() {
 
           <MsgList>
             {msgLoad ? (
-              <EmptyMsg style={{ color: "#555" }}>메시지 로딩 중...</EmptyMsg>
+              <EmptyMsg style={{ color: "var(--chat-text-subtle)" }}>메시지 로딩 중...</EmptyMsg>
             ) : messages.length === 0 ? (
               <EmptyMsg>
                 아직 메시지가 없습니다. 먼저 인사해 보세요! 👋
@@ -562,14 +597,14 @@ export default function ChatPage() {
                             <div style={{ fontSize: 13, fontWeight: 700 }}>
                               결제 완료되었습니다.
                             </div>
-                            <div style={{ fontSize: 11, color: "#888da8" }}>
+                            <div style={{ fontSize: 11, color: "var(--chat-text-muted)" }}>
                               안전하게 거래를 진행해 주세요.
                             </div>
                           </div>
                         </PayCardHeader>
                         <PayCardBody>
                           <PayCardRow>
-                            <span style={{ fontSize: 11, color: "#888da8" }}>
+                            <span style={{ fontSize: 11, color: "var(--chat-text-muted)" }}>
                               결제 수단
                             </span>
                             <span style={{ fontSize: 12, fontWeight: 600 }}>
@@ -577,14 +612,14 @@ export default function ChatPage() {
                             </span>
                           </PayCardRow>
                           <PayCardRow>
-                            <span style={{ fontSize: 11, color: "#888da8" }}>
+                            <span style={{ fontSize: 11, color: "var(--chat-text-muted)" }}>
                               총 결제금액
                             </span>
                             <span
                               style={{
                                 fontSize: 14,
                                 fontWeight: 800,
-                                color: "#6366f1",
+                                color: "var(--chat-primary)",
                               }}
                             >
                               {Number(msg.totalAmount ?? 0).toLocaleString()}{" "}
@@ -599,7 +634,6 @@ export default function ChatPage() {
                     </PayCardWrap>
                   );
 
-                // ✅ senderNickname으로 isMe 판별
                 const isMe = msgSenderNickname(msg) === myNickname;
                 return (
                   <MsgRow key={msgId(msg) ?? i} $isMe={isMe}>
@@ -649,7 +683,7 @@ export default function ChatPage() {
           )}
 
           <InputArea onSubmit={handleSend}>
-            <InputBox>
+            <InputBox $disabled={isDone}>
               <InputBtns>
                 <InputIcon type="button">📎</InputIcon>
                 <InputIcon type="button">😊</InputIcon>
@@ -657,6 +691,7 @@ export default function ChatPage() {
               <InputField
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                disabled={isDone}
                 placeholder="[공지] 계정 인계 전 입금내역 확인 하세요."
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -667,7 +702,11 @@ export default function ChatPage() {
               />
               <ShiftHint>Shift + Enter for new line</ShiftHint>
             </InputBox>
-            <SendBtn type="submit" $active={!!input.trim()}>
+            <SendBtn
+              type="submit"
+              $active={!isDone && !!input.trim()}
+              disabled={isDone}
+            >
               ➤
             </SendBtn>
           </InputArea>
@@ -675,7 +714,7 @@ export default function ChatPage() {
       ) : (
         <NoChat>
           <span style={{ fontSize: 48 }}>💬</span>
-          <p style={{ color: "#555", marginTop: 16 }}>채팅방을 선택해 주세요</p>
+          <p style={{ color: "var(--chat-text-subtle)", marginTop: 16 }}>채팅방을 선택해 주세요</p>
         </NoChat>
       )}
 
@@ -695,41 +734,42 @@ export default function ChatPage() {
 const fadeIn = keyframes`from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}`;
 
 const Wrap = styled.div`
+  --chat-bg: var(--bg-primary);
+  --chat-panel: var(--bg-container-low);
+  --chat-surface: var(--bg-container);
+  --chat-surface-high: var(--bg-container-high);
+  --chat-border: var(--outline-variant);
+  --chat-border-strong: var(--border-color);
+  --chat-text: var(--text-primary);
+  --chat-text-muted: var(--text-secondary);
+  --chat-text-faint: var(--text-faint);
+  --chat-text-subtle: var(--text-vfaint);
+  --chat-primary: var(--color-primary-container);
+  --chat-primary-text: var(--color-primary);
+  --chat-primary-soft: rgba(var(--rgb-primary), 0.12);
+  --chat-on-primary: var(--on-primary);
+  --chat-success: var(--color-success);
+  --chat-danger: var(--color-danger);
+  --chat-warning: var(--color-warning);
+  --chat-online: var(--color-success);
   display: flex;
   height: 100vh;
-  height: 100dvh;
-  background: #0a0a0f;
-  color: #f1f1f5;
+  background: var(--chat-bg);
+  color: var(--chat-text);
   font-family: "Pretendard", "Noto Sans KR", sans-serif;
   overflow: hidden;
-
-  @media (max-width: 760px) {
-    flex-direction: column;
-    overflow: auto;
-  }
 `;
 const ListPanel = styled.div`
   width: 300px;
   flex-shrink: 0;
-  background: #0d0d14;
-  border-right: 1px solid #2a2a3e;
+  background: var(--chat-panel);
+  border-right: 1px solid var(--chat-border-strong);
   display: flex;
   flex-direction: column;
-
-  @media (max-width: 1024px) {
-    width: 260px;
-  }
-
-  @media (max-width: 760px) {
-    width: 100%;
-    max-height: 34dvh;
-    border-right: none;
-    border-bottom: 1px solid #2a2a3e;
-  }
 `;
 const ListHeader = styled.div`
   padding: 20px 16px 12px;
-  border-bottom: 1px solid #1e1e2a;
+  border-bottom: 1px solid var(--chat-border);
 `;
 const ListTitle = styled.div`
   font-size: 18px;
@@ -738,7 +778,7 @@ const ListTitle = styled.div`
 const SearchWrap = styled.div`
   position: relative;
   padding: 10px 12px;
-  border-bottom: 1px solid #1e1e2a;
+  border-bottom: 1px solid var(--chat-border);
 `;
 const SearchIcon = styled.span`
   position: absolute;
@@ -750,12 +790,12 @@ const SearchIcon = styled.span`
 `;
 const SearchInput = styled.input`
   width: 100%;
-  background: #13131c;
-  border: 1px solid #2a2a3e;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border-strong);
   border-radius: 8px;
   padding: 8px 10px 8px 30px;
   font-size: 12px;
-  color: #f1f1f5;
+  color: var(--chat-text);
   outline: none;
 `;
 const RoomScroll = styled.div`
@@ -767,19 +807,19 @@ const RoomItem = styled.div`
   gap: 10px;
   padding: 14px 16px;
   cursor: pointer;
-  border-bottom: 1px solid #1e1e2a;
-  background: ${(p) => (p.$active ? "#1a1a26" : "transparent")};
-  border-left: 3px solid ${(p) => (p.$active ? "#6c5ce7" : "transparent")};
+  border-bottom: 1px solid var(--chat-border);
+  background: ${(p) => (p.$active ? "var(--chat-surface-high)" : "transparent")};
+  border-left: 3px solid ${(p) => (p.$active ? "var(--chat-primary)" : "transparent")};
   transition: background 0.15s;
   &:hover {
-    background: #1a1a26;
+    background: var(--chat-surface-high);
   }
 `;
 const RoomAvatar = styled.div`
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  background: #2a2a3e;
+  background: var(--chat-border-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -802,11 +842,11 @@ const RoomName = styled.div`
 `;
 const RoomTime = styled.div`
   font-size: 10px;
-  color: #52525b;
+  color: var(--chat-text-subtle);
 `;
 const RoomItemName = styled.div`
   font-size: 11px;
-  color: #6c5ce7;
+  color: var(--chat-primary);
   font-weight: 600;
   margin-bottom: 2px;
   white-space: nowrap;
@@ -820,7 +860,7 @@ const RoomBottom = styled.div`
 `;
 const RoomLastMsg = styled.div`
   font-size: 11px;
-  color: #71717a;
+  color: var(--chat-text-faint);
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -835,8 +875,8 @@ const UnreadBadge = styled.div`
   width: 18px;
   height: 18px;
   border-radius: 99px;
-  background: #6c5ce7;
-  color: #fff;
+  background: var(--chat-primary);
+  color: var(--chat-on-primary);
   font-size: 9px;
   font-weight: 900;
   display: flex;
@@ -847,26 +887,20 @@ const UnreadBadge = styled.div`
 const EmptyMsg = styled.div`
   text-align: center;
   padding: 40px 16px;
-  color: #52525b;
+  color: var(--chat-text-subtle);
   font-size: 13px;
 `;
 const ChatArea = styled.div`
   flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid #2a2a3e;
-
-  @media (max-width: 760px) {
-    min-height: 66dvh;
-    border-right: none;
-  }
+  border-right: 1px solid var(--chat-border-strong);
 `;
 const ChatHeader = styled.div`
   padding: 12px 16px;
-  background: #0d0d14;
-  border-bottom: 1px solid #1e1e2a;
+  background: var(--chat-panel);
+  border-bottom: 1px solid var(--chat-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -879,47 +913,50 @@ const HeaderTitle = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
 `;
 const OnlinePill = styled.span`
   padding: 2px 8px;
   border-radius: 99px;
   font-size: 9px;
   font-weight: 700;
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: color-mix(in srgb, var(--chat-success) 18%, transparent);
+  color: var(--chat-success);
+  border: 1px solid color-mix(in srgb, var(--chat-success) 38%, transparent);
 `;
 const HeaderSub = styled.div`
   font-size: 11px;
-  color: #71717a;
+  color: var(--chat-text-faint);
   margin-top: 2px;
 `;
 const HeaderActions = styled.div`
-  display: flex;
+  display: none;
   gap: 8px;
 `;
 const HeaderBtn = styled.button`
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  background: #13131c;
-  border: 1px solid #2a2a3e;
-  color: #a1a1b5;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border-strong);
+  color: var(--chat-text-muted);
   font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+
+  &:not(:first-child) {
+    display: none;
+  }
 `;
 const WarnBanner = styled.div`
   margin: 8px 12px 0;
   padding: 6px 12px;
-  background: rgba(239, 68, 68, 0.06);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: color-mix(in srgb, var(--chat-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chat-danger) 30%, transparent);
   border-radius: 8px;
   font-size: 10px;
-  color: rgba(252, 165, 165, 0.85);
+  color: var(--chat-danger);
   flex-shrink: 0;
 `;
 const MsgList = styled.div`
@@ -935,12 +972,12 @@ const SystemMsg = styled.div`
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: #13131c;
-  border: 1px solid #2a2a3e;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border-strong);
   border-radius: 14px;
   padding: 6px 14px;
   font-size: 11px;
-  color: #a1a1b5;
+  color: var(--chat-text-muted);
   align-self: center;
   max-width: 80%;
   text-align: center;
@@ -951,8 +988,8 @@ const PayCardWrap = styled.div`
 `;
 const PayCard = styled.div`
   width: 280px;
-  background: #13131c;
-  border: 1px solid #2a2a3e;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border-strong);
   border-radius: 14px;
   overflow: hidden;
   animation: ${fadeIn} 0.2s ease;
@@ -962,19 +999,19 @@ const PayCardHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
-  border-bottom: 1px solid #1e1e2a;
+  border-bottom: 1px solid var(--chat-border);
 `;
 const PayCardCheck = styled.div`
   width: 26px;
   height: 26px;
   border-radius: 99px;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: color-mix(in srgb, var(--chat-success) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chat-success) 38%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 13px;
-  color: #10b981;
+  color: var(--chat-success);
   font-weight: 700;
 `;
 const PayCardBody = styled.div`
@@ -990,10 +1027,10 @@ const PayCardRow = styled.div`
 `;
 const PayCardFooter = styled.div`
   padding: 8px 16px;
-  background: rgba(59, 130, 246, 0.05);
-  border-top: 1px solid #1e1e2a;
+  background: color-mix(in srgb, var(--chat-primary) 8%, transparent);
+  border-top: 1px solid var(--chat-border);
   font-size: 10px;
-  color: rgba(147, 197, 253, 0.7);
+  color: var(--chat-primary-text);
 `;
 const MsgRow = styled.div`
   display: flex;
@@ -1005,8 +1042,8 @@ const MsgAvatar = styled.div`
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: var(--chat-border-strong);
+  border: 1px solid var(--chat-border-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1020,21 +1057,17 @@ const MsgBubbleWrap = styled.div`
   align-items: ${(p) => (p.$isMe ? "flex-end" : "flex-start")};
   max-width: 65%;
   gap: 3px;
-
-  @media (max-width: 760px) {
-    max-width: 82%;
-  }
 `;
 const MsgBubble = styled.div`
   padding: 10px 14px;
   border-radius: 16px;
   border-bottom-right-radius: ${(p) => (p.$isMe ? "4px" : "16px")};
   border-bottom-left-radius: ${(p) => (p.$isMe ? "16px" : "4px")};
-  background: ${(p) => (p.$isMe ? "#6c5ce7" : "#1a1a26")};
-  color: #fff;
+  background: ${(p) => (p.$isMe ? "var(--chat-primary)" : "var(--chat-surface-high)")};
+  color: ${(p) => (p.$isMe ? "var(--chat-on-primary)" : "var(--chat-text)")};
   font-size: 13px;
   line-height: 1.5;
-  border: ${(p) => (p.$isMe ? "none" : "1px solid #2a2a3e")};
+  border: ${(p) => (p.$isMe ? "none" : "1px solid var(--chat-border-strong)")};
 `;
 const MsgMeta = styled.div`
   display: flex;
@@ -1044,29 +1077,29 @@ const MsgMeta = styled.div`
 `;
 const ReadLabel = styled.span`
   font-size: 10px;
-  color: #6c5ce7;
+  color: var(--chat-primary);
 `;
 const MsgTime = styled.span`
   font-size: 10px;
-  color: #52525b;
+  color: var(--chat-text-subtle);
 `;
 const DoneBanner = styled.div`
   margin: 0 12px 8px;
   padding: 8px 12px;
-  background: rgba(239, 68, 68, 0.06);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: color-mix(in srgb, var(--chat-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chat-danger) 30%, transparent);
   border-radius: 8px;
   font-size: 10px;
-  color: rgba(252, 165, 165, 0.85);
+  color: var(--chat-danger);
   flex-shrink: 0;
 `;
 const CompleteBtnBottom = styled.button`
   margin: 0 12px 8px;
   padding: 11px;
-  background: #6c5ce7;
+  background: var(--chat-primary);
   border: none;
   border-radius: 10px;
-  color: #fff;
+  color: var(--chat-on-primary);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -1079,7 +1112,7 @@ const QuickRow = styled.div`
   display: flex;
   gap: 6px;
   padding: 6px 12px;
-  border-top: 1px solid #1e1e2a;
+  border-top: 1px solid var(--chat-border);
   overflow-x: auto;
   flex-shrink: 0;
 `;
@@ -1087,20 +1120,20 @@ const QuickBtn = styled.button`
   flex-shrink: 0;
   padding: 5px 12px;
   border-radius: 99px;
-  background: #13131c;
-  border: 1px solid #2a2a3e;
-  color: #a1a1b5;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border-strong);
+  color: var(--chat-text-muted);
   font-size: 10px;
   cursor: pointer;
   white-space: nowrap;
   &:hover {
-    border-color: #6c5ce7;
-    color: #fff;
+    border-color: var(--chat-primary);
+    color: var(--chat-on-primary);
   }
 `;
 const InputArea = styled.form`
   padding: 10px 12px;
-  border-top: 1px solid #1e1e2a;
+  border-top: 1px solid var(--chat-border);
   display: flex;
   align-items: flex-end;
   gap: 10px;
@@ -1108,11 +1141,12 @@ const InputArea = styled.form`
 `;
 const InputBox = styled.div`
   flex: 1;
-  background: #13131c;
-  border: 1px solid #2a2a3e;
+  background: ${(p) => (p.$disabled ? "var(--chat-panel)" : "var(--chat-surface)")};
+  border: 1px solid ${(p) => (p.$disabled ? "var(--chat-border)" : "var(--chat-border-strong)")};
   border-radius: 12px;
   display: flex;
   align-items: flex-end;
+  opacity: ${(p) => (p.$disabled ? 0.65 : 1)};
 `;
 const InputBtns = styled.div`
   display: flex;
@@ -1123,12 +1157,16 @@ const InputIcon = styled.button`
   height: 28px;
   background: none;
   border: none;
-  color: #52525b;
+  color: var(--chat-text-subtle);
   font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
 `;
 const InputField = styled.input`
   flex: 1;
@@ -1137,31 +1175,35 @@ const InputField = styled.input`
   outline: none;
   padding: 10px 8px;
   font-size: 12px;
-  color: #f1f1f5;
+  color: var(--chat-text);
+  &:disabled {
+    color: var(--chat-text-faint);
+    cursor: not-allowed;
+  }
 `;
 const ShiftHint = styled.span`
   font-size: 9px;
-  color: #52525b;
+  color: var(--chat-text-subtle);
   padding: 0 8px 10px;
   white-space: nowrap;
-
-  @media (max-width: 760px) {
-    display: none;
-  }
 `;
 const SendBtn = styled.button`
   width: 38px;
   height: 38px;
   border-radius: 10px;
   flex-shrink: 0;
-  background: ${(p) => (p.$active ? "#6c5ce7" : "#13131c")};
-  border: 1px solid ${(p) => (p.$active ? "#6c5ce7" : "#2a2a3e")};
-  color: ${(p) => (p.$active ? "#fff" : "#52525b")};
+  background: ${(p) => (p.$active ? "var(--chat-primary)" : "var(--chat-surface)")};
+  border: 1px solid ${(p) => (p.$active ? "var(--chat-primary)" : "var(--chat-border-strong)")};
+  color: ${(p) => (p.$active ? "var(--chat-on-primary)" : "var(--chat-text-subtle)")};
   font-size: 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
 `;
 const NoChat = styled.div`
   flex: 1;
@@ -1174,28 +1216,20 @@ const OnlineDot = styled.div`
   width: 10px;
   height: 10px;
   border-radius: 99px;
-  background: #22c55e;
-  border: 2px solid #0d0d14;
+  background: var(--chat-online);
+  border: 2px solid var(--chat-panel);
   margin-left: auto;
 `;
 const SidePanel = styled.div`
   width: 200px;
   flex-shrink: 0;
-  background: #0d0d14;
-  border-left: 1px solid #1e1e2a;
+  background: var(--chat-panel);
+  border-left: 1px solid var(--chat-border);
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
-
-  @media (max-width: 1024px) {
-    width: 180px;
-  }
-
-  @media (max-width: 760px) {
-    display: none;
-  }
 `;
 const SideSection = styled.div`
   display: flex;
@@ -1205,7 +1239,7 @@ const SideSection = styled.div`
 const SideSectionTitle = styled.div`
   font-size: 10px;
   font-weight: 700;
-  color: #52525b;
+  color: var(--chat-text-subtle);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 `;
@@ -1218,8 +1252,8 @@ const PartnerAvatar = styled.div`
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: var(--chat-border-strong);
+  border: 1px solid var(--chat-border-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1239,30 +1273,30 @@ const PartnerName = styled.div`
 `;
 const PartnerSub = styled.div`
   font-size: 9px;
-  color: #52525b;
+  color: var(--chat-text-subtle);
   margin-top: 2px;
 `;
 const VerifyRow = styled.div`
-  display: flex;
+  display: none;
   justify-content: space-between;
   align-items: center;
   padding: 8px 10px;
-  background: #13131c;
-  border: 1px solid #2a2a3e;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border-strong);
   border-radius: 8px;
 `;
 const ActionBtns = styled.div`
-  display: flex;
+  display: none;
   gap: 6px;
 `;
 const ActionBtn = styled.button`
   flex: 1;
   padding: 7px 0;
-  background: #13131c;
-  border: 1px solid #2a2a3e;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border-strong);
   border-radius: 8px;
   cursor: pointer;
-  color: ${(p) => (p.$warn ? "#f59e0b" : "#a1a1b5")};
+  color: ${(p) => (p.$warn ? "var(--chat-warning)" : "var(--chat-text-muted)")};
   font-size: 9px;
   font-weight: 600;
   display: flex;
@@ -1273,7 +1307,7 @@ const ActionBtn = styled.button`
     font-size: 13px;
   }
   &:hover {
-    border-color: #6c5ce7;
+    border-color: var(--chat-primary);
   }
 `;
 const StepItem = styled.div`
@@ -1282,8 +1316,8 @@ const StepItem = styled.div`
   gap: 8px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: ${(p) => (p.$active ? "rgba(108,92,231,.15)" : "#13131c")};
-  border: 1px solid ${(p) => (p.$active ? "rgba(108,92,231,.4)" : "#1e1e2a")};
+  background: ${(p) => (p.$active ? "var(--chat-primary-soft)" : "var(--chat-surface)")};
+  border: 1px solid ${(p) => (p.$active ? "var(--chat-primary)" : "var(--chat-border)")};
 `;
 const StepDot = styled.div`
   width: 20px;
@@ -1291,22 +1325,22 @@ const StepDot = styled.div`
   border-radius: 99px;
   flex-shrink: 0;
   background: ${(p) =>
-    p.$done ? "#6c5ce7" : p.$active ? "rgba(108,92,231,.2)" : "#13131c"};
-  border: 1px solid ${(p) => (p.$done || p.$active ? "#6c5ce7" : "#2a2a3e")};
+    p.$done ? "var(--chat-primary)" : p.$active ? "var(--chat-primary-soft)" : "var(--chat-surface)"};
+  border: 1px solid ${(p) => (p.$done || p.$active ? "var(--chat-primary)" : "var(--chat-border-strong)")};
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 9px;
   font-weight: 700;
-  color: ${(p) => (p.$done ? "#fff" : p.$active ? "#6c5ce7" : "#52525b")};
+  color: ${(p) => (p.$done ? "var(--chat-on-primary)" : p.$active ? "var(--chat-primary)" : "var(--chat-text-subtle)")};
 `;
 const PayBtn = styled.button`
   width: 100%;
   padding: 11px 0;
-  background: #6c5ce7;
+  background: var(--chat-primary);
   border: none;
   border-radius: 10px;
-  color: #fff;
+  color: var(--chat-on-primary);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -1317,15 +1351,15 @@ const PayBtn = styled.button`
 const CompleteBtn = styled.button`
   width: 100%;
   padding: 11px 0;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: color-mix(in srgb, var(--chat-success) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chat-success) 38%, transparent);
   border-radius: 10px;
-  color: #10b981;
+  color: var(--chat-success);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   &:hover {
-    background: rgba(16, 185, 129, 0.25);
+    background: color-mix(in srgb, var(--chat-success) 28%, transparent);
   }
 `;
 const Overlay = styled.div`
@@ -1342,20 +1376,15 @@ const Overlay = styled.div`
 const PayBox = styled.div`
   width: 100%;
   max-width: 480px;
-  background: #13131c;
-  border: 1px solid #2a2a3e;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border-strong);
   border-radius: 18px;
   overflow: hidden;
   animation: ${fadeIn} 0.2s ease;
-
-  @media (max-width: 520px) {
-    max-height: calc(100dvh - 32px);
-    overflow-y: auto;
-  }
 `;
 const PaySection = styled.div`
   padding: 18px 20px;
-  border-bottom: 1px solid #1e1e2a;
+  border-bottom: 1px solid var(--chat-border);
   &:last-child {
     border-bottom: none;
   }
@@ -1363,7 +1392,7 @@ const PaySection = styled.div`
 const PaySectionTitle = styled.div`
   font-size: 12px;
   font-weight: 700;
-  color: #888da8;
+  color: var(--chat-text-muted);
   margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1385,13 +1414,13 @@ const PayItemName = styled.div`
 `;
 const PayItemSub = styled.div`
   font-size: 11px;
-  color: #888da8;
+  color: var(--chat-text-muted);
   margin-top: 2px;
 `;
 const PayItemPrice = styled.div`
   font-size: 16px;
   font-weight: 800;
-  color: #c0c1ff;
+  color: var(--chat-primary-text);
 `;
 const PayMethodRow = styled.div`
   display: flex;
@@ -1403,13 +1432,13 @@ const PayMethod = styled.div`
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  background: ${(p) => (p.$active ? "rgba(108,92,231,.12)" : "#0d0d14")};
-  border: 1px solid ${(p) => (p.$active ? "#6c5ce7" : "#2a2a3e")};
+  background: ${(p) => (p.$active ? "var(--chat-primary-soft)" : "var(--chat-panel)")};
+  border: 1px solid ${(p) => (p.$active ? "var(--chat-primary)" : "var(--chat-border-strong)")};
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
   &:hover {
-    border-color: #6c5ce7;
+    border-color: var(--chat-primary);
   }
   span {
     font-size: 22px;
@@ -1420,20 +1449,20 @@ const CheckDot = styled.div`
   width: 18px;
   height: 18px;
   border-radius: 99px;
-  background: #6c5ce7;
+  background: var(--chat-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   &::after {
     content: "✓";
     font-size: 10px;
-    color: #fff;
+    color: var(--chat-on-primary);
     font-weight: 700;
   }
 `;
 const PriceBreakdown = styled.div`
-  background: #0d0d14;
-  border: 1px solid #1e1e2a;
+  background: var(--chat-panel);
+  border: 1px solid var(--chat-border);
   border-radius: 10px;
   padding: 14px;
 `;
@@ -1443,49 +1472,45 @@ const PriceRow2 = styled.div`
   align-items: center;
   font-size: ${(p) => (p.$total ? "14px" : "13px")};
   font-weight: ${(p) => (p.$total ? 700 : 400)};
-  color: ${(p) => (p.$total ? "#fff" : "#a1a1b5")};
+  color: ${(p) => (p.$total ? "var(--chat-on-primary)" : "var(--chat-text-muted)")};
   padding: ${(p) => (p.$total ? "8px 0 0" : "4px 0")};
 `;
 const Divider = styled.div`
   height: 1px;
-  background: #2a2a3e;
+  background: var(--chat-border-strong);
   margin: 8px 0;
 `;
 const LackNotice = styled.div`
   margin-top: 10px;
   padding: 8px 12px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: color-mix(in srgb, var(--chat-danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chat-danger) 30%, transparent);
   border-radius: 8px;
   font-size: 11px;
-  color: #ef4444;
+  color: var(--chat-danger);
 `;
 const EscrowNote = styled.div`
   margin-top: 10px;
   font-size: 11px;
-  color: #52525b;
+  color: var(--chat-text-subtle);
 `;
 const PayBtns = styled.div`
   display: flex;
   gap: 8px;
   padding: 16px 20px;
-
-  @media (max-width: 420px) {
-    flex-direction: column;
-  }
 `;
 const PayCancel = styled.button`
   flex: 1;
   padding: 12px 0;
   border-radius: 10px;
   cursor: pointer;
-  background: #1a1a26;
-  border: 1px solid #2a2a3e;
-  color: #a1a1b5;
+  background: var(--chat-surface-high);
+  border: 1px solid var(--chat-border-strong);
+  color: var(--chat-text-muted);
   font-size: 13px;
   font-weight: 600;
   &:hover {
-    border-color: #6c5ce7;
+    border-color: var(--chat-primary);
   }
 `;
 const PayConfirm = styled.button`
@@ -1493,9 +1518,9 @@ const PayConfirm = styled.button`
   padding: 12px 0;
   border-radius: 10px;
   cursor: pointer;
-  background: ${(p) => (p.disabled ? "#1a1a26" : "#6c5ce7")};
+  background: ${(p) => (p.disabled ? "var(--chat-surface-high)" : "var(--chat-primary)")};
   border: none;
-  color: ${(p) => (p.disabled ? "#52525b" : "#fff")};
+  color: ${(p) => (p.disabled ? "var(--chat-text-subtle)" : "var(--chat-on-primary)")};
   font-size: 13px;
   font-weight: 700;
   opacity: ${(p) => (p.disabled ? 0.5 : 1)};
