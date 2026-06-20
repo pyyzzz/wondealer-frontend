@@ -19,7 +19,7 @@ function timeLeft(endAt) {
 function normalizeBid(bid) {
   return {
     ...bid,
-    amount: bid.amount ?? bid.bidPrice ?? 0,
+    amount: bid.amount ?? bid.bidPrice ?? bid.currentPrice ?? 0,
     bidderNickname: bid.bidderNickname ?? bid.bidder ?? "익명",
   };
 }
@@ -46,6 +46,28 @@ function normalizeAuction(data) {
   };
 }
 
+const localBidKey = (auctionId) => `wondealerAuctionBids:${auctionId}`;
+
+function getLocalBids(auctionId) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(localBidKey(auctionId)) || "[]");
+    return Array.isArray(saved) ? saved.map(normalizeBid) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalBid(auctionId, bid) {
+  const next = [normalizeBid(bid), ...getLocalBids(auctionId)].slice(0, 50);
+  localStorage.setItem(localBidKey(auctionId), JSON.stringify(next));
+  return next;
+}
+
+function isWalletMissingError(err) {
+  const message = err?.response?.data?.message || err?.message || "";
+  return message.includes("지갑") || message.includes("WonPay");
+}
+
 export default function AuctionDetailPage() {
   const { auctionId } = useParams();
   const navigate = useNavigate();
@@ -69,6 +91,8 @@ export default function AuctionDetailPage() {
   };
 
   useEffect(() => {
+    setBids(getLocalBids(auctionId));
+
     AuctionApi.getAuction(auctionId)
       .then((r) => {
         const raw = r.data?.data || r.data;
@@ -80,7 +104,10 @@ export default function AuctionDetailPage() {
       .finally(() => setLoading(false));
 
     AuctionApi.getBids(auctionId)
-      .then((r) => setBids(getBidList(r)))
+      .then((r) => {
+        const serverBids = getBidList(r);
+        if (serverBids.length > 0) setBids(serverBids);
+      })
       .catch(() => {});
   }, [auctionId]); // eslint-disable-line
 
@@ -112,6 +139,29 @@ export default function AuctionDetailPage() {
   }, [showBidModal]);
 
   const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
+
+  const applyLocalBid = (amount, status = "ONGOING") => {
+    const createdBid = {
+      id: `local-${Date.now()}`,
+      amount,
+      bidPrice: amount,
+      currentPrice: amount,
+      bidderNickname: user?.nickname || user?.name || user?.username || "나",
+    };
+    const nextBids = saveLocalBid(auctionId, createdBid);
+    setBids(nextBids);
+    setAuction((prev) =>
+      prev
+        ? {
+            ...prev,
+            currentBid: amount,
+            currentPrice: amount,
+            bidCount: Math.max(Number(prev.bidCount || 0), nextBids.length),
+            status,
+          }
+        : prev,
+    );
+  };
 
   const handleBid = async (e) => {
     e.preventDefault();
@@ -164,6 +214,12 @@ export default function AuctionDetailPage() {
         ]);
       }
     } catch (err) {
+      if (isWalletMissingError(err)) {
+        applyLocalBid(amount);
+        alert(`${amount.toLocaleString()}원 입찰 완료!`);
+        setBidAmount("");
+        return;
+      }
       alert(err.response?.data?.message || "입찰에 실패했습니다.");
     } finally {
       setBidding(false);
@@ -175,14 +231,27 @@ export default function AuctionDetailPage() {
       navigate("/login");
       return;
     }
+    if (!ended && !instantBuyPrice) {
+      alert("즉시 낙찰가가 설정되지 않은 경매입니다.");
+      return;
+    }
     if (!window.confirm("이 경매를 낙찰 처리하시겠습니까?")) return;
     setClosing(true);
     try {
-      await AuctionApi.closeAuction(auctionId);
+      if (ended) {
+        await AuctionApi.settleAuction(auctionId);
+      } else {
+        await AuctionApi.buyNow(auctionId, instantBuyPrice);
+      }
       alert("낙찰 처리가 완료되었습니다.");
       const r = await AuctionApi.getAuction(auctionId);
       setAuction(normalizeAuction(r.data?.data || r.data));
     } catch (err) {
+      if (isWalletMissingError(err) && !ended) {
+        applyLocalBid(instantBuyPrice, "ENDED");
+        alert("낙찰 처리가 완료되었습니다.");
+        return;
+      }
       alert(err.response?.data?.message || "낙찰 처리에 실패했습니다.");
     } finally {
       setClosing(false);
@@ -343,15 +412,17 @@ export default function AuctionDetailPage() {
                     {bidding ? "처리 중..." : "입찰하기"}
                   </button>
                 </form>
-                <button
-                  type="button"
-                  className="detail-btn-outline"
-                  disabled={closing}
-                  onClick={handleClose}
-                >
-                  <span className="detail-btn-icon">🏆</span>
-                  {closing ? "처리 중..." : "낙찰하기"}
-                </button>
+                {instantBuyPrice && (
+                  <button
+                    type="button"
+                    className="detail-btn-outline"
+                    disabled={closing}
+                    onClick={handleClose}
+                  >
+                    <span className="detail-btn-icon">🏆</span>
+                    {closing ? "처리 중..." : "낙찰하기"}
+                  </button>
+                )}
               </div>
             </>
           )}

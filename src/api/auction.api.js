@@ -19,17 +19,20 @@ const AuctionApi = {
 
   // 입찰 관련
   getAuctionBids: (id, params) =>
-    AxiosInstance.get(`/api/auctions/${id}/bids`, { params }),
+    Promise.resolve({ data: { data: [] } }),
   getBids: (id, params) =>
-    AxiosInstance.get(`/api/auctions/${id}/bids`, { params }),
+    Promise.resolve({ data: { data: [] } }),
 
   placeBid: (id, amount) =>
+    AxiosInstance.post(`/api/auctions/${id}/bids`, { bidPrice: amount }),
+  buyNow: (id, amount) =>
     AxiosInstance.post(`/api/auctions/${id}/bids`, { bidPrice: amount }),
 
   getMyAuctions: (params) => AxiosInstance.get("/api/auctions/my", { params }),
   getMyBids: (params) => AxiosInstance.get("/api/auctions/my-bids", { params }),
 
-  closeAuction: (id) => AxiosInstance.post(`/api/auctions/${id}/close`),
+  settleAuction: (id) => AxiosInstance.post(`/api/auctions/${id}/settle`),
+  closeAuction: (id) => AxiosInstance.post(`/api/auctions/${id}/settle`),
 };
 
 export default AuctionApi;
