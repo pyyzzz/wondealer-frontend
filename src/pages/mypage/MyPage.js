@@ -412,7 +412,9 @@ const normalizeBankInfo = (data = {}) => ({
 
 const getSavedBankInfo = () => {
   try {
-    return normalizeBankInfo(JSON.parse(localStorage.getItem(BANK_STORAGE_KEY) || "{}"));
+    return normalizeBankInfo(
+      JSON.parse(localStorage.getItem(BANK_STORAGE_KEY) || "{}"),
+    );
   } catch {
     return normalizeBankInfo();
   }
@@ -1138,7 +1140,7 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
           time: i.createdAt
             ? new Date(i.createdAt).toLocaleDateString("ko-KR")
             : "",
-          img: i.thumbnailImg ?? "📦",
+          img: i.thumbnailImg ? null : "📦",
           thumbnailImg: i.thumbnailImg ?? null,
         }));
       setRecentActivity(recentItems);
@@ -1312,7 +1314,22 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
                 tabIndex={itemId ? 0 : undefined}
                 style={itemId ? { cursor: "pointer" } : undefined}
               >
-                <div className="mp-activity-img">{img}</div>
+                <div className="mp-activity-img">
+                  {a.thumbnailImg ? (
+                    <img
+                      src={a.thumbnailImg}
+                      alt={a.title}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        borderRadius: 8,
+                      }}
+                    />
+                  ) : (
+                    img
+                  )}
+                </div>
                 <div className="mp-activity-body">
                   <Badge color={tagColor}>{tag}</Badge>
                   <div className="mp-activity-title">{title}</div>
