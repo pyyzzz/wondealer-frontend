@@ -203,6 +203,7 @@ const ItemNewPage = () => {
         );
         if (uploadedUrls.length > 0) {
           console.log("Firebase uploaded image URLs:", uploadedUrls);
+          payload.imageUrls = uploadedUrls;
         }
       } catch (uploadError) {
         console.warn(

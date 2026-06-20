@@ -402,6 +402,7 @@ const Icon = {
 const fmt = (n) => Number(n ?? 0).toLocaleString("ko-KR");
 const token = () => localStorage.getItem("accessToken");
 const BANK_STORAGE_KEY = "wondealerBankInfo";
+const WITHDRAW_ADJUSTMENT_KEY = "wondealerWithdrawAdjustment";
 
 const normalizeBankInfo = (data = {}) => ({
   bankName: data.bankName ?? "",
@@ -428,6 +429,15 @@ const mergeBankInfo = (serverBank = {}, savedBank = getSavedBankInfo()) => ({
   accountNumber: serverBank.accountNumber || savedBank.accountNumber || "",
   accountHolder: serverBank.accountHolder || savedBank.accountHolder || "",
 });
+
+const getWithdrawAdjustment = () =>
+  Number(localStorage.getItem(WITHDRAW_ADJUSTMENT_KEY) || 0);
+
+const addWithdrawAdjustment = (amount) => {
+  const next = getWithdrawAdjustment() + Number(amount || 0);
+  localStorage.setItem(WITHDRAW_ADJUSTMENT_KEY, String(next));
+  return next;
+};
 
 function Badge({ children, color = "zinc" }) {
   return <span className={`mp-badge ${color}`}>{children}</span>;
@@ -3057,7 +3067,8 @@ export default function MyPage({ tab: defaultTab }) {
     try {
       const res = await WalletApi.getWallet();
       const d = res.data?.data ?? res.data;
-      setSharedBalance(d?.balance ?? d?.mileage ?? d?.mileageBalance ?? 0);
+      const serverBalance = d?.balance ?? d?.mileage ?? d?.mileageBalance ?? 0;
+      setSharedBalance(serverBalance - getWithdrawAdjustment());
     } catch (e) {
       console.error("잔액 조회 오류:", e);
     }
@@ -3135,6 +3146,7 @@ export default function MyPage({ tab: defaultTab }) {
             accountHolder={bankInfo.accountHolder}
             onBack={() => setActiveTab("mileage")}
             onSuccess={(amt) => {
+              addWithdrawAdjustment(amt);
               setSharedBalance((prev) => prev - amt);
               setActiveTab("mileage");
               alert(`${fmt(amt)}M 출금 신청이 완료되었습니다.`);

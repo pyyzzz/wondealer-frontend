@@ -61,21 +61,19 @@ export const AuthApi = {
 // 2. AuctionApi (경매 관련 API)
 // ────────────────────────────────────────────────────────
 export const AuctionApi = {
-  getAuctions: (params) => AxiosInstance.get("/auctions", { params }),
-  getAuction: (id) => AxiosInstance.get(`/auctions/${id}`),
-  createAuction: (formData) =>
-    AxiosInstance.post("/auctions", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    }),
-  updateAuction: (id, data) => AxiosInstance.put(`/auctions/${id}`, data),
-  deleteAuction: (id) => AxiosInstance.delete(`/auctions/${id}`),
+  getAuctions: (params) => AxiosInstance.get("/api/auctions", { params }),
+  getAuction: (id) => AxiosInstance.get(`/api/auctions/${id}`),
+  createAuction: (payload) => AxiosInstance.post("/api/items/auction", payload),
+  updateAuction: (id, data) => AxiosInstance.put(`/api/auctions/${id}`, data),
+  deleteAuction: (id) => AxiosInstance.delete(`/api/auctions/${id}`),
   getAuctionBids: (id, params) =>
-    AxiosInstance.get(`/auctions/${id}/bids`, { params }),
-  placeBid: (id, data) => AxiosInstance.post(`/auctions/${id}/bids`, data),
-  buyNow: (id) => AxiosInstance.post(`/auctions/${id}/buy-now`),
-  getMyAuctions: (params) => AxiosInstance.get("/auctions/my", { params }),
-  getMyBids: (params) => AxiosInstance.get("/auctions/my-bids", { params }),
-  closeAuction: (id) => AxiosInstance.post(`/auctions/${id}/close`),
+    AxiosInstance.get(`/api/auctions/${id}/bids`, { params }),
+  placeBid: (id, data) => AxiosInstance.post(`/api/auctions/${id}/bids`, data),
+  buyNow: (id, amount) =>
+    AxiosInstance.post(`/api/auctions/${id}/bids`, { bidPrice: amount }),
+  getMyAuctions: (params) => AxiosInstance.get("/api/auctions/my", { params }),
+  getMyBids: (params) => AxiosInstance.get("/api/auctions/my-bids", { params }),
+  closeAuction: (id) => AxiosInstance.post(`/api/auctions/${id}/settle`),
 };
 
 // ────────────────────────────────────────────────────────

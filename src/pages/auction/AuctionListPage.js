@@ -624,6 +624,9 @@ const AuctionListPage = () => {
                   <img
                     src={
                       auc.thumbnailImg ||
+                      auc.imageUrl ||
+                      auc.images?.[0] ||
+                      auc.imageUrls?.[0] ||
                       "https://placehold.co/100x100/12131a/ffffff?text=ITEM"
                     }
                     alt="t"

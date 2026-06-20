@@ -183,7 +183,6 @@ const AuctionNewPage = () => {
         auctionDays: Math.round(duration / 24),
       };
 
-      // 백엔드가 @RequestBody(JSON)만 받으므로 이미지는 현재 전송 불가
       try {
         const uploadedUrls = await uploadImageFiles(
           images.map((image) => image.file),
@@ -191,6 +190,7 @@ const AuctionNewPage = () => {
         );
         if (uploadedUrls.length > 0) {
           console.log("Firebase uploaded image URLs:", uploadedUrls);
+          payload.imageUrls = uploadedUrls;
         }
       } catch (uploadError) {
         console.warn(

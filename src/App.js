@@ -1,4 +1,4 @@
-import { Routes, Route, Outlet } from "react-router-dom";
+import { Routes, Route, Outlet, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import PrivateRoute from "./components/PrivateRoute";
@@ -32,6 +32,16 @@ const Layout = () => (
     <Footer />
   </>
 );
+
+const AdminRoute = ({ children }) => {
+  const token = localStorage.getItem("accessToken");
+  const authority = localStorage.getItem("authority");
+
+  if (!token) return <Navigate to="/login" replace />;
+  if (authority !== "ROLE_ADMIN") return <Navigate to="/" replace />;
+
+  return children;
+};
 
 function App() {
   return (
@@ -106,7 +116,14 @@ function App() {
             </PrivateRoute>
           }
         />
-        <Route path="/admin/*" element={<AdminPage />} />
+        <Route
+          path="/admin/*"
+          element={
+            <AdminRoute>
+              <AdminPage />
+            </AdminRoute>
+          }
+        />
       </Route>
     </Routes>
   );

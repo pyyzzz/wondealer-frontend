@@ -19,9 +19,9 @@ const AuctionApi = {
 
   // 입찰 관련
   getAuctionBids: (id, params) =>
-    Promise.resolve({ data: { data: [] } }),
+    AxiosInstance.get(`/api/auctions/${id}/bids`, { params }),
   getBids: (id, params) =>
-    Promise.resolve({ data: { data: [] } }),
+    AxiosInstance.get(`/api/auctions/${id}/bids`, { params }),
 
   placeBid: (id, amount) =>
     AxiosInstance.post(`/api/auctions/${id}/bids`, { bidPrice: amount }),

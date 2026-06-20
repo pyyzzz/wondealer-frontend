@@ -31,6 +31,7 @@ function normalizeBid(bid) {
 function normalizeAuction(data) {
   if (!data) return null;
   const item = data.item ?? {};
+  const images = item.images ?? data.images ?? data.imageUrls ?? [];
   return {
     ...data,
     title: item.title ?? data.title ?? "",
@@ -38,8 +39,8 @@ function normalizeAuction(data) {
     game: item.gameName ?? data.game ?? "",
     categoryName: item.categoryName ?? "",
     serverName: item.serverName ?? "",
-    images: item.images ?? [],
-    imageUrl: item.images && item.images.length > 0 ? item.images[0] : null,
+    images,
+    imageUrl: images.length > 0 ? images[0] : null,
     sellerNickname: item.seller?.nickname ?? "",
     endAt: data.endTime ?? data.endAt,
     currentBid: data.currentPrice ?? data.currentBid,

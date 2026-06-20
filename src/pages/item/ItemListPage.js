@@ -367,12 +367,23 @@ export default function ItemListPage() {
               <>
                 {items.map((item, idx) => {
                   const itemId = item.itemId ?? item.id ?? idx;
+                  const thumbnail =
+                    item.thumbnailImg ||
+                    item.imageUrl ||
+                    item.images?.[0] ||
+                    item.imageUrls?.[0];
                   return (
                     <ItemCard
                       key={itemId}
                       onClick={() => navigate(`/items/${itemId}`)}
                     >
-                      <ItemThumbnail>📦</ItemThumbnail>
+                      <ItemThumbnail>
+                        {thumbnail ? (
+                          <img src={thumbnail} alt={item.title || "상품 이미지"} />
+                        ) : (
+                          "📦"
+                        )}
+                      </ItemThumbnail>
                       <ItemInfo>
                         <ItemName>{item.title}</ItemName>
                         <ItemMeta>
@@ -774,6 +785,13 @@ const ItemThumbnail = styled.div`
   font-size: 22px;
   margin-right: 18px;
   flex-shrink: 0;
+  overflow: hidden;
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
   @media (max-width: 576px) {
     margin-right: 0;
   }
