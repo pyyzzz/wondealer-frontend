@@ -5,6 +5,7 @@ import WalletApi from "../../api/wallet.api";
 import Common from "../../utils/Common";
 import headsetImg from "../../img/headset.JPG";
 import "./MyPage.css";
+
 // ── 아이콘 ──────────────────────────────────────────────────────
 const Icon = {
   Coins: () => (
@@ -3028,15 +3029,9 @@ export default function MyPage({ tab: defaultTab }) {
   // 잔액은 이 함수가 유일한 출처. 충전/출금 직후에도, 페이지 재진입 시에도 항상 이걸로 서버와 재동기화한다.
   const fetchBalance = useCallback(async () => {
     try {
-      const res = await fetch(`${Common.API_URL}/api/members/me`, {
-        headers: { Authorization: `Bearer ${token()}` },
-        cache: "no-store",
-      });
-      if (res.ok) {
-        const d = await res.json();
-        const p = d?.data ?? d;
-        setSharedBalance(p?.mileage ?? p?.balance ?? p?.mileageBalance ?? 0);
-      }
+      const res = await WalletApi.getWallet();
+      const d = res.data?.data ?? res.data;
+      setSharedBalance(d?.balance ?? d?.mileage ?? d?.mileageBalance ?? 0);
     } catch (e) {
       console.error("잔액 조회 오류:", e);
     }
