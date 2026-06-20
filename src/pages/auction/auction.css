@@ -67,6 +67,7 @@
 
 /* 이미지 영역 */
 .detail-image-box {
+  position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
   background: var(--bg-container-low);
@@ -89,6 +90,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  cursor: zoom-in;
 }
 
 .detail-image-fallback {
@@ -108,10 +110,128 @@
   height: 7px;
   border-radius: 50%;
   background: var(--border-color);
+  cursor: pointer;
 }
 
 .detail-image-dot.active {
   background: var(--color-primary);
+}
+
+.detail-image-arrow,
+.detail-image-modal-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.detail-image-arrow:hover,
+.detail-image-modal-arrow:hover {
+  background: rgba(0, 0, 0, 0.65);
+  transform: translateY(-50%) scale(1.04);
+}
+
+.detail-image-arrow::before,
+.detail-image-modal-arrow::before {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.detail-image-arrow.left,
+.detail-image-modal-arrow.left {
+  left: 12px;
+}
+
+.detail-image-arrow.right,
+.detail-image-modal-arrow.right {
+  right: 12px;
+}
+
+.detail-image-arrow.left::before,
+.detail-image-modal-arrow.left::before {
+  content: "<";
+}
+
+.detail-image-arrow.right::before,
+.detail-image-modal-arrow.right::before {
+  content: ">";
+}
+
+.detail-image-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.detail-image-modal-box {
+  position: relative;
+  width: min(92vw, 920px);
+  height: min(84vh, 720px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-image-modal-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #000;
+}
+
+.detail-image-modal-close {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 26px;
+  cursor: pointer;
+  z-index: 4;
+}
+
+.detail-image-modal-arrow.left {
+  left: 18px;
+}
+
+.detail-image-modal-arrow.right {
+  right: 18px;
+}
+
+.detail-image-modal-count {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
 }
 
 /* 정보 컬럼 */

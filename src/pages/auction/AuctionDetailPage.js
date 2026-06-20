@@ -80,6 +80,8 @@ export default function AuctionDetailPage() {
   const [bidding, setBidding] = useState(false);
   const [timeStr, setTimeStr] = useState("");
   const [showBidModal, setShowBidModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [currentImg, setCurrentImg] = useState(0);
   const [closing, setClosing] = useState(false);
 
   const getBidList = (response) => {
@@ -99,6 +101,7 @@ export default function AuctionDetailPage() {
         const raw = r.data?.data || r.data;
         const d = normalizeAuction(raw);
         setAuction(d);
+        setCurrentImg(0);
         setTimeStr(timeLeft(d?.endAt || d?.endTime));
       })
       .catch(() => navigate("/auctions"))
@@ -123,21 +126,22 @@ export default function AuctionDetailPage() {
 
   // 모달이 열려 있을 때 배경 스크롤 잠금
   useEffect(() => {
-    document.body.style.overflow = showBidModal ? "hidden" : "";
+    document.body.style.overflow = showBidModal || showImageModal ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [showBidModal]);
+  }, [showBidModal, showImageModal]);
 
   // ESC 키로 모달 닫기
   useEffect(() => {
-    if (!showBidModal) return;
+    if (!showBidModal && !showImageModal) return;
     const onKeyDown = (e) => {
       if (e.key === "Escape") setShowBidModal(false);
+      if (e.key === "Escape") setShowImageModal(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [showBidModal]);
+  }, [showBidModal, showImageModal]);
 
   const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
 
@@ -298,6 +302,18 @@ export default function AuctionDetailPage() {
     : null;
   const minBid = currentBid + minBidUnit;
   const visibleBids = bids.slice(0, 3);
+  const auctionImages = Array.isArray(auction.images) ? auction.images : [];
+  const hasAuctionImages = auctionImages.length > 0 || !!auction.imageUrl;
+  const hasMultipleImages = auctionImages.length > 1;
+  const currentImage = auctionImages[currentImg] || auction.imageUrl;
+  const showPrevImage = () => {
+    if (!hasMultipleImages) return;
+    setCurrentImg((prev) => (prev - 1 + auctionImages.length) % auctionImages.length);
+  };
+  const showNextImage = () => {
+    if (!hasMultipleImages) return;
+    setCurrentImg((prev) => (prev + 1) % auctionImages.length);
+  };
 
   return (
     <div className="detail-wrap">
@@ -313,22 +329,44 @@ export default function AuctionDetailPage() {
         {/* 왼쪽: 이미지 + 상세설명 */}
         <div>
           <div className="detail-image-box">
-            {auction.imageUrl ? (
+            {currentImage ? (
               <img
-                src={auction.imageUrl}
+                src={currentImage}
                 alt={auction.title}
                 className="detail-image-img"
+                onClick={() => setShowImageModal(true)}
               />
             ) : (
               <span className="detail-image-fallback">🔨</span>
             )}
+            {hasMultipleImages && (
+              <>
+                <button
+                  type="button"
+                  className="detail-image-arrow left"
+                  onClick={showPrevImage}
+                  aria-label="이전 이미지"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="detail-image-arrow right"
+                  onClick={showNextImage}
+                  aria-label="다음 이미지"
+                >
+                  ›
+                </button>
+              </>
+            )}
           </div>
-          {Array.isArray(auction.images) && auction.images.length > 1 && (
+          {hasMultipleImages && (
             <div className="detail-image-dots">
-              {auction.images.map((_, i) => (
+              {auctionImages.map((_, i) => (
                 <span
                   key={i}
-                  className={`detail-image-dot ${i === 0 ? "active" : ""}`}
+                  className={`detail-image-dot ${i === currentImg ? "active" : ""}`}
+                  onClick={() => setCurrentImg(i)}
                 />
               ))}
             </div>
@@ -492,6 +530,57 @@ export default function AuctionDetailPage() {
           </div>
         </div>
       </div>
+
+      {showImageModal && hasAuctionImages && (
+        <div
+          className="detail-image-modal-overlay"
+          onClick={() => setShowImageModal(false)}
+        >
+          <div
+            className="detail-image-modal-box"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="detail-image-modal-close"
+              onClick={() => setShowImageModal(false)}
+              aria-label="이미지 닫기"
+            >
+              ×
+            </button>
+            {hasMultipleImages && (
+              <button
+                type="button"
+                className="detail-image-modal-arrow left"
+                onClick={showPrevImage}
+                aria-label="이전 이미지"
+              >
+                {"<"}
+              </button>
+            )}
+            <img
+              src={currentImage}
+              alt={auction.title}
+              className="detail-image-modal-img"
+            />
+            {hasMultipleImages && (
+              <button
+                type="button"
+                className="detail-image-modal-arrow right"
+                onClick={showNextImage}
+                aria-label="다음 이미지"
+              >
+                {">"}
+              </button>
+            )}
+            {hasMultipleImages && (
+              <div className="detail-image-modal-count">
+                {currentImg + 1} / {auctionImages.length}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 전체 입찰 내역 모달 */}
       {showBidModal && (

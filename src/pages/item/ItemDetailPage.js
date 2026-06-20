@@ -34,6 +34,7 @@ export default function ItemDetailPage() {
   const [loading, setLoading] = useState(true);
   const [chatLoading, setChatLoading] = useState(false);
   const [currentImg, setCurrentImg] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -95,6 +96,16 @@ export default function ItemDetailPage() {
   const price = item.price ?? item.basePrice ?? 0;
   const images = item.images ?? item.imageUrls ?? [];
   const stats = item.stats ?? [];
+  const hasImages = images.length > 0;
+  const hasMultipleImages = images.length > 1;
+  const showPrevImage = () => {
+    if (!hasMultipleImages) return;
+    setCurrentImg((prev) => (prev - 1 + images.length) % images.length);
+  };
+  const showNextImage = () => {
+    if (!hasMultipleImages) return;
+    setCurrentImg((prev) => (prev + 1) % images.length);
+  };
   const myNickname = user?.nickname ?? "";
   const sellerNickname = item.sellerNickname ?? item.seller ?? "";
   const isMine =
@@ -108,23 +119,45 @@ export default function ItemDetailPage() {
       <DetailGrid>
         <MediaSection>
           <MainImageBox>
-            {images.length > 0 ? (
+            {hasImages ? (
               <img
                 src={images[currentImg]}
                 alt={item.title}
+                onClick={() => setShowImageModal(true)}
                 style={{
                   width: "100%",
                   height: "100%",
                   objectFit: "cover",
                   borderRadius: 12,
+                  cursor: "zoom-in",
                 }}
               />
             ) : (
               <ImgPlaceholder>📦</ImgPlaceholder>
             )}
+            {hasMultipleImages && (
+              <>
+                <ImageArrowButton
+                  type="button"
+                  $side="left"
+                  onClick={showPrevImage}
+                  aria-label="이전 이미지"
+                >
+                  ‹
+                </ImageArrowButton>
+                <ImageArrowButton
+                  type="button"
+                  $side="right"
+                  onClick={showNextImage}
+                  aria-label="다음 이미지"
+                >
+                  ›
+                </ImageArrowButton>
+              </>
+            )}
             <GradeBadge>{item.grade ?? "일반"}</GradeBadge>
           </MainImageBox>
-          {images.length > 1 && (
+          {hasMultipleImages && (
             <DotRow>
               {images.map((_, i) => (
                 <Dot
@@ -207,6 +240,44 @@ export default function ItemDetailPage() {
           </EscrowBanner>
         </InfoSection>
       </DetailGrid>
+
+      {showImageModal && hasImages && (
+        <ImageModalOverlay onClick={() => setShowImageModal(false)}>
+          <ImageModalBox onClick={(e) => e.stopPropagation()}>
+            <ImageModalClose
+              type="button"
+              onClick={() => setShowImageModal(false)}
+              aria-label="이미지 닫기"
+            >
+              ×
+            </ImageModalClose>
+            {hasMultipleImages && (
+              <ImageModalArrow
+                type="button"
+                $side="left"
+                onClick={showPrevImage}
+                aria-label="이전 이미지"
+              >
+                ‹
+              </ImageModalArrow>
+            )}
+            <ImageModalImg src={images[currentImg]} alt={item.title} />
+            {hasMultipleImages && (
+              <ImageModalArrow
+                type="button"
+                $side="right"
+                onClick={showNextImage}
+                aria-label="다음 이미지"
+              >
+                ›
+              </ImageModalArrow>
+            )}
+            <ImageModalCount>
+              {currentImg + 1} / {images.length}
+            </ImageModalCount>
+          </ImageModalBox>
+        </ImageModalOverlay>
+      )}
     </PageWrap>
   );
 }
@@ -311,6 +382,92 @@ export const Dot = styled.div`
   background: ${(p) =>
     p.$active ? "var(--color-primary)" : "var(--border-color)"};
   cursor: pointer;
+`;
+
+export const ImageArrowButton = styled.button`
+  position: absolute;
+  top: 50%;
+  ${(p) => (p.$side === "left" ? "left: 12px;" : "right: 12px;")}
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+  &:hover {
+    background: rgba(0, 0, 0, 0.65);
+    transform: translateY(-50%) scale(1.04);
+  }
+`;
+
+export const ImageModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+`;
+
+export const ImageModalBox = styled.div`
+  position: relative;
+  width: min(92vw, 920px);
+  height: min(84vh, 720px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+export const ImageModalImg = styled.img`
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #000;
+`;
+
+export const ImageModalClose = styled.button`
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 26px;
+  cursor: pointer;
+  z-index: 4;
+`;
+
+export const ImageModalArrow = styled(ImageArrowButton)`
+  ${(p) => (p.$side === "left" ? "left: 18px;" : "right: 18px;")}
+`;
+
+export const ImageModalCount = styled.div`
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
 `;
 
 export const StatBar = styled.div`
