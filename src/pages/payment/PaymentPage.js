@@ -5,6 +5,8 @@ import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 
 const fmt = (n) => Number(n ?? 0).toLocaleString("ko-KR");
+const toNumber = (value) =>
+  Number(String(value ?? 0).replace(/[^\d.-]/g, "")) || 0;
 
 const loadPortOneSdk = () =>
   new Promise((resolve, reject) => {
@@ -109,7 +111,7 @@ const PaymentPage = ({
     thirdParty: false,
   });
 
-  const productPrice = Number(
+  const productPrice = toNumber(
     product?.price ??
       product?.basePrice ??
       product?.itemPrice ??
@@ -127,8 +129,12 @@ const PaymentPage = ({
       const fetchWalletBalance = async () => {
         try {
           const response = await WalletApi.getWallet();
-          const bal =
-            response.data?.data?.balance ?? response.data?.balance ?? 0;
+          const bal = toNumber(
+            response.data?.data?.balance ??
+              response.data?.balance ??
+              response.data?.data?.wallet?.balance ??
+              response.data?.wallet?.balance,
+          );
           setBalance(bal);
         } catch (error) {
           console.error("지갑 잔액 조회 실패:", error);

@@ -178,8 +178,12 @@ function roomItemId(r) {
     null
   );
 }
+function toNumber(value) {
+  if (value === null || value === undefined) return 0;
+  return Number(String(value).replace(/[^\d.-]/g, "")) || 0;
+}
 function getRoomPrice(r) {
-  return Number(
+  return toNumber(
     r?.itemPrice ??
       r?.tradePrice ??
       r?.basePrice ??
@@ -189,6 +193,38 @@ function getRoomPrice(r) {
       r?.item?.basePrice ??
       r?.product?.price ??
       0,
+  );
+}
+async function enrichRoomsWithItemInfo(rooms) {
+  return Promise.all(
+    rooms.map(async (room) => {
+      if (roomItemId(room) && getRoomPrice(room)) return room;
+      const title = roomItem(room);
+      if (!title || title.includes("아이템")) return room;
+      try {
+        const res = await AxiosInstance.get("/api/items", {
+          params: { keyword: title, page: 0, size: 5 },
+        });
+        const list =
+          res.data?.data?.content ?? res.data?.content ?? res.data ?? [];
+        const item =
+          list.find((it) => (it.title ?? it.itemTitle ?? it.name) === title) ??
+          list[0];
+        if (!item) return room;
+        return {
+          ...room,
+          itemId: item.itemId ?? item.id ?? room.itemId,
+          itemPrice:
+            item.basePrice ?? item.price ?? item.itemPrice ?? room.itemPrice,
+          gameName: item.gameName ?? room.gameName,
+          serverName: item.serverName ?? room.serverName,
+          sellerNickname: item.sellerNickname ?? room.sellerNickname,
+          thumbnailImg: room.thumbnailImg ?? item.thumbnailImg ?? item.imageUrl,
+        };
+      } catch {
+        return room;
+      }
+    }),
   );
 }
 function roomProduct(r) {
@@ -445,6 +481,7 @@ export default function ChatPage() {
   const [showPay, setShowPay] = useState(false);
 
   const endRef = useRef(null);
+  const prevMessageCountRef = useRef(0);
   const activeRoom =
     rooms.find((r) => String(roomId(r)) === String(selectedId)) ?? null;
   const isDone = getStep(roomStatus(activeRoom ?? {})) >= 2;
@@ -480,10 +517,15 @@ export default function ChatPage() {
                 tradeStatus: isCompleted ? "COMPLETED" : r.tradeStatus,
                 lastMessage: msgContent(msg),
                 lastMessageTime: msgTime(msg),
+                unreadCount:
+                  msgSenderNickname(msg) === myNickname ? r.unreadCount : 0,
               }
             : r,
         ),
       );
+      if (msgSenderNickname(msg) !== myNickname && selectedId) {
+        ChatApi.readMessages(selectedId).catch(() => {});
+      }
     },
     [myNickname, selectedId],
   );
@@ -493,8 +535,9 @@ export default function ChatPage() {
   useEffect(() => {
     setRoomsLoad(true);
     ChatApi.getChatRooms({ page: 0, size: 50 })
-      .then((res) => {
-        const list = res.data?.data?.content ?? res.data?.content ?? [];
+      .then(async (res) => {
+        const rawList = res.data?.data?.content ?? res.data?.content ?? [];
+        const list = await enrichRoomsWithItemInfo(rawList);
         setRooms(list);
         const urlRoom = searchParams.get("roomId");
         if (urlRoom) {
@@ -534,13 +577,44 @@ export default function ChatPage() {
       .finally(() => setMsgLoad(false));
   }, []);
 
+  const syncReadStatus = useCallback((rId) => {
+    if (!rId) return;
+    ChatApi.getChatMessages(rId, { page: 0, size: 50 })
+      .then((res) => {
+        const raw =
+          res.data?.data?.content ?? res.data?.content ?? res.data ?? [];
+        const readMap = new Map(
+          raw
+            .filter((m) => msgId(m))
+            .map((m) => [String(msgId(m)), msgRead(m)]),
+        );
+        setMessages((prev) =>
+          prev.map((m) => {
+            const id = msgId(m);
+            if (!id || !readMap.has(String(id))) return m;
+            return { ...m, isRead: readMap.get(String(id)) };
+          }),
+        );
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (selectedId) loadMessages(selectedId);
   }, [selectedId]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (!selectedId) return undefined;
+    const timer = setInterval(() => syncReadStatus(selectedId), 5000);
+    return () => clearInterval(timer);
+  }, [selectedId, syncReadStatus]);
+
+  useEffect(() => {
+    if (messages.length > prevMessageCountRef.current) {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevMessageCountRef.current = messages.length;
+  }, [messages.length]);
 
   useEffect(() => {
     if (isDone) setInput("");
