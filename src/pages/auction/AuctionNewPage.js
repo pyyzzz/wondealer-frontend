@@ -4,6 +4,7 @@ import styled from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import ItemApi from "../../api/item.api";
 import AuctionApi from "../../api/auction.api";
+import { uploadImageFiles } from "../../utils/firebaseUpload";
 
 import clock from "../../img/clock.svg";
 import imgsc from "../../img/imgsc.svg";
@@ -183,6 +184,21 @@ const AuctionNewPage = () => {
       };
 
       // 백엔드가 @RequestBody(JSON)만 받으므로 이미지는 현재 전송 불가
+      try {
+        const uploadedUrls = await uploadImageFiles(
+          images.map((image) => image.file),
+          "auctions",
+        );
+        if (uploadedUrls.length > 0) {
+          console.log("Firebase uploaded image URLs:", uploadedUrls);
+        }
+      } catch (uploadError) {
+        console.warn(
+          "이미지 업로드 실패, 이미지 없이 경매를 등록합니다.",
+          uploadError,
+        );
+      }
+
       await AuctionApi.createAuction(payload);
 
       alert("경매 물품 등록이 완료되었습니다!");

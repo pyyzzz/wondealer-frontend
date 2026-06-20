@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import WalletApi from "../../api/wallet.api";
-import AxiosInstance from "../../api/AxiosInstance";
+import TradeApi from "../../api/trade.api";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 
@@ -170,10 +170,7 @@ const PaymentPage = ({
           return;
         }
 
-        await AxiosInstance.post("/api/trades", {
-          itemId,
-          paymentMethod: "WONPAY",
-        });
+        await TradeApi.createWonPayTrade(itemId); // trade.api.js 호출
 
         if (onPaymentSuccess) onPaymentSuccess(balance - totalAmount);
         onClose();
@@ -200,11 +197,11 @@ const PaymentPage = ({
           throw new Error(portoneRes.message || "카드 결제가 취소되었습니다.");
         }
 
-        const completeResponse = await AxiosInstance.post("/api/trades", {
+        const completeResponse = await TradeApi.createPortOneTrade(
+          // itemId와 paymentId 넘겨줌
           itemId,
-          paymentMethod: "PORTONE",
           paymentId,
-        });
+        ); // 결과 데이터를 completeResponse에 담는다
         const completeData =
           completeResponse.data?.data ?? completeResponse.data;
 

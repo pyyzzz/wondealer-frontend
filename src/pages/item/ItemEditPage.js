@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate, useParams } from "react-router-dom";
 import ItemApi from "../../api/item.api";
+import { uploadImageFiles } from "../../utils/firebaseUpload";
 
 import item from "../../img/item.svg";
 import gameMoney from "../../img/gamemoney.svg";
@@ -130,6 +131,21 @@ const ItemEditPage = () => {
     };
 
     try {
+      try {
+        const uploadedUrls = await uploadImageFiles(
+          images.map((image) => image.file),
+          "items",
+        );
+        if (uploadedUrls.length > 0) {
+          console.log("Firebase uploaded image URLs:", uploadedUrls);
+        }
+      } catch (uploadError) {
+        console.warn(
+          "이미지 업로드 실패, 이미지 없이 상품을 수정합니다.",
+          uploadError,
+        );
+      }
+
       await ItemApi.updateItem(itemId, updateData);
       alert("물품 정보 수정이 완료되었습니다!");
       navigate("/mypage");
@@ -303,7 +319,7 @@ const ItemEditPage = () => {
       </SectionContainer>
 
       {/* 가격 설정 + 이미지 등록 */}
-      <BottomGrid isMoney={category === "money"}>
+      <BottomGrid $single={category === "money"}>
         <SectionContainer style={{ margin: 0 }}>
           <SectionTitle>
             <span>04</span> 가격 설정
@@ -359,7 +375,7 @@ const ItemEditPage = () => {
                 {[...Array(5)].map((_, i) => {
                   const imgData = images[i];
                   return (
-                    <PreviewSlot key={i} hasImage={!!imgData}>
+                    <PreviewSlot key={i} $hasImage={!!imgData}>
                       {imgData ? (
                         <>
                           <img
@@ -433,20 +449,106 @@ const RowGrid = styled.div`
 const BottomGrid = styled.div`
   display: grid;
   grid-template-columns: ${(props) =>
-    props.isMoney ? "1fr" : "repeat(2, 1fr)"};
+    props.$single ? "1fr" : "repeat(2, 1fr)"};
   gap: 24px;
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
   }
 `;
 
+const UploadContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+`;
+const HiddenFileInput = styled.input`
+  display: none;
+`;
+const UploadMainZone = styled.div`
+  border: 1px dashed var(--outline);
+  border-radius: 8px;
+  padding: 32px 24px;
+  background-color: var(--bg-container-low);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex: 1;
+  transition: border-color 0.2s;
+  &:hover {
+    border-color: var(--color-primary);
+  }
+  @media (max-width: 480px) {
+    padding: 24px 16px;
+  }
+`;
+const UploadIcon = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  .upload-main-icon {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+  }
+`;
+const UploadTextMain = styled.p`
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+`;
+const UploadTextSub = styled.p`
+  font-size: 11px;
+  color: var(--text-secondary);
+`;
 const PreviewRow = styled.div`
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 8px;
-  @media (max-width: 768px) {
-    grid-template-columns: repeat(3, 1fr);
+`;
+const PreviewSlot = styled.div`
+  background-color: var(--bg-container-low);
+  border: 1px solid
+    ${(props) => (props.$hasImage ? "var(--outline)" : "var(--border-color)")};
+  border-radius: 6px;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  color: var(--outline);
+  .uploaded-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
+  .preview-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+  }
+`;
+const RemoveButton = styled.button`
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
 `;
 
 const ButtonGroup = styled.div`

@@ -1,10 +1,10 @@
-// AuctionEditPage.js - 수정된 전체 코드
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import ItemApi from "../../api/item.api";
 import AuctionApi from "../../api/auction.api";
+import { uploadImageFiles } from "../../utils/firebaseUpload";
 
 import clock from "../../img/clock.svg";
 import imgsc from "../../img/imgsc.svg";
@@ -154,6 +154,21 @@ const AuctionEditPage = () => {
         startPrice: rawStart,
         auctionDays: Math.round(duration / 24),
       };
+      try {
+        const uploadedUrls = await uploadImageFiles(
+          images.map((image) => image.file),
+          "auctions",
+        );
+        if (uploadedUrls.length > 0) {
+          console.log("Firebase uploaded image URLs:", uploadedUrls);
+        }
+      } catch (uploadError) {
+        console.warn(
+          "이미지 업로드 실패, 이미지 없이 경매를 수정합니다.",
+          uploadError,
+        );
+      }
+
       await AuctionApi.updateAuction(id, payload);
       alert("경매 수정이 완료되었습니다!");
       navigate(`/auctions/${id}`);
