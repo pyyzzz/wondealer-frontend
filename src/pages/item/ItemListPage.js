@@ -1,42 +1,195 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import styled, { createGlobalStyle, ThemeProvider } from "styled-components";
 import ItemApi from "../../api/item.api";
-import { useTheme } from "../../context/ThemeContext";
 
-const darkTheme = {
-  bgPrimary: "#0b0c10",
-  bgContainer: "#12131a",
-  bgContainerLow: "#1c1d26",
-  borderColor: "#1f2029",
-  borderHover: "#2d2f3d",
-  textPrimary: "#e2e8f0",
-  textSecondary: "#62667d",
-  textMuted: "#3c4060",
-  colorPrimary: "#635bff",
-  colorPrimaryHover: "#4335b3",
-  sidebarActiveText: "#8083ff",
-  sidebarActiveBg: "#635bff22",
-  toggleBg: "#1c1d26",
-  toggleBorder: "#2d2f3d",
-};
+/* ── 인라인 스타일 (CSS 파일 없이 단일 파일로 완결) ── */
+const css = `
+  .il-page {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 40px 5%;
+    box-sizing: border-box;
+    font-family: "Noto Sans KR", sans-serif;
+  }
+  @media (max-width: 768px) { .il-page { padding: 20px 4%; } }
 
-const lightTheme = {
-  bgPrimary: "#f5f6fa",
-  bgContainer: "#ffffff",
-  bgContainerLow: "#f0f1f7",
-  borderColor: "#e2e4f0",
-  borderHover: "#c5c7dc",
-  textPrimary: "#1a1b2e",
-  textSecondary: "#6b7080",
-  textMuted: "#b0b3c6",
-  colorPrimary: "#635bff",
-  colorPrimaryHover: "#4335b3",
-  sidebarActiveText: "#635bff",
-  sidebarActiveBg: "#635bff18",
-  toggleBg: "#e8e9f5",
-  toggleBorder: "#d1d3e8",
-};
+  /* 상단 */
+  .il-top { display: flex; flex-direction: column; margin-bottom: 32px; gap: 20px; }
+
+  /* 헤더 행 */
+  .il-header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  .il-title { font-size: 24px; font-weight: 800; color: var(--text-primary); margin: 0; letter-spacing: -0.5px; }
+  @media (max-width: 480px) { .il-title { font-size: 20px; } }
+
+  .il-add-btn {
+    background: var(--color-primary); color: var(--on-primary); border: none;
+    padding: 10px 20px; border-radius: 8px; font-weight: 700; font-size: 14px;
+    cursor: pointer; white-space: nowrap; transition: opacity 0.2s;
+  }
+  .il-add-btn:hover { opacity: 0.88; }
+  @media (max-width: 480px) { .il-add-btn { padding: 8px 14px; font-size: 13px; } }
+
+  /* 게임 탭 */
+  .il-game-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  .il-game-tabs::-webkit-scrollbar { height: 3px; }
+  .il-game-tabs::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+
+  .il-game-tab {
+    background-color: var(--bg-container-low); color: var(--text-secondary);
+    border: 1px solid var(--border-color); padding: 8px 18px; border-radius: 20px;
+    cursor: pointer; white-space: nowrap; font-size: 13px; font-weight: 500;
+    transition: background-color 0.18s, color 0.18s;
+  }
+  .il-game-tab:hover,
+  .il-game-tab.active { background-color: var(--color-primary); color: var(--on-primary); border-color: transparent; }
+
+  /* 검색 + 카테고리 */
+  .il-filter-area { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+
+  .il-search-form {
+    display: flex; align-items: center; background-color: var(--bg-container-low);
+    border: 1px solid var(--border-color); border-radius: 25px; padding: 4px 16px;
+    width: 280px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: border-color 0.2s;
+  }
+  .il-search-form:focus-within { border-color: var(--color-primary); }
+  @media (max-width: 480px) { .il-search-form { width: 100%; } }
+
+  .il-search-input {
+    border: none; outline: none; background: transparent;
+    padding: 8px 4px; width: 100%; font-size: 14px; color: var(--text-primary);
+  }
+  .il-search-input::placeholder { color: var(--text-secondary); }
+
+  .il-search-btn {
+    background: none; border: none; color: var(--color-primary);
+    cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+
+  .il-category-tabs { display: flex; gap: 8px; align-items: center; overflow-x: auto; padding-bottom: 4px; flex-wrap: wrap; }
+
+  .il-category-tab {
+    height: 34px; padding: 0 16px; border-radius: 20px; border: 1px solid var(--border-color);
+    background-color: transparent; color: var(--text-secondary); font-size: 13px;
+    font-weight: 500; white-space: nowrap; cursor: pointer; transition: 0.2s;
+  }
+  .il-category-tab:hover,
+  .il-category-tab.active { background-color: var(--color-primary); color: var(--on-primary); border-color: transparent; }
+
+  /* 메인 레이아웃 */
+  .il-main { display: flex; gap: 36px; }
+  @media (max-width: 992px) { .il-main { flex-direction: column; gap: 20px; } }
+
+  /* 사이드바 */
+  .il-sidebar { width: 200px; flex-shrink: 0; }
+  @media (max-width: 992px) { .il-sidebar { width: 100%; } }
+
+  .il-sidebar-title { font-size: 15px; font-weight: 600; color: var(--color-primary); margin: 0 0 16px; display: flex; flex-direction: column; }
+  .il-sidebar-title span { font-size: 10px; font-weight: 400; color: var(--text-secondary); margin-top: 3px; letter-spacing: 0.5px; }
+  @media (max-width: 992px) { .il-sidebar-title { margin-bottom: 10px; } }
+
+  .il-server-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+  @media (max-width: 992px) {
+    .il-server-list { flex-direction: row; overflow-x: auto; padding-bottom: 6px; gap: 6px; }
+    .il-server-list::-webkit-scrollbar { height: 3px; }
+    .il-server-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+  }
+
+  .il-server-item {
+    padding: 10px 14px; border-radius: 6px; font-size: 14px; cursor: pointer;
+    color: var(--text-secondary); font-weight: 400; transition: background-color 0.15s, color 0.15s;
+  }
+  .il-server-item:hover { background-color: var(--bg-container-low); color: var(--text-primary); }
+  .il-server-item.active { background-color: var(--color-primary); color: var(--on-primary); font-weight: 600; }
+
+  @media (max-width: 992px) {
+    .il-server-item { white-space: nowrap; padding: 7px 14px; border: 1px solid var(--border-color); border-radius: 20px; }
+    .il-server-item.active { border-color: var(--color-primary); }
+  }
+
+  .il-server-empty { font-size: 12px; color: var(--text-secondary); padding: 8px 10px; }
+
+  /* 목록 섹션 */
+  .il-list-section { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+  .il-total { font-size: 13px; color: var(--text-secondary); }
+  .il-total strong { color: var(--text-primary); }
+
+  /* 카드 */
+  .il-card {
+    display: flex; align-items: center; background-color: var(--bg-container);
+    border: 1px solid var(--border-color); border-radius: 10px; padding: 16px 20px;
+    cursor: pointer; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  .il-card:hover {
+    border-color: var(--color-primary); transform: translateX(4px);
+    box-shadow: 0 2px 12px rgba(99,91,255,0.08);
+  }
+  @media (max-width: 576px) {
+    .il-card { flex-direction: column; align-items: flex-start; gap: 14px; padding: 14px 16px; }
+    .il-card:hover { transform: none; }
+  }
+
+  /* 썸네일 */
+  .il-thumb {
+    width: 52px; height: 52px; background: var(--bg-container-low); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    margin-right: 20px; flex-shrink: 0; overflow: hidden;
+  }
+  .il-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  @media (max-width: 576px) { .il-thumb { margin-right: 0; } }
+
+  /* 아이템 정보 */
+  .il-info { flex: 1; min-width: 0; }
+  .il-item-name {
+    font-size: 15px; font-weight: 500; color: var(--text-primary);
+    margin: 0 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .il-item-meta { font-size: 12px; color: var(--text-secondary); display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .il-game-tag { color: var(--color-primary); font-weight: 600; }
+  .il-divider { margin: 0 4px; color: var(--border-color); }
+
+  /* 액션 그룹 */
+  .il-action-group { display: flex; align-items: center; gap: 24px; flex-shrink: 0; }
+  @media (max-width: 576px) {
+    .il-action-group { width: 100%; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 12px; }
+  }
+
+  .il-price-box { text-align: right; }
+  @media (max-width: 576px) { .il-price-box { text-align: left; } }
+  .il-price-label { font-size: 10px; color: var(--text-secondary); margin-bottom: 2px; }
+  .il-price-value { font-size: 18px; font-weight: 700; color: var(--color-primary); }
+
+  .il-buy-btn {
+    background: var(--color-primary); color: var(--on-primary); border: none;
+    border-radius: 6px; padding: 10px 20px; font-size: 13px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: opacity 0.2s;
+  }
+  .il-buy-btn:hover { opacity: 0.88; }
+
+  /* 상태 텍스트 */
+  .il-status { padding: 80px 0; text-align: center; color: var(--text-secondary); font-size: 14px; }
+
+  /* 페이지네이션 */
+  .il-pagination { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 30px; flex-wrap: wrap; }
+
+  .il-page-arrow {
+    background: var(--bg-container-low); border: 1px solid var(--border-color);
+    color: var(--text-primary); width: 34px; height: 34px; border-radius: 8px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.2s, opacity 0.2s;
+  }
+  .il-page-arrow:disabled { opacity: 0.3; cursor: default; }
+  .il-page-arrow:not(:disabled):hover { border-color: var(--color-primary); }
+
+  .il-page-num {
+    background: var(--bg-container-low); border: 1px solid var(--border-color);
+    color: var(--text-secondary); width: 34px; height: 34px; border-radius: 8px;
+    font-size: 13px; font-weight: 400; cursor: pointer; transition: background-color 0.15s;
+  }
+  .il-page-num:hover { border-color: var(--color-primary); color: var(--text-primary); }
+  .il-page-num.active { background: var(--color-primary); border-color: var(--color-primary); color: var(--on-primary); font-weight: 700; }
+`;
 
 const Icon = {
   Search: () => (
@@ -76,38 +229,6 @@ const Icon = {
       <polyline points="9 18 15 12 9 6" />
     </svg>
   ),
-  Sun: () => (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <circle cx="12" cy="12" r="5" />
-      <line x1="12" y1="1" x2="12" y2="3" />
-      <line x1="12" y1="21" x2="12" y2="23" />
-      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-      <line x1="1" y1="12" x2="3" y2="12" />
-      <line x1="21" y1="12" x2="23" y2="12" />
-      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-    </svg>
-  ),
-  Moon: () => (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  ),
 };
 
 const SIZE = 10;
@@ -115,12 +236,6 @@ const SIZE = 10;
 export default function ItemListPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { theme: themeMode, setTheme } = useTheme();
-
-  const isDark = themeMode !== "light";
-  const theme = isDark ? darkTheme : lightTheme;
-
-  const toggleTheme = () => setTheme(isDark ? "light" : "dark");
 
   const [games, setGames] = useState([]);
   const [servers, setServers] = useState([]);
@@ -136,7 +251,7 @@ export default function ItemListPage() {
   const [inputKeyword, setInputKeyword] = useState("");
   const [page, setPage] = useState(1);
 
-  // ✅ 게임 목록 로드
+  // 게임 목록 로드
   useEffect(() => {
     ItemApi.getGames()
       .then((r) => {
@@ -146,12 +261,11 @@ export default function ItemListPage() {
       .catch(() => {});
   }, []);
 
-  // ✅ URL 파라미터 변경 감지 → state 동기화
+  // URL 파라미터 → state 동기화
   useEffect(() => {
     const gameIdParam = searchParams.get("gameId");
     const keywordParam = searchParams.get("keyword") || "";
     const gameIdNum = gameIdParam ? Number(gameIdParam) : null;
-
     setSelectedGameId(gameIdNum && !Number.isNaN(gameIdNum) ? gameIdNum : null);
     setKeyword(keywordParam);
     setInputKeyword(keywordParam);
@@ -160,11 +274,10 @@ export default function ItemListPage() {
     setPage(1);
   }, [searchParams]);
 
-  // ✅ 게임 변경 시 서버·카테고리 로드
+  // 게임 변경 시 서버·카테고리 로드
   useEffect(() => {
     setServers([]);
     setCategories([]);
-
     if (!selectedGameId) return;
 
     ItemApi.getGameServers(selectedGameId)
@@ -192,7 +305,7 @@ export default function ItemListPage() {
       .catch(() => {});
   }, [selectedGameId]);
 
-  // ✅ 아이템 조회
+  // 아이템 조회
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
@@ -230,139 +343,139 @@ export default function ItemListPage() {
     setKeyword("");
     setInputKeyword("");
     setPage(1);
-    // ✅ URL 업데이트 → searchParams useEffect가 selectedGameId 자동 반영
     setSearchParams(gameId ? { gameId: String(gameId) } : {});
   };
 
   const totalPages = Math.ceil(total / SIZE) || 1;
-
   const currentGameName = selectedGameId
     ? (games.find((g) => (g.gameId ?? g.id) === selectedGameId)?.gameName ??
       "게임")
     : "전체";
 
   return (
-    <ThemeProvider theme={theme}>
-      <GlobalStyle />
-      <PageLayout>
-        <TopSection>
-          <HeaderRow>
-            <PageTitle>아이템 거래소</PageTitle>
-            <HeaderActions>
-              <ThemeToggle onClick={toggleTheme} aria-label="테마 전환">
-                {isDark ? <Icon.Sun /> : <Icon.Moon />}
-              </ThemeToggle>
-              <AddBtn onClick={() => navigate("/items/new")}>
-                + 판매 등록
-              </AddBtn>
-            </HeaderActions>
-          </HeaderRow>
+    <>
+      <style>{css}</style>
+      <div className="il-page">
+        {/* ── 상단 ── */}
+        <div className="il-top">
+          {/* 헤더 */}
+          <div className="il-header-row">
+            <h1 className="il-title">아이템 거래소</h1>
+            <button
+              className="il-add-btn"
+              onClick={() => navigate("/items/new")}
+            >
+              + 판매 등록
+            </button>
+          </div>
 
           {/* 게임 탭 */}
-          <GameTabContainer>
-            <GameTabButton
-              $active={selectedGameId === null}
+          <div className="il-game-tabs">
+            <button
+              className={`il-game-tab${selectedGameId === null ? " active" : ""}`}
               onClick={() => handleGameSelect(null)}
             >
               전체
-            </GameTabButton>
+            </button>
             {games.map((g) => (
-              <GameTabButton
+              <button
                 key={g.gameId ?? g.id}
-                $active={selectedGameId === (g.gameId ?? g.id)}
+                className={`il-game-tab${selectedGameId === (g.gameId ?? g.id) ? " active" : ""}`}
                 onClick={() => handleGameSelect(g.gameId ?? g.id)}
               >
                 {g.gameName ?? g.name}
-              </GameTabButton>
+              </button>
             ))}
-          </GameTabContainer>
+          </div>
 
           {/* 검색 + 카테고리 */}
-          <FilterArea>
-            <SearchForm onSubmit={handleSearchSubmit}>
-              <SearchInput
+          <div className="il-filter-area">
+            <form className="il-search-form" onSubmit={handleSearchSubmit}>
+              <input
+                className="il-search-input"
                 value={inputKeyword}
                 onChange={(e) => setInputKeyword(e.target.value)}
                 placeholder="아이템, 키워드 검색"
               />
-              <SearchButton type="submit">
+              <button type="submit" className="il-search-btn">
                 <Icon.Search />
-              </SearchButton>
-            </SearchForm>
+              </button>
+            </form>
 
             {categories.length > 0 && (
-              <CategoryTabContainer>
-                <CategoryTab
-                  $active={selectedCategoryId === null}
+              <div className="il-category-tabs">
+                <button
+                  className={`il-category-tab${selectedCategoryId === null ? " active" : ""}`}
                   onClick={() => {
                     setSelectedCategoryId(null);
                     setPage(1);
                   }}
                 >
                   전체
-                </CategoryTab>
+                </button>
                 {categories.map((c) => (
-                  <CategoryTab
+                  <button
                     key={c.id}
-                    $active={selectedCategoryId === c.id}
+                    className={`il-category-tab${selectedCategoryId === c.id ? " active" : ""}`}
                     onClick={() => {
                       setSelectedCategoryId(c.id);
                       setPage(1);
                     }}
                   >
                     {c.name}
-                  </CategoryTab>
+                  </button>
                 ))}
-              </CategoryTabContainer>
+              </div>
             )}
-          </FilterArea>
-        </TopSection>
+          </div>
+        </div>
 
-        <MainContentContainer>
+        {/* ── 메인 콘텐츠 ── */}
+        <div className="il-main">
           {/* 서버 사이드바 */}
-          <ServerSidebar>
-            <SidebarTitle>
+          <aside className="il-sidebar">
+            <h2 className="il-sidebar-title">
               {currentGameName} 서버
               <span>SERVER LIST</span>
-            </SidebarTitle>
-            <ServerList>
-              <ServerItem
-                $active={selectedServerId === null}
+            </h2>
+            <ul className="il-server-list">
+              <li
+                className={`il-server-item${selectedServerId === null ? " active" : ""}`}
                 onClick={() => {
                   setSelectedServerId(null);
                   setPage(1);
                 }}
               >
                 전체 서버
-              </ServerItem>
+              </li>
               {servers.map((s) => (
-                <ServerItem
+                <li
                   key={s.id}
-                  $active={selectedServerId === s.id}
+                  className={`il-server-item${selectedServerId === s.id ? " active" : ""}`}
                   onClick={() => {
                     setSelectedServerId(s.id);
                     setPage(1);
                   }}
                 >
                   {s.name}
-                </ServerItem>
+                </li>
               ))}
               {selectedGameId && servers.length === 0 && (
-                <ServerEmpty>서버 없음</ServerEmpty>
+                <li className="il-server-empty">서버 없음</li>
               )}
-            </ServerList>
-          </ServerSidebar>
+            </ul>
+          </aside>
 
           {/* 아이템 목록 */}
-          <ItemListSection>
-            <TotalIndicator>
+          <section className="il-list-section">
+            <div className="il-total">
               총 <strong>{total}</strong>개의 거래 항목
-            </TotalIndicator>
+            </div>
 
             {loading ? (
-              <StatusText>데이터를 불러오는 중...</StatusText>
+              <div className="il-status">데이터를 불러오는 중...</div>
             ) : items.length === 0 ? (
-              <StatusText>등록된 판매 아이템이 없습니다.</StatusText>
+              <div className="il-status">등록된 판매 아이템이 없습니다.</div>
             ) : (
               <>
                 {items.map((item, idx) => {
@@ -373,549 +486,103 @@ export default function ItemListPage() {
                     item.images?.[0] ||
                     item.imageUrls?.[0];
                   return (
-                    <ItemCard
+                    <div
                       key={itemId}
+                      className="il-card"
                       onClick={() => navigate(`/items/${itemId}`)}
                     >
-                      <ItemThumbnail>
+                      {/* 썸네일 */}
+                      <div className="il-thumb">
                         {thumbnail ? (
-                          <img src={thumbnail} alt={item.title || "상품 이미지"} />
+                          <img
+                            src={thumbnail}
+                            alt={item.title || "상품 이미지"}
+                          />
                         ) : (
                           "📦"
                         )}
-                      </ItemThumbnail>
-                      <ItemInfo>
-                        <ItemName>{item.title}</ItemName>
-                        <ItemMeta>
-                          {item.gameName && <GameTag>{item.gameName}</GameTag>}
+                      </div>
+
+                      {/* 정보 */}
+                      <div className="il-info">
+                        <h3 className="il-item-name">{item.title}</h3>
+                        <div className="il-item-meta">
+                          {item.gameName && (
+                            <span className="il-game-tag">{item.gameName}</span>
+                          )}
                           {item.serverName && (
                             <>
-                              <Divider>|</Divider>
+                              <span className="il-divider">|</span>
                               <span>{item.serverName}</span>
                             </>
                           )}
                           {item.categoryName && (
                             <>
-                              <Divider>·</Divider>
+                              <span className="il-divider">·</span>
                               <span>{item.categoryName}</span>
                             </>
                           )}
-                        </ItemMeta>
-                      </ItemInfo>
-                      <ItemActionGroup>
-                        <PriceContainer>
-                          <PriceLabel>판매 가격</PriceLabel>
-                          <PriceValue>
+                        </div>
+                      </div>
+
+                      {/* 가격 + 버튼 */}
+                      <div className="il-action-group">
+                        <div className="il-price-box">
+                          <div className="il-price-label">판매 가격</div>
+                          <div className="il-price-value">
                             {Number(
                               item.price ?? item.basePrice ?? 0,
                             ).toLocaleString()}
                             원
-                          </PriceValue>
-                        </PriceContainer>
-                        <BuyButton
+                          </div>
+                        </div>
+                        <button
+                          className="il-buy-btn"
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/items/${itemId}`);
                           }}
                         >
                           구매하기
-                        </BuyButton>
-                      </ItemActionGroup>
-                    </ItemCard>
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
 
+                {/* 페이지네이션 */}
                 {totalPages > 1 && (
-                  <PaginationContainer>
-                    <PaginationArrow
+                  <div className="il-pagination">
+                    <button
+                      className="il-page-arrow"
                       disabled={page === 1}
                       onClick={() => setPage((p) => p - 1)}
                     >
                       <Icon.ArrowLeft />
-                    </PaginationArrow>
+                    </button>
                     {Array.from({ length: totalPages }, (_, i) => (
-                      <PaginationNumber
+                      <button
                         key={i + 1}
-                        $active={page === i + 1}
+                        className={`il-page-num${page === i + 1 ? " active" : ""}`}
                         onClick={() => setPage(i + 1)}
                       >
                         {i + 1}
-                      </PaginationNumber>
+                      </button>
                     ))}
-                    <PaginationArrow
+                    <button
+                      className="il-page-arrow"
                       disabled={page === totalPages}
                       onClick={() => setPage((p) => p + 1)}
                     >
                       <Icon.ArrowRight />
-                    </PaginationArrow>
-                  </PaginationContainer>
+                    </button>
+                  </div>
                 )}
               </>
             )}
-          </ItemListSection>
-        </MainContentContainer>
-      </PageLayout>
-    </ThemeProvider>
+          </section>
+        </div>
+      </div>
+    </>
   );
 }
-
-// ── Global ───────────────────────────────────────────────────────
-const GlobalStyle = createGlobalStyle`
-  *, *::before, *::after { box-sizing: border-box; }
-`;
-
-// ── Styled Components (기존 그대로) ──────────────────────────────
-const PageLayout = styled.div`
-  background-color: ${({ theme }) => theme.bgPrimary};
-  color: ${({ theme }) => theme.textPrimary};
-  min-height: 100vh;
-  padding: 40px 8%;
-  font-family: "Noto Sans KR", sans-serif;
-  transition:
-    background-color 0.2s,
-    color 0.2s;
-  @media (max-width: 1024px) {
-    padding: 32px 5%;
-  }
-  @media (max-width: 768px) {
-    padding: 20px 4%;
-  }
-  @media (max-width: 480px) {
-    padding: 16px 4%;
-  }
-`;
-const TopSection = styled.div`
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 32px;
-  gap: 20px;
-`;
-const HeaderRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-`;
-const PageTitle = styled.h1`
-  font-size: 24px;
-  font-weight: 800;
-  color: ${({ theme }) => theme.textPrimary};
-  margin: 0;
-  @media (max-width: 480px) {
-    font-size: 20px;
-  }
-`;
-const HeaderActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`;
-const ThemeToggle = styled.button`
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid ${({ theme }) => theme.toggleBorder};
-  background: ${({ theme }) => theme.toggleBg};
-  color: ${({ theme }) => theme.textSecondary};
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    border-color 0.2s,
-    color 0.2s;
-  &:hover {
-    color: ${({ theme }) => theme.textPrimary};
-  }
-`;
-const AddBtn = styled.button`
-  background: ${({ theme }) => theme.colorPrimary};
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: opacity 0.2s;
-  &:hover {
-    opacity: 0.88;
-  }
-  @media (max-width: 480px) {
-    padding: 8px 14px;
-    font-size: 13px;
-  }
-`;
-const GameTabContainer = styled.div`
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  &::-webkit-scrollbar {
-    height: 3px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: ${({ theme }) => theme.borderHover};
-    border-radius: 4px;
-  }
-`;
-const GameTabButton = styled.button`
-  background-color: ${({ theme, $active }) =>
-    $active ? theme.colorPrimary : theme.bgContainerLow};
-  color: ${({ theme, $active }) => ($active ? "#fff" : theme.textSecondary)};
-  border: 1px solid
-    ${({ theme, $active }) => ($active ? "transparent" : theme.borderHover)};
-  padding: 8px 18px;
-  border-radius: 20px;
-  cursor: pointer;
-  white-space: nowrap;
-  font-size: 13px;
-  font-weight: 500;
-  transition:
-    background-color 0.18s,
-    color 0.18s;
-  &:hover {
-    background-color: ${({ theme, $active }) =>
-      $active ? theme.colorPrimary : theme.borderHover};
-    color: #fff;
-  }
-`;
-const FilterArea = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-`;
-const SearchForm = styled.form`
-  display: flex;
-  align-items: center;
-  background-color: ${({ theme }) => theme.bgContainerLow};
-  border: 1px solid ${({ theme }) => theme.borderColor};
-  border-radius: 25px;
-  padding: 4px 16px;
-  width: 300px;
-  transition: border-color 0.2s;
-  &:focus-within {
-    border-color: ${({ theme }) => theme.colorPrimary};
-  }
-  @media (max-width: 480px) {
-    width: 100%;
-  }
-`;
-const SearchInput = styled.input`
-  border: none;
-  background: transparent;
-  padding: 8px 4px;
-  width: 100%;
-  color: ${({ theme }) => theme.textPrimary};
-  font-size: 14px;
-  outline: none;
-  &::placeholder {
-    color: ${({ theme }) => theme.textSecondary};
-  }
-`;
-const SearchButton = styled.button`
-  background: none;
-  border: none;
-  color: ${({ theme }) => theme.colorPrimary};
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-`;
-const CategoryTabContainer = styled.div`
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-`;
-const CategoryTab = styled.button`
-  background-color: ${({ theme, $active }) =>
-    $active ? theme.colorPrimary : "transparent"};
-  color: ${({ theme, $active }) => ($active ? "#fff" : theme.textSecondary)};
-  border: 1px solid
-    ${({ theme, $active }) =>
-      $active ? theme.colorPrimary : theme.borderHover};
-  padding: 6px 14px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: 0.15s;
-  &:hover {
-    background-color: ${({ theme }) => theme.colorPrimary};
-    color: #fff;
-    border-color: ${({ theme }) => theme.colorPrimary};
-  }
-`;
-const MainContentContainer = styled.div`
-  display: flex;
-  gap: 36px;
-  @media (max-width: 992px) {
-    flex-direction: column;
-    gap: 20px;
-  }
-`;
-const ServerSidebar = styled.aside`
-  width: 200px;
-  flex-shrink: 0;
-  @media (max-width: 992px) {
-    width: 100%;
-  }
-`;
-const SidebarTitle = styled.h2`
-  font-size: 15px;
-  font-weight: 600;
-  color: ${({ theme }) => theme.colorPrimary};
-  margin: 0 0 16px;
-  span {
-    display: block;
-    font-size: 10px;
-    font-weight: 400;
-    color: ${({ theme }) => theme.textMuted};
-    margin-top: 3px;
-    letter-spacing: 0.5px;
-  }
-  @media (max-width: 992px) {
-    margin-bottom: 10px;
-  }
-`;
-const ServerList = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  @media (max-width: 992px) {
-    flex-direction: row;
-    overflow-x: auto;
-    padding-bottom: 6px;
-    gap: 6px;
-    &::-webkit-scrollbar {
-      height: 3px;
-    }
-    &::-webkit-scrollbar-thumb {
-      background: ${({ theme }) => theme.borderHover};
-      border-radius: 4px;
-    }
-  }
-`;
-const ServerItem = styled.li`
-  padding: 10px 14px;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  background-color: ${({ theme, $active }) =>
-    $active ? theme.sidebarActiveBg : "transparent"};
-  color: ${({ theme, $active }) =>
-    $active ? theme.sidebarActiveText : theme.textSecondary};
-  font-weight: ${({ $active }) => ($active ? "600" : "400")};
-  transition:
-    background-color 0.15s,
-    color 0.15s;
-  &:hover {
-    background-color: ${({ theme }) => theme.bgContainerLow};
-    color: ${({ theme }) => theme.textPrimary};
-  }
-  @media (max-width: 992px) {
-    white-space: nowrap;
-    padding: 7px 14px;
-    border: 1px solid
-      ${({ theme, $active }) =>
-        $active ? theme.colorPrimary : theme.borderColor};
-    border-radius: 20px;
-  }
-`;
-const ServerEmpty = styled.li`
-  font-size: 12px;
-  color: ${({ theme }) => theme.textMuted};
-  padding: 8px 10px;
-  list-style: none;
-`;
-const ItemListSection = styled.section`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-`;
-const TotalIndicator = styled.div`
-  font-size: 13px;
-  color: ${({ theme }) => theme.textSecondary};
-  strong {
-    color: ${({ theme }) => theme.textPrimary};
-  }
-`;
-const ItemCard = styled.div`
-  display: flex;
-  align-items: center;
-  background-color: ${({ theme }) => theme.bgContainer};
-  border: 1px solid ${({ theme }) => theme.borderColor};
-  border-radius: 10px;
-  padding: 16px 20px;
-  cursor: pointer;
-  transition:
-    border-color 0.2s,
-    transform 0.2s,
-    box-shadow 0.2s;
-  &:hover {
-    border-color: ${({ theme }) => theme.colorPrimary};
-    transform: translateX(4px);
-    box-shadow: 0 2px 12px rgba(99, 91, 255, 0.08);
-  }
-  @media (max-width: 576px) {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 14px 16px;
-    &:hover {
-      transform: none;
-    }
-  }
-`;
-const ItemThumbnail = styled.div`
-  width: 48px;
-  height: 48px;
-  background: ${({ theme }) => theme.bgContainerLow};
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  margin-right: 18px;
-  flex-shrink: 0;
-  overflow: hidden;
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-  @media (max-width: 576px) {
-    margin-right: 0;
-  }
-`;
-const ItemInfo = styled.div`
-  flex: 1;
-  min-width: 0;
-`;
-const ItemName = styled.h3`
-  font-size: 15px;
-  font-weight: 500;
-  color: ${({ theme }) => theme.textPrimary};
-  margin: 0 0 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
-const ItemMeta = styled.div`
-  font-size: 12px;
-  color: ${({ theme }) => theme.textSecondary};
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-`;
-const GameTag = styled.span`
-  color: ${({ theme }) => theme.colorPrimary};
-  font-weight: 600;
-`;
-const Divider = styled.span`
-  margin: 0 6px;
-  color: ${({ theme }) => theme.borderHover};
-`;
-const ItemActionGroup = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  flex-shrink: 0;
-  @media (max-width: 576px) {
-    width: 100%;
-    justify-content: space-between;
-    border-top: 1px solid ${({ theme }) => theme.borderColor};
-    padding-top: 12px;
-  }
-`;
-const PriceContainer = styled.div`
-  text-align: right;
-  @media (max-width: 576px) {
-    text-align: left;
-  }
-`;
-const PriceLabel = styled.div`
-  font-size: 10px;
-  color: ${({ theme }) => theme.textMuted};
-  margin-bottom: 2px;
-`;
-const PriceValue = styled.div`
-  font-size: 17px;
-  font-weight: 800;
-  color: ${({ theme }) => theme.textPrimary};
-`;
-const BuyButton = styled.button`
-  background: ${({ theme }) => theme.colorPrimary};
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 9px 18px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background-color 0.2s;
-  &:hover {
-    background-color: ${({ theme }) => theme.colorPrimaryHover};
-  }
-`;
-const StatusText = styled.div`
-  padding: 80px 0;
-  text-align: center;
-  color: ${({ theme }) => theme.textSecondary};
-  font-size: 14px;
-`;
-const PaginationContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  margin-top: 28px;
-  flex-wrap: wrap;
-`;
-const PaginationArrow = styled.button`
-  background: ${({ theme }) => theme.bgContainerLow};
-  border: 1px solid ${({ theme }) => theme.borderColor};
-  color: ${({ theme }) => theme.textPrimary};
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.2s;
-  &:disabled {
-    opacity: 0.3;
-    cursor: default;
-  }
-  &:not(:disabled):hover {
-    border-color: ${({ theme }) => theme.colorPrimary};
-  }
-`;
-const PaginationNumber = styled.button`
-  background: ${({ theme, $active }) =>
-    $active ? theme.colorPrimary : theme.bgContainerLow};
-  border: 1px solid
-    ${({ theme, $active }) =>
-      $active ? theme.colorPrimary : theme.borderColor};
-  color: #fff;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: ${({ $active }) => ($active ? "700" : "400")};
-  cursor: pointer;
-  transition: background-color 0.15s;
-  &:hover {
-    border-color: ${({ theme }) => theme.colorPrimary};
-  }
-`;
