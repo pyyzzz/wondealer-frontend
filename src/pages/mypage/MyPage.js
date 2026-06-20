@@ -414,6 +414,9 @@ const CHARGE_PRESETS = [
   { m: 500000, krw: 550000 },
 ];
 
+// 충전 수수료율 (프리셋의 M→KRW 환산 마진과 동일하게 10%로 고정)
+const CHARGE_FEE_RATE = 0.1;
+
 // ── 마일리지 충전 탭 (포트원 V2 연동) ────────────────────────────
 function ChargeTab({ balance, onSuccess, onBack }) {
   const [selected, setSelected] = useState(0);
@@ -425,7 +428,8 @@ function ChargeTab({ balance, onSuccess, onBack }) {
     selected !== null
       ? CHARGE_PRESETS[selected].m
       : Number(custom.replace(/\D/g, "") || 0);
-  const krw = selected !== null ? CHARGE_PRESETS[selected].krw : mileage;
+  const fee = Math.round(mileage * CHARGE_FEE_RATE);
+  const krw = mileage + fee;
 
   const handleCharge = async () => {
     if (mileage < 10000) {
@@ -567,8 +571,8 @@ function ChargeTab({ balance, onSuccess, onBack }) {
               <span className="mp-charge-summary-val">{fmt(mileage)} M</span>
             </div>
             <div className="mp-charge-summary-row">
-              <span>수수료 (0%)</span>
-              <span>0 KRW</span>
+              <span>수수료 ({Math.round(CHARGE_FEE_RATE * 100)}%)</span>
+              <span>{fmt(fee)} KRW</span>
             </div>
             <div className="mp-charge-summary-divider" />
             <div className="mp-charge-summary-row mp-charge-summary-total">
@@ -630,7 +634,7 @@ function WithdrawTab({
   const [error, setError] = useState("");
 
   const requested = Number(amount.replace(/\D/g, "") || 0);
-  const feeRate = 0.02;
+  const feeRate = 0.1;
   const fee = Math.floor(requested * feeRate);
   const MIN = 10000;
   const withdrawable = Math.max(0, balance);
@@ -757,7 +761,7 @@ function WithdrawTab({
 
           <div className="mp-card mp-withdraw-receipt">
             <div className="mp-charge-summary-row">
-              <span>예상 수수료 (2%)</span>
+              <span>예상 수수료 (10%)</span>
               <span style={{ color: "#f87171" }}>- {fmt(fee)} KRW</span>
             </div>
             <div className="mp-charge-summary-divider" />
@@ -991,41 +995,135 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw }) {
   const fetchData = useCallback(async () => {
     const tk = token();
     try {
-      const [txRes, statRes, actRes] = await Promise.allSettled([
-        fetch(`${Common.API_URL}/api/members/me/mileage/transactions?size=3`, {
+      const [buyRes, sellRes, bidRes, itemsRes] = await Promise.allSettled([
+        fetch(`${Common.API_URL}/api/members/me/trades?type=BUY&page=0`, {
           headers: { Authorization: `Bearer ${tk}` },
           cache: "no-store",
         }),
-        fetch(`${Common.API_URL}/api/members/me/stats`, {
+        fetch(`${Common.API_URL}/api/members/me/trades?type=SELL&page=0`, {
           headers: { Authorization: `Bearer ${tk}` },
           cache: "no-store",
         }),
-        fetch(`${Common.API_URL}/api/members/me/activities?size=3`, {
+        fetch(`${Common.API_URL}/api/members/me/bids?page=0`, {
+          headers: { Authorization: `Bearer ${tk}` },
+          cache: "no-store",
+        }),
+        fetch(`${Common.API_URL}/api/members/me/items?page=0`, {
           headers: { Authorization: `Bearer ${tk}` },
           cache: "no-store",
         }),
       ]);
 
-      if (txRes.status === "fulfilled" && txRes.value.ok) {
-        const d = await txRes.value.json();
-        const list = d?.data?.content ?? d?.content ?? d?.data ?? [];
-        setTransactions(Array.isArray(list) ? list.slice(0, 3) : []);
-      }
-      if (statRes.status === "fulfilled" && statRes.value.ok) {
-        const d = await statRes.value.json();
-        const s = d?.data ?? d;
-        setStats({
-          items: s?.sellingItems ?? 0,
-          gameMoney: s?.gameMoney ?? 0,
-          accounts: s?.accounts ?? 0,
-          auctions: s?.auctions ?? 0,
-        });
-      }
-      if (actRes.status === "fulfilled" && actRes.value.ok) {
-        const d = await actRes.value.json();
-        const list = d?.data?.content ?? d?.content ?? d?.data ?? [];
-        setRecentActivity(Array.isArray(list) ? list.slice(0, 3) : []);
-      }
+      // ── 최근 거래내역 ──────────────────────────────────────────
+      const buyList =
+        buyRes.status === "fulfilled" && buyRes.value.ok
+          ? await buyRes.value
+              .json()
+              .then((d) => d?.data?.content ?? d?.content ?? [])
+          : [];
+      const sellList =
+        sellRes.status === "fulfilled" && sellRes.value.ok
+          ? await sellRes.value
+              .json()
+              .then((d) => d?.data?.content ?? d?.content ?? [])
+          : [];
+
+      const txList = [
+        ...buyList.map((t) => ({
+          id: t.orderId ?? t.itemId ?? t.id,
+          amount: -(t.basePrice ?? t.price ?? t.amount ?? 0),
+          label: t.itemName ?? t.title ?? "구매",
+          date: t.createdAt
+            ? new Date(t.createdAt).toLocaleDateString("ko-KR")
+            : (t.date ?? ""),
+        })),
+        ...sellList.map((t) => ({
+          id: t.orderId ?? t.itemId ?? t.id,
+          amount: t.basePrice ?? t.price ?? t.amount ?? 0,
+          label: t.itemName ?? t.title ?? "판매",
+          date: t.createdAt
+            ? new Date(t.createdAt).toLocaleDateString("ko-KR")
+            : (t.date ?? ""),
+        })),
+      ]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 3);
+      setTransactions(txList);
+
+      // ── items 목록 파싱 (bidList보다 먼저 선언) ─────────────────
+      const itemList =
+        itemsRes.status === "fulfilled" && itemsRes.value.ok
+          ? await itemsRes.value.json().then((d) => {
+              const list =
+                d?.data?.content ??
+                d?.data?.items ??
+                d?.data?.list ??
+                d?.content ??
+                d?.items ??
+                d?.list ??
+                (Array.isArray(d?.data) ? d.data : null) ??
+                (Array.isArray(d) ? d : []);
+              return Array.isArray(list) ? list : [];
+            })
+          : [];
+
+      // ── 경매 입찰 목록 (itemList 다음에 선언) ──────────────────
+      const bidList =
+        bidRes.status === "fulfilled" && bidRes.value.ok
+          ? await bidRes.value
+              .json()
+              .then((d) => d?.data?.content ?? d?.content ?? [])
+          : [];
+
+      // ── 통계 (itemList, bidList 모두 선언된 후) ────────────────
+      setStats({
+        items: itemList.filter(
+          (i) => i.tradeType === "DIRECT" && i.status === "SELLING",
+        ).length,
+        gameMoney: itemList.filter(
+          (i) =>
+            i.categoryName?.includes("게임머니") ||
+            i.categoryType === "GAME_MONEY",
+        ).length,
+        accounts: itemList.filter(
+          (i) =>
+            i.categoryName?.includes("계정") ||
+            i.categoryName?.includes("아이디") ||
+            i.categoryType === "ACCOUNT",
+        ).length,
+        auctions:
+          bidList.length > 0
+            ? bidList.length
+            : itemList.filter((i) => i.tradeType === "AUCTION").length,
+      });
+
+      // ── 최근 활동내역 ──────────────────────────────────────────
+      const recentItems = [...itemList]
+        .sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0))
+        .slice(0, 3)
+        .map((i) => ({
+          id: i.itemId ?? i.id,
+          tag:
+            i.status === "COMPLETED"
+              ? "판매완료"
+              : i.tradeType === "AUCTION"
+                ? "경매진행"
+                : "판매중",
+          tagColor:
+            i.status === "COMPLETED"
+              ? "green"
+              : i.tradeType === "AUCTION"
+                ? "amber"
+                : "violet",
+          title: i.title ?? i.itemName ?? "",
+          sub: i.gameName ?? i.serverName ?? "",
+          time: i.createdAt
+            ? new Date(i.createdAt).toLocaleDateString("ko-KR")
+            : "",
+          img: i.thumbnailImg ?? "📦",
+          thumbnailImg: i.thumbnailImg ?? null,
+        }));
+      setRecentActivity(recentItems);
     } catch (e) {
       console.error("마일리지 탭 로드 오류:", e);
     } finally {
@@ -1203,6 +1301,7 @@ function ProfileTab({
   onDeleteAccount,
   onNicknameSaved,
   onProfileImgSaved,
+  onBankSaved,
 }) {
   const { updateUser } = useAuth();
   const fileInputRef = useRef(null);
@@ -1368,6 +1467,9 @@ function ProfileTab({
         const j = await bankRes.json().catch(() => ({}));
         throw new Error(j.message || "계좌 수정 실패");
       }
+      // 출금 탭이 마이페이지 상위 상태(bankInfo)를 별도로 들고 있으므로,
+      // 계좌 저장 직후 그 상위 상태를 다시 동기화해줘야 출금 신청 화면에 바로 반영된다.
+      onBankSaved?.();
 
       updateUser({ nickname });
       onNicknameSaved(nickname);
@@ -2926,38 +3028,47 @@ export default function MyPage({ tab: defaultTab }) {
   // 잔액은 이 함수가 유일한 출처. 충전/출금 직후에도, 페이지 재진입 시에도 항상 이걸로 서버와 재동기화한다.
   const fetchBalance = useCallback(async () => {
     try {
-      const res = await fetch(`${Common.API_URL}/api/members/me/mileage`, {
+      const res = await fetch(`${Common.API_URL}/api/members/me`, {
         headers: { Authorization: `Bearer ${token()}` },
         cache: "no-store",
       });
       if (res.ok) {
         const d = await res.json();
-        setSharedBalance(d?.data?.balance ?? d?.balance ?? 0);
+        const p = d?.data ?? d;
+        setSharedBalance(p?.mileage ?? p?.balance ?? p?.mileageBalance ?? 0);
       }
     } catch (e) {
       console.error("잔액 조회 오류:", e);
     }
   }, []);
 
+  // 계좌 정보도 잔액과 동일하게 단일 출처(fetchBankInfo)로만 관리한다.
+  // ProfileTab에서 계좌 저장이 끝나면 이 함수를 다시 호출해 즉시 동기화하므로,
+  // 출금 신청 탭은 항상 최신 계좌 정보를 받는다.
+  const fetchBankInfo = useCallback(async () => {
+    try {
+      const res = await fetch(`${Common.API_URL}/api/members/me`, {
+        headers: { Authorization: `Bearer ${token()}` },
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      // ProfileTab과 동일한 파싱 방식 사용
+      const d = json.data ?? json;
+      setBankInfo({
+        bankName: d.bankName ?? "",
+        accountNumber: d.accountNumber ?? "",
+        accountHolder: d.accountHolder ?? "",
+      });
+    } catch (e) {
+      console.error("계좌 정보 조회 오류:", e);
+    }
+  }, []);
+
   useEffect(() => {
     fetchBalance();
-
-    fetch(`${Common.API_URL}/api/members/me`, {
-      headers: { Authorization: `Bearer ${token()}` },
-      cache: "no-store",
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((d) => {
-        if (!d) return;
-        const p = d?.data ?? d;
-        setBankInfo({
-          bankName: p.bankName ?? "",
-          accountNumber: p.accountNumber ?? "",
-          accountHolder: p.accountHolder ?? "",
-        });
-      })
-      .catch((e) => console.error("계좌 정보 조회 오류:", e));
-  }, [fetchBalance]);
+    fetchBankInfo();
+  }, [fetchBalance, fetchBankInfo]);
 
   if (!isLoggedIn) {
     navigate("/login");
@@ -3017,6 +3128,7 @@ export default function MyPage({ tab: defaultTab }) {
             onDeleteAccount={handleDeleteAccount}
             onNicknameSaved={setSidebarNickname}
             onProfileImgSaved={setSidebarProfileImg}
+            onBankSaved={fetchBankInfo}
           />
         );
       case "activity":
