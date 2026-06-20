@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ItemApi from "../../api/item.api";
+import { isDeletedItem } from "../../utils/adminLocalState";
 
 /* ── 인라인 스타일 (CSS 파일 없이 단일 파일로 완결) ── */
 const css = `
@@ -317,8 +318,17 @@ export default function ItemListPage() {
 
       const res = await ItemApi.getItems(params);
       const pageData = res.data?.data ?? {};
-      setItems(pageData.content ?? []);
-      setTotal(pageData.totalElements ?? 0);
+      const visibleItems = (pageData.content ?? []).filter(
+        (item) => !isDeletedItem(item),
+      );
+      setItems(visibleItems);
+      setTotal(
+        Math.max(
+          visibleItems.length,
+          Number(pageData.totalElements ?? visibleItems.length) -
+            ((pageData.content ?? []).length - visibleItems.length),
+        ),
+      );
     } catch {
       setItems([]);
       setTotal(0);

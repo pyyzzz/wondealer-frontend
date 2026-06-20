@@ -2,12 +2,33 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import AuthApi from "../../api/auth.api";
+import {
+  getBanReasonForIdentifiers,
+  getLatestBanReason,
+} from "../../utils/adminLocalState";
 import logo from "../../img/logo.svg";
 import "./auth.css";
 import "./auth-theme.css";
 
 function getGoogleOAuthUrl() {
   return "http://localhost:8111/oauth2/authorization/google";
+}
+
+function decodeJwtPayload(token) {
+  try {
+    const payload = token?.split(".")?.[1];
+    if (!payload) return {};
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+      atob(normalized)
+        .split("")
+        .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join(""),
+    );
+    return JSON.parse(json);
+  } catch {
+    return {};
+  }
 }
 
 export default function LoginPage() {
@@ -20,6 +41,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const showBanMessage = (reason) => {
+    const message = `정지된 계정입니다. 사유: ${
+      reason || "관리자에 의해 정지된 계정입니다."
+    }`;
+    setError(message);
+    window.alert(message);
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!identifier.trim()) {
@@ -28,6 +57,13 @@ export default function LoginPage() {
     }
     if (!password) {
       setError("비밀번호를 입력해주세요.");
+      return;
+    }
+    const savedBanReason = getBanReasonForIdentifiers([identifier]);
+    if (savedBanReason) {
+      showBanMessage(savedBanReason);
+      return;
+      setError(`정지된 계정입니다. 사유: ${savedBanReason}`);
       return;
     }
 
@@ -40,19 +76,97 @@ export default function LoginPage() {
       });
       const result = res.data?.data || res.data;
       if (result?.accessToken) {
+        const tokenPayload = decodeJwtPayload(result.accessToken);
+        const resultStatus = String(result.status || "").toUpperCase();
+        const isBannedResult =
+          result.isBanned === true ||
+          result.banned === true ||
+          resultStatus === "BANNED" ||
+          resultStatus === "SUSPENDED" ||
+          resultStatus.includes("BAN");
+        const resultBanReason = getBanReasonForIdentifiers([
+          identifier,
+          result.memberId,
+          result.id,
+          result.userId,
+          result.email,
+          result.nickname,
+          result.username,
+          result.userName,
+          result.loginId,
+          result.identifier,
+          result.accountId,
+          tokenPayload.sub,
+          tokenPayload.email,
+          tokenPayload.nickname,
+          tokenPayload.username,
+          tokenPayload.loginId,
+          tokenPayload.memberId,
+          tokenPayload.userId,
+        ]);
+        const resultServerReason =
+          result.banReason || result.reason || result.suspendReason;
+        if (isBannedResult || resultBanReason || resultServerReason) {
+          const reason =
+            resultServerReason ||
+            resultBanReason ||
+            getLatestBanReason() ||
+            "관리자에 의해 정지된 계정입니다.";
+          showBanMessage(reason);
+          return;
+          setError(`정지된 계정입니다. 사유: ${reason}`);
+          return;
+        }
         login({
           accessToken: result.accessToken,
           refreshToken: result.refreshToken,
           nickname: result.nickname || result.username || identifier,
-          authority: result.authority,
+          authority: result.role, // ← result.authority → result.role
         });
-        navigate(result.authority === "ROLE_ADMIN" ? "/admin" : "/", {
+        navigate(result.role === "ROLE_ADMIN" ? "/admin" : "/", {
+          // ← 여기도
           replace: true,
         });
       }
     } catch (err) {
+      const serverMessage = err.response?.data?.message || "";
+      const serverData = err.response?.data?.data || {};
+      const reasonFromServer =
+        serverData.banReason ||
+        serverData.reason ||
+        err.response?.data?.banReason ||
+        err.response?.data?.reason;
+      const reasonFromLocal = getBanReasonForIdentifiers([
+        identifier,
+        serverData.memberId,
+        serverData.id,
+        serverData.email,
+        serverData.nickname,
+        serverData.username,
+        serverData.loginId,
+      ]);
+      const isBanError =
+        serverMessage.includes("정지") ||
+        serverMessage.includes("제재") ||
+        serverMessage.toLowerCase().includes("ban") ||
+        serverMessage.toLowerCase().includes("suspend");
+      if (isBanError || reasonFromServer || reasonFromLocal) {
+        const reason =
+          reasonFromServer ||
+          reasonFromLocal ||
+          getLatestBanReason() ||
+          "관리자에 의해 정지된 계정입니다.";
+        showBanMessage(reason);
+        return;
+        setError(`정지된 계정입니다. 사유: ${reason}`);
+        return;
+      }
+      if (getLatestBanReason()) {
+        showBanMessage(getLatestBanReason());
+        return;
+      }
       setError(
-        err.response?.data?.message ||
+        serverMessage ||
           "로그인에 실패했습니다. 다시 시도해주세요.",
       );
     } finally {

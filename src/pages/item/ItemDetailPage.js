@@ -4,6 +4,7 @@ import styled from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import ItemApi from "../../api/item.api";
 import ChatApi from "../../api/chat.api";
+import { isDeletedItem } from "../../utils/adminLocalState";
 
 const DUMMY_ITEM = {
   id: 1,
@@ -43,9 +44,11 @@ export default function ItemDetailPage() {
       .then((r) => {
         const d = r.data?.data ?? r.data ?? {};
         console.log("[item detail raw]", JSON.stringify(d));
-        setItem(Object.keys(d).length > 0 ? d : DUMMY_ITEM);
+        setItem(
+          Object.keys(d).length > 0 && !isDeletedItem(d) ? d : null,
+        );
       })
-      .catch(() => setItem(DUMMY_ITEM))
+      .catch(() => setItem(null))
       .finally(() => setLoading(false));
   }, [itemId]);
 

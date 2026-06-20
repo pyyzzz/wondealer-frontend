@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import AuthApi from "../../api/auth.api";
+import {
+  getBanReasonForAccount,
+  getLatestBanReason,
+  isBannedAccount,
+} from "../../utils/adminLocalState";
 
 export default function OAuthCallbackPage() {
   const navigate = useNavigate();
@@ -31,6 +36,18 @@ export default function OAuthCallbackPage() {
         console.log("백엔드 응답 전체:", JSON.stringify(result, null, 2));
 
         if (result && result.accessToken) {
+          const banReason = getBanReasonForAccount(result, result.accessToken);
+          if (isBannedAccount(result) || banReason) {
+            const message = `정지된 계정입니다. 사유: ${
+              banReason || getLatestBanReason() || "관리자에 의해 정지된 계정입니다."
+            }`;
+            localStorage.removeItem("accessToken");
+            localStorage.removeItem("refreshToken");
+            window.alert(message);
+            setErrorMsg(message);
+            navigate("/login", { replace: true });
+            return;
+          }
           // ✅ 구글 닉네임 우선, 없으면 이메일 앞부분, 그것도 없으면 기본값
           const googleNickname =
             result.nickname ||

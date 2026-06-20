@@ -1,4 +1,5 @@
 import axios from "axios";
+import { ADMIN_LOCAL_KEYS } from "./adminLocalState";
 
 const Common = {
   API_URL: "http://localhost:8111",
@@ -15,7 +16,14 @@ const Common = {
   getRole: () => localStorage.getItem("role"),
   setRole: (role) => localStorage.setItem("role", role),
 
-  clearStorage: () => localStorage.clear(),
+  clearStorage: () => {
+    const preserved = ADMIN_LOCAL_KEYS.map((key) => [
+      key,
+      localStorage.getItem(key),
+    ]).filter(([, value]) => value !== null);
+    localStorage.clear();
+    preserved.forEach(([key, value]) => localStorage.setItem(key, value));
+  },
 
   handleUnauthorized: async () => {
     try {

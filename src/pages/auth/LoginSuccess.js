@@ -3,6 +3,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import axios from "axios";
 import Common from "../../utils/Common";
+import {
+  getBanReasonForAccount,
+  getLatestBanReason,
+  isBannedAccount,
+} from "../../utils/adminLocalState";
 
 export default function LoginSuccess() {
   const [searchParams] = useSearchParams();
@@ -23,6 +28,17 @@ export default function LoginSuccess() {
       })
       .then((res) => {
         const data = res.data?.data || res.data;
+        const banReason = getBanReasonForAccount(data, token);
+        if (isBannedAccount(data) || banReason) {
+          const message = `정지된 계정입니다. 사유: ${
+            banReason || getLatestBanReason() || "관리자에 의해 정지된 계정입니다."
+          }`;
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          window.alert(message);
+          navigate("/login", { replace: true });
+          return;
+        }
 
         const nickname =
           data?.nickname ||
@@ -41,6 +57,17 @@ export default function LoginSuccess() {
       })
       .catch((err) => {
         console.error("내 정보 조회 실패:", err);
+        const banReason = getBanReasonForAccount({}, token);
+        if (banReason || getLatestBanReason()) {
+          const message = `정지된 계정입니다. 사유: ${
+            banReason || getLatestBanReason()
+          }`;
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          window.alert(message);
+          navigate("/login", { replace: true });
+          return;
+        }
         login({ accessToken: token, nickname: "구글 사용자" });
         navigate("/", { replace: true });
       });

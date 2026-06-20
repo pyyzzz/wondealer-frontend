@@ -2,6 +2,18 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminApi from "../../api/admin.api";
 import { useAuth } from "../../context/AuthContext";
+import {
+  getAdminBanReasons,
+  getDeletedItemIds,
+  getMemberIdentifiers,
+  isAdminMember,
+  isDeletedItem,
+  itemMatchesSearch,
+  memberMatchesSearch,
+  removeAdminBanReason,
+  saveAdminBanReason,
+  saveDeletedItemId,
+} from "../../utils/adminLocalState";
 
 import admindelete from "../../img/admindelete.svg";
 import adminfilter from "../../img/adminfilter.svg";
@@ -314,8 +326,8 @@ function Pagination({ page, total, pageSize, onChange }) {
         display: "flex",
         alignItems: "center",
         gap: 4,
-        justifyContent: "flex-end",
-        marginTop: 12,
+        justifyContent: "center",
+        marginTop: 16,
       }}
     >
       <span
@@ -362,6 +374,7 @@ function MembersTab() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [banTarget, setBanTarget] = useState(null);
+  const [banTargetMember, setBanTargetMember] = useState(null);
   const [banReason, setBanReason] = useState("");
   const [banReasons, setBanReasons] = useState({});
   const PAGE_SIZE = 10;
@@ -373,6 +386,12 @@ function MembersTab() {
       alert("제재 사유를 입력해주세요.");
       return;
     }
+    const targetMember = banTargetMember ||
+      members.find(
+        (member) => String(member.memberId ?? member.id) === String(banTarget),
+      ) || { memberId: banTarget, id: banTarget };
+    const savedBeforeRequest = saveAdminBanReason(targetMember, reason);
+    setBanReasons(savedBeforeRequest);
     try {
       // 1. 백엔드 API 호출
       const res = await AdminApi.banMember(banTarget, { reason });
@@ -380,6 +399,10 @@ function MembersTab() {
       // 2. 백엔드 응답(ApiResponse) 구조에서 데이터 추출 (res.data.data)
       // 백엔드가 ApiResponse.ok("회원이 정지되었습니다.", response) 형태로 주므로 .data.data에 DTO가 들어있음
       const updatedMember = res.data?.data;
+      const savedReasons = saveAdminBanReason(
+        { ...targetMember, ...updatedMember },
+        reason,
+      );
 
       // 3. 현재 프론트엔드 리스트(members) 상태를 즉시 동기화해 줍니다.
       setMembers((prevMembers) =>
@@ -400,9 +423,10 @@ function MembersTab() {
       );
 
       // 로컬 사유 상태 맵도 함께 백업
-      setBanReasons((prev) => ({ ...prev, [banTarget]: reason }));
+      setBanReasons(savedReasons);
 
       setBanTarget(null);
+      setBanTargetMember(null);
       setBanReason("");
 
       // 서버와 최종 리스트 동기화
@@ -416,19 +440,38 @@ function MembersTab() {
     setLoading(true);
     try {
       const res = await AdminApi.getMembers({
-        page: page - 1,
-        size: PAGE_SIZE,
-        keyword: search,
+        page: 0,
+        size: 1000,
+        keyword: "",
         sort: "createdAt,desc",
       });
-      setMembers(res.data.data?.content ?? []);
-      setTotal(res.data.data?.totalElements ?? 0);
+      const savedReasons = getAdminBanReasons();
+      const content = res.data.data?.content ?? res.data.data ?? [];
+      const list = (Array.isArray(content) ? content : [])
+        .filter((member) => !isAdminMember(member))
+        .map((member) => {
+          const reasonKey = getMemberIdentifiers(member).find(
+            (key) => savedReasons[key],
+          );
+          return reasonKey
+            ? {
+                ...member,
+                isBanned: true,
+                banned: true,
+                status: "BANNED",
+                banReason: member.banReason || savedReasons[reasonKey],
+              }
+            : member;
+        });
+      setMembers(list);
+      setBanReasons(savedReasons);
+      setTotal(list.length);
     } catch {
       setMembers([]);
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, []);
 
   useEffect(() => {
     fetchMembers();
@@ -436,13 +479,31 @@ function MembersTab() {
 
   const handleBan = async (memberId, isBanned) => {
     try {
-      if (isBanned) await AdminApi.unbanMember(memberId);
-      else await AdminApi.banMember(memberId, { reason: "관리자 정지" });
+      const targetMember = members.find(
+        (member) => String(member.memberId ?? member.id) === String(memberId),
+      ) ?? { memberId };
+      if (isBanned) {
+        await AdminApi.unbanMember(memberId);
+        const savedReasons = removeAdminBanReason(targetMember);
+        setBanReasons(savedReasons);
+      } else {
+        await AdminApi.banMember(memberId, { reason: "관리자 정지" });
+        const savedReasons = saveAdminBanReason(targetMember, "관리자 정지");
+        setBanReasons(savedReasons);
+      }
       fetchMembers();
     } catch (e) {
       alert("처리 실패: " + (e.response?.data?.message ?? e.message));
     }
   };
+
+  const filteredMembers = members.filter(
+    (member) => !isAdminMember(member) && memberMatchesSearch(member, search),
+  );
+  const displayMembers = filteredMembers.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE,
+  );
 
   return (
     <div>
@@ -523,7 +584,7 @@ function MembersTab() {
                   로딩 중...
                 </td>
               </tr>
-            ) : members.length === 0 ? (
+            ) : displayMembers.length === 0 ? (
               <tr>
                 <td
                   colSpan={5}
@@ -537,7 +598,7 @@ function MembersTab() {
                 </td>
               </tr>
             ) : (
-              members.map((u) => {
+              displayMembers.map((u) => {
                 const isBanned =
                   u.isBanned === true ||
                   u.banned === true ||
@@ -646,6 +707,7 @@ function MembersTab() {
                             if (isBanned) handleBan(memberId, true);
                             else {
                               setBanTarget(memberId);
+                              setBanTargetMember(u);
                               setBanReason("");
                             }
                           }}
@@ -703,7 +765,13 @@ function MembersTab() {
             <div
               style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
             >
-              <ActionBtn label="취소" onClick={() => setBanTarget(null)} />
+              <ActionBtn
+                label="취소"
+                onClick={() => {
+                  setBanTarget(null);
+                  setBanTargetMember(null);
+                }}
+              />
               <ActionBtn label="확인" variant="danger" onClick={confirmBan} />
             </div>
           </div>
@@ -711,7 +779,7 @@ function MembersTab() {
       )}
       <Pagination
         page={page}
-        total={total}
+        total={filteredMembers.length}
         pageSize={PAGE_SIZE}
         onChange={setPage}
       />
@@ -729,6 +797,7 @@ function ItemsTab() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [deletedIds, setDeletedIds] = useState(() => getDeletedItemIds());
   const PAGE_SIZE = 10;
 
   const fetchItems = useCallback(async () => {
@@ -736,20 +805,24 @@ function ItemsTab() {
     try {
       // 백엔드 미구현 시 목데이터 fallback
       const res = await AdminApi.getItems({
-        page: page - 1,
-        size: PAGE_SIZE,
-        keyword: search,
+        page: 0,
+        size: 1000,
+        keyword: "",
         sort: sort === "latest" ? "createdAt,desc" : "createdAt,asc",
       });
-      setItems(res.data.data?.content ?? []);
-      setTotal(res.data.data?.totalElements ?? 0);
+      const content = res.data.data?.content ?? res.data.data ?? [];
+      const list = (Array.isArray(content) ? content : []).filter(
+        (item) => !isDeletedItem(item, deletedIds),
+      );
+      setItems(list);
+      setTotal(list.length);
     } catch {
       setItems([]);
       setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [page, search, sort]);
+  }, [sort, deletedIds]);
 
   useEffect(() => {
     fetchItems();
@@ -759,7 +832,14 @@ function ItemsTab() {
     if (!window.confirm("상품을 삭제하시겠습니까?")) return;
     try {
       await AdminApi.deleteItem(itemId);
-      fetchItems();
+      const nextDeletedIds = saveDeletedItemId(itemId);
+      setDeletedIds(nextDeletedIds);
+      setItems((prev) =>
+        prev.filter(
+          (item) => String(item.itemId ?? item.id) !== String(itemId),
+        ),
+      );
+      setTotal((prev) => Math.max(0, prev - 1));
     } catch (e) {
       alert("삭제 실패: " + (e.response?.data?.message ?? e.message));
     }
@@ -801,7 +881,14 @@ function ItemsTab() {
   ];
 
   void MOCK;
-  const displayItems = items;
+  const filteredItems = items.filter(
+    (item) =>
+      !isDeletedItem(item, deletedIds) && itemMatchesSearch(item, search),
+  );
+  const displayItems = filteredItems.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE,
+  );
 
   return (
     <div>
@@ -1038,7 +1125,7 @@ function ItemsTab() {
       </div>
       <Pagination
         page={page}
-        total={total || displayItems.length}
+        total={filteredItems.length}
         pageSize={PAGE_SIZE}
         onChange={setPage}
       />
