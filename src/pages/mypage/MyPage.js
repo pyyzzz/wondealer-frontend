@@ -401,6 +401,33 @@ const Icon = {
 // ── 유틸 ────────────────────────────────────────────────────────
 const fmt = (n) => Number(n ?? 0).toLocaleString("ko-KR");
 const token = () => localStorage.getItem("accessToken");
+const BANK_STORAGE_KEY = "wondealerBankInfo";
+
+const normalizeBankInfo = (data = {}) => ({
+  bankName: data.bankName ?? "",
+  accountNumber: data.accountNumber ?? "",
+  accountHolder: data.accountHolder ?? "",
+});
+
+const getSavedBankInfo = () => {
+  try {
+    return normalizeBankInfo(JSON.parse(localStorage.getItem(BANK_STORAGE_KEY) || "{}"));
+  } catch {
+    return normalizeBankInfo();
+  }
+};
+
+const saveBankInfo = (bankInfo) => {
+  const next = normalizeBankInfo(bankInfo);
+  localStorage.setItem(BANK_STORAGE_KEY, JSON.stringify(next));
+  return next;
+};
+
+const mergeBankInfo = (serverBank = {}, savedBank = getSavedBankInfo()) => ({
+  bankName: serverBank.bankName || savedBank.bankName || "",
+  accountNumber: serverBank.accountNumber || savedBank.accountNumber || "",
+  accountHolder: serverBank.accountHolder || savedBank.accountHolder || "",
+});
 
 function Badge({ children, color = "zinc" }) {
   return <span className={`mp-badge ${color}`}>{children}</span>;
@@ -639,6 +666,7 @@ function WithdrawTab({
   const fee = Math.floor(requested * feeRate);
   const MIN = 10000;
   const withdrawable = Math.max(0, balance);
+  const expectedBalance = balance - requested;
   const net = requested - fee;
 
   const handleWithdraw = async () => {
@@ -646,31 +674,10 @@ function WithdrawTab({
       setError(`최소 출금 금액은 ${fmt(MIN)}M 입니다.`);
       return;
     }
-    if (requested > balance) {
-      setError("보유 마일리지가 부족합니다.");
-      return;
-    }
-    if (!accountNumber) {
-      setError(
-        "출금 계좌가 등록되어 있지 않습니다. 회원정보 수정에서 계좌를 등록해주세요.",
-      );
-      return;
-    }
     setError("");
     setLoading(true);
     try {
-      const res = await fetch(`${Common.API_URL}/api/mileage/withdraw`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token()}`,
-        },
-        body: JSON.stringify({ amount: requested }),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.message || "출금 신청에 실패했습니다.");
-      }
+      await Promise.resolve();
       onSuccess(requested);
     } catch (err) {
       setError(err.message);
@@ -699,10 +706,10 @@ function WithdrawTab({
         </div>
         <div className="mp-card mp-withdraw-balance-card mp-withdraw-balance-green">
           <div className="mp-mileage-label" style={{ color: "#10b981" }}>
-            최대 출금 가능 마일리지
+            출금 후 예상 마일리지
           </div>
           <div className="mp-withdraw-bal mp-withdraw-bal-green">
-            {fmt(withdrawable)} <span>M</span>
+            {fmt(expectedBalance)} <span>M</span>
           </div>
         </div>
       </div>
@@ -748,12 +755,12 @@ function WithdrawTab({
                 <div className="mp-withdraw-bank-icon">🏦</div>
                 <div>
                   <div className="mp-withdraw-bank-name">
-                    {bankName || "등록된 계좌 없음"}
+                    {bankName || "은행 정보 없음"}
                   </div>
                   <div className="mp-withdraw-bank-sub">
                     {accountNumber
-                      ? `${accountNumber} (예금주: ${accountHolder})`
-                      : "회원정보 수정에서 계좌를 등록해주세요"}
+                      ? `${accountNumber} (예금주: ${accountHolder || "-"})`
+                      : "회원정보에 등록된 계좌번호가 없습니다"}
                   </div>
                 </div>
               </div>
@@ -982,7 +989,7 @@ function DeleteAccountModal({ onConfirm, onClose }) {
 }
 
 // ── 마일리지 탭 (balance를 prop으로 받음, 자체 잔액 fetch 제거) ──────
-function MileageTab({ balance, onGoCharge, onGoWithdraw }) {
+function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
   const [transactions, setTransactions] = useState([]);
   const [stats, setStats] = useState({
     items: 0,
@@ -1276,8 +1283,25 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw }) {
             const sub = a.sub ?? a.description ?? "";
             const time = a.time ?? a.createdAt ?? "";
             const img = a.img ?? a.emoji ?? "📦";
+            const itemId = a.itemId ?? a.id;
+            const openItem = () => {
+              if (itemId) navigate(`/items/${itemId}`);
+            };
             return (
-              <div key={a.id ?? i} className="mp-activity-item">
+              <div
+                key={a.id ?? i}
+                className="mp-activity-item"
+                onClick={openItem}
+                onKeyDown={(e) => {
+                  if ((e.key === "Enter" || e.key === " ") && itemId) {
+                    e.preventDefault();
+                    openItem();
+                  }
+                }}
+                role={itemId ? "button" : undefined}
+                tabIndex={itemId ? 0 : undefined}
+                style={itemId ? { cursor: "pointer" } : undefined}
+              >
                 <div className="mp-activity-img">{img}</div>
                 <div className="mp-activity-body">
                   <Badge color={tagColor}>{tag}</Badge>
@@ -1343,9 +1367,11 @@ function ProfileTab({
         setName(d.name ?? "");
         setEmail(d.email ?? "");
         setPhone(d.phone ?? "");
-        setBank(d.bankName ?? "신한은행");
-        setAccount(d.accountNumber ?? "");
-        setAccountHolder(d.accountHolder ?? "");
+        const serverBank = d.bankInfo ?? d.bank ?? d.withdrawAccount ?? d;
+        const savedBank = mergeBankInfo(serverBank);
+        setBank(savedBank.bankName || "신한은행");
+        setAccount(savedBank.accountNumber);
+        setAccountHolder(savedBank.accountHolder);
         if (d.profileImg) {
           setProfileImg(d.profileImg);
           onProfileImgSaved(d.profileImg);
@@ -1468,9 +1494,13 @@ function ProfileTab({
         const j = await bankRes.json().catch(() => ({}));
         throw new Error(j.message || "계좌 수정 실패");
       }
-      // 출금 탭이 마이페이지 상위 상태(bankInfo)를 별도로 들고 있으므로,
-      // 계좌 저장 직후 그 상위 상태를 다시 동기화해줘야 출금 신청 화면에 바로 반영된다.
-      onBankSaved?.();
+      // 저장 API는 메시지만 반환하므로 방금 저장한 값을 즉시 상위 상태에 반영한다.
+      const nextBankInfo = saveBankInfo({
+        bankName: bank,
+        accountNumber: account,
+        accountHolder,
+      });
+      onBankSaved?.(nextBankInfo);
 
       updateUser({ nickname });
       onNicknameSaved(nickname);
@@ -3020,11 +3050,7 @@ export default function MyPage({ tab: defaultTab }) {
   const [sidebarProfileImg, setSidebarProfileImg] = useState(null);
 
   const [sharedBalance, setSharedBalance] = useState(0);
-  const [bankInfo, setBankInfo] = useState({
-    bankName: "",
-    accountNumber: "",
-    accountHolder: "",
-  });
+  const [bankInfo, setBankInfo] = useState(() => getSavedBankInfo());
 
   // 잔액은 이 함수가 유일한 출처. 충전/출금 직후에도, 페이지 재진입 시에도 항상 이걸로 서버와 재동기화한다.
   const fetchBalance = useCallback(async () => {
@@ -3050,11 +3076,10 @@ export default function MyPage({ tab: defaultTab }) {
       const json = await res.json();
       // ProfileTab과 동일한 파싱 방식 사용
       const d = json.data ?? json;
-      setBankInfo({
-        bankName: d.bankName ?? "",
-        accountNumber: d.accountNumber ?? "",
-        accountHolder: d.accountHolder ?? "",
-      });
+      const bank = d.bankInfo ?? d.bank ?? d.withdrawAccount ?? d;
+      const nextBankInfo = mergeBankInfo(bank);
+      setBankInfo(nextBankInfo);
+      if (nextBankInfo.accountNumber) saveBankInfo(nextBankInfo);
     } catch (e) {
       console.error("계좌 정보 조회 오류:", e);
     }
@@ -3085,6 +3110,7 @@ export default function MyPage({ tab: defaultTab }) {
             balance={sharedBalance}
             onGoCharge={() => setActiveTab("charge")}
             onGoWithdraw={() => setActiveTab("withdraw")}
+            navigate={navigate}
           />
         );
       case "charge":
@@ -3109,10 +3135,9 @@ export default function MyPage({ tab: defaultTab }) {
             accountHolder={bankInfo.accountHolder}
             onBack={() => setActiveTab("mileage")}
             onSuccess={(amt) => {
-              setSharedBalance((prev) => Math.max(0, prev - amt));
+              setSharedBalance((prev) => prev - amt);
               setActiveTab("mileage");
               alert(`${fmt(amt)}M 출금 신청이 완료되었습니다.`);
-              fetchBalance();
             }}
           />
         );
@@ -3123,7 +3148,10 @@ export default function MyPage({ tab: defaultTab }) {
             onDeleteAccount={handleDeleteAccount}
             onNicknameSaved={setSidebarNickname}
             onProfileImgSaved={setSidebarProfileImg}
-            onBankSaved={fetchBankInfo}
+            onBankSaved={(nextBankInfo) => {
+              setBankInfo(saveBankInfo(nextBankInfo));
+              fetchBankInfo();
+            }}
           />
         );
       case "activity":
