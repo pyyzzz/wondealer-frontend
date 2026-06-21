@@ -27,9 +27,6 @@ const ChatApi = {
     // method: "mileage" (카드 결제는 추후 연동)
     AxiosInstance.post(`/api/chat/rooms/${chatRoomId}/pay`, { method }),
 
-  // POST /api/chat/rooms/:chatRoomId/complete — 인수하기 (거래 확정 + 판매자 마일리지 이관)
-  completeRoom: (chatRoomId) =>
-    AxiosInstance.post(`/api/chat/rooms/${chatRoomId}/complete`),
 };
 
 export default ChatApi;

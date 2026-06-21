@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import ChatApi from "../../api/chat.api";
+import TradeApi from "../../api/trade.api";
 import AxiosInstance from "../../api/AxiosInstance";
 import useWebSocket from "../../hooks/useWebSocket";
 import PaymentPage from "../payment/PaymentPage";
@@ -184,7 +185,7 @@ function toNumber(value) {
 }
 function getRoomPrice(r) {
   return toNumber(
-    r?.itemPrice ??
+    r?.itemPrice ??    // ChatRoomListResDto.itemPrice (백엔드에서 직접 전달)
       r?.tradePrice ??
       r?.basePrice ??
       r?.price ??
@@ -679,15 +680,16 @@ export default function ChatPage() {
         }
       }
 
-      await AxiosInstance.post("/api/trades", {
+      const tradeRes = await AxiosInstance.post("/api/trades", {
         itemId,
         paymentMethod: method === "card" ? "PORTONE" : "WONPAY",
         ...(paymentId ? { paymentId } : {}),
       });
+      const newTradeId = tradeRes.data?.data?.tradeId ?? null;
       setRooms((prev) =>
         prev.map((r) =>
           String(roomId(r)) === String(selectedId)
-            ? { ...r, tradeStatus: "PAID", lastMessage: "결제 완료" }
+            ? { ...r, tradeStatus: "PAID", tradeId: newTradeId, lastMessage: "결제 완료" }
             : r,
         ),
       );
@@ -699,9 +701,13 @@ export default function ChatPage() {
 
   async function handleComplete() {
     if (!activeRoom || isDone) return;
-    if (!window.confirm("거래를 최종 인수 완료 처리하겠습니까?")) return;
+    if (!activeRoom.tradeId) {
+      alert("결제가 완료된 후 거래 완료 처리가 가능합니다.");
+      return;
+    }
+    if (!window.confirm("거래를 완료 처리하겠습니까?")) return;
     try {
-      await ChatApi.completeRoom(selectedId);
+      await TradeApi.confirmTrade(activeRoom.tradeId);
       setRooms((prev) =>
         prev.map((r) =>
           String(roomId(r)) === String(selectedId)
