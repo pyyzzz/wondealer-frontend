@@ -61,8 +61,10 @@ const useWebSocket = (subscribeTopic, sendDestination, onMessage) => {
   const sendMessage = useCallback(
     (body) => {
       if (clientRef.current?.connected && sendDestination) {
+        const token = Common.getAccessToken();
         clientRef.current.publish({
           destination: sendDestination,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
           body: JSON.stringify(body),
         });
       }
