@@ -6,26 +6,6 @@ import ItemApi from "../../api/item.api";
 import ChatApi from "../../api/chat.api";
 import { isDeletedItem } from "../../utils/adminLocalState";
 
-const DUMMY_ITEM = {
-  id: 1,
-  title: "고대 드래곤 플레이트 아머",
-  description:
-    "드래곤 슬레이어의 비크라프라에서 전설적인 강함으로, 수천 년 된 드래곤 금속이 녹아내려 나오는 능력 스탯이 높아지며 날아오릅니다.",
-  gameName: "LOST ARK",
-  serverName: "VALHALLA-01",
-  grade: "전설",
-  category: "장비",
-  price: 2450000,
-  basePrice: 2450000,
-  status: "SELLING",
-  seller: "프리미엄 프레이더",
-  sellerNickname: "프리미엄 프레이더",
-  sellerRating: 4.9,
-  sellerTrades: 1240,
-  stats: [],
-  images: [],
-};
-
 export default function ItemDetailPage() {
   const navigate = useNavigate();
   const { itemId } = useParams();

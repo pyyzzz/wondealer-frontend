@@ -311,6 +311,7 @@ export default function ItemListPage() {
     setLoading(true);
     try {
       const params = { page: page - 1, size: SIZE };
+      params.tradeType = "DIRECT";
       if (selectedGameId) params.gameId = selectedGameId;
       if (selectedServerId) params.serverId = selectedServerId;
       if (selectedCategoryId) params.categoryId = selectedCategoryId;
