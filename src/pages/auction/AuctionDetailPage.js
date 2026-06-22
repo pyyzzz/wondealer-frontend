@@ -80,6 +80,21 @@ function saveLocalBid(auctionId, bid) {
   return next;
 }
 
+function saveWinningBidRecord(auctionId, bid) {
+  const normalized = normalizeBid({
+    ...bid,
+    id: bid.id ?? `winning-${auctionId}`,
+    bidStatus: "WINNING",
+    status: "WINNING",
+  });
+  const existing = getLocalBids(auctionId).filter(
+    (saved) => String(saved.id ?? saved.bidId) !== String(normalized.id),
+  );
+  const next = [normalized, ...existing].slice(0, 50);
+  localStorage.setItem(localBidKey(auctionId), JSON.stringify(next));
+  return next;
+}
+
 function isLocalSettled(auctionId) {
   return localStorage.getItem(settledAuctionKey(auctionId)) === "true";
 }
@@ -242,12 +257,27 @@ export default function AuctionDetailPage() {
       alert(`${amount.toLocaleString()}원 입찰 완료!`);
       setBidAmount("");
       const r = await AuctionApi.getAuction(auctionId);
-      setAuction(normalizeAuction(r.data?.data || r.data));
+      const nextAuction = normalizeAuction(r.data?.data || r.data);
+      setAuction({
+        ...nextAuction,
+        currentBid: Math.max(Number(nextAuction?.currentBid || 0), amount),
+        currentPrice: Math.max(Number(nextAuction?.currentPrice || 0), amount),
+      });
       try {
         const br = await AuctionApi.getBids(auctionId);
         const nextBids = getBidList(br);
         if (nextBids.length > 0) {
           setBids(nextBids);
+          const topBid = Math.max(...nextBids.map((bid) => Number(bid.amount || 0)));
+          setAuction((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  currentBid: Math.max(Number(prev.currentBid || 0), topBid),
+                  currentPrice: Math.max(Number(prev.currentPrice || 0), topBid),
+                }
+              : prev,
+          );
           return;
         }
       } catch (_) {}
@@ -265,6 +295,16 @@ export default function AuctionDetailPage() {
           ...prev,
         ]);
       }
+      setAuction((prev) =>
+        prev
+          ? {
+              ...prev,
+              currentBid: amount,
+              currentPrice: amount,
+              bidCount: Math.max(Number(prev.bidCount || 0), bids.length + 1),
+            }
+          : prev,
+      );
     } catch (err) {
       if (isWalletMissingError(err)) {
         applyLocalBid(amount);
@@ -288,31 +328,76 @@ export default function AuctionDetailPage() {
       setAuction((prev) => (prev ? { ...prev, status: "COMPLETED" } : prev));
       return;
     }
-    if (!ended && !instantBuyPrice) {
-      alert("즉시 낙찰가가 설정되지 않은 경매입니다.");
-      return;
+    if (!ended && !instantBuyPrice && currentBid <= Number(auction.startPrice || 0)) {
+      const hasBidHistory = bids.some((bid) => Number(bid.amount || bid.bidPrice || 0) > 0);
+      if (!hasBidHistory) {
+        alert("입찰 내역이 있어야 낙찰할 수 있습니다.");
+        return;
+      }
     }
     if (!window.confirm("이 경매를 낙찰 처리하시겠습니까?")) return;
     setClosing(true);
     try {
       if (ended) {
         await AuctionApi.settleAuction(auctionId);
-      } else {
+      } else if (instantBuyPrice) {
         await AuctionApi.buyNow(auctionId, instantBuyPrice);
+        await AuctionApi.settleAuction(auctionId);
+      } else {
         await AuctionApi.settleAuction(auctionId);
       }
       alert("낙찰 처리가 완료되었습니다.");
       markLocalSettled(auctionId);
+      const closePrice = currentBid;
+      const winningBidder =
+        bids[0]?.bidderNickname ||
+        bids[0]?.bidder ||
+        user?.nickname ||
+        user?.name ||
+        user?.username ||
+        "낙찰자";
+      const nextBids = saveWinningBidRecord(auctionId, {
+        id: `winning-${auctionId}`,
+        amount: closePrice,
+        bidPrice: closePrice,
+        currentPrice: closePrice,
+        bidderNickname: winningBidder,
+      });
+      setBids(nextBids);
       const nextAuction = await loadAuction();
       setAuction((prev) => ({
         ...(nextAuction ?? prev),
+        currentBid: closePrice,
+        currentPrice: closePrice,
         status: "COMPLETED",
       }));
     } catch (err) {
-      if (isWalletMissingError(err) && !ended) {
-        applyLocalBid(instantBuyPrice, "ENDED");
+      if (isWalletMissingError(err)) {
+        const nextBids = saveWinningBidRecord(auctionId, {
+          id: `winning-${auctionId}`,
+          amount: currentBid,
+          bidPrice: currentBid,
+          currentPrice: currentBid,
+          bidderNickname:
+            bids[0]?.bidderNickname ||
+            bids[0]?.bidder ||
+            user?.nickname ||
+            user?.name ||
+            user?.username ||
+            "낙찰자",
+        });
+        setBids(nextBids);
         markLocalSettled(auctionId);
-        setAuction((prev) => (prev ? { ...prev, status: "COMPLETED" } : prev));
+        setAuction((prev) =>
+          prev
+            ? {
+                ...prev,
+                currentBid,
+                currentPrice: currentBid,
+                status: "COMPLETED",
+              }
+            : prev,
+        );
         alert("낙찰 처리가 완료되었습니다.");
         return;
       }
@@ -378,17 +463,25 @@ export default function AuctionDetailPage() {
       "EXPIRED",
     ].includes(statusForEnd);
   const canCloseAuction = ended && !settled;
-  const currentBid = Number(
-    auction.currentBid ||
-      auction.currentPrice ||
-      auction.startPrice ||
-      auction.price ||
-      0,
+  const highestBidFromHistory = Math.max(
+    0,
+    ...bids.map((bid) => Number(bid.amount ?? bid.bidPrice ?? 0)),
+  );
+  const currentBid = Math.max(
+    highestBidFromHistory,
+    Number(
+      auction.currentBid ||
+        auction.currentPrice ||
+        auction.startPrice ||
+        auction.price ||
+        0,
+    ),
   );
   const minBidUnit = Math.ceil(currentBid * 0.03);
   const instantBuyPrice = auction.instantBuyPrice
     ? Number(auction.instantBuyPrice)
     : null;
+  const displayInstantBuyPrice = settled ? currentBid : instantBuyPrice;
   const minBid = currentBid + minBidUnit;
   const visibleBids = bids.slice(0, 3);
   const auctionImages = Array.isArray(auction.images) ? auction.images : [];
@@ -507,11 +600,11 @@ export default function AuctionDetailPage() {
             </div>
           )}
 
-          {instantBuyPrice && (
+          {displayInstantBuyPrice && (
             <div className="detail-stat-row">
               <span className="detail-stat-label">즉시낙찰가</span>
               <span className="detail-stat-value">
-                {fmt(instantBuyPrice)} <small>KRW</small>
+                {fmt(displayInstantBuyPrice)} <small>KRW</small>
               </span>
             </div>
           )}
@@ -555,7 +648,7 @@ export default function AuctionDetailPage() {
                     {bidding ? "처리 중..." : "입찰하기"}
                   </button>
                 </form>
-                {instantBuyPrice && (
+                {!ended && (
                   <button
                     type="button"
                     className="detail-btn-outline"
@@ -607,6 +700,8 @@ export default function AuctionDetailPage() {
                 <div className="detail-bidlist">
                   {visibleBids.map((bid, i) => {
                     const name = bid.bidderNickname || bid.bidder || "익명";
+                    const isWinningBid =
+                      bid.status === "WINNING" || bid.bidStatus === "WINNING";
                     return (
                       <div
                         key={bid.id ?? bid.bidId ?? i}
@@ -617,7 +712,9 @@ export default function AuctionDetailPage() {
                         </span>
                         <div className="detail-bid-info">
                           <span className="detail-bid-name">{name}</span>
-                          <span className="detail-bid-sub">입찰완료</span>
+                          <span className="detail-bid-sub">
+                            {isWinningBid ? "낙찰가" : "입찰완료"}
+                          </span>
                         </div>
                         <span className="detail-bid-amount">
                           {fmt(bid.amount)} KRW
@@ -713,6 +810,8 @@ export default function AuctionDetailPage() {
             <div className="bid-modal-list">
               {bids.map((bid, i) => {
                 const name = bid.bidderNickname || bid.bidder || "익명";
+                const isWinningBid =
+                  bid.status === "WINNING" || bid.bidStatus === "WINNING";
                 const isTop = i === 0;
                 return (
                   <div
@@ -724,8 +823,10 @@ export default function AuctionDetailPage() {
                     </span>
                     <div className="bid-modal-info">
                       <span className="bid-modal-name">{name}</span>
-                      {isTop && (
-                        <span className="bid-modal-top-badge">최고가</span>
+                      {(isTop || isWinningBid) && (
+                        <span className="bid-modal-top-badge">
+                          {isWinningBid ? "낙찰가" : "최고가"}
+                        </span>
                       )}
                     </div>
                     <span className="bid-modal-amount">

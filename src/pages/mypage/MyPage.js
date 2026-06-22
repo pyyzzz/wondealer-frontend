@@ -2387,6 +2387,15 @@ function ItemsTab({ navigate }) {
     COMPLETED: "zinc",
     DELETED: "zinc",
   };
+  const HIDDEN_ITEM_STATUSES = [
+    "DELETED",
+    "COMPLETED",
+    "COMPLETE",
+    "SOLD",
+    "FINISHED",
+    "SETTLED",
+    "SUCCESSFUL_BID",
+  ];
 
   const normalizeRegisteredItem = (raw) => {
     const item = raw?.item ?? raw?.auctionItem ?? raw?.product ?? raw ?? {};
@@ -2403,13 +2412,34 @@ function ItemsTab({ navigate }) {
         raw?.itemType ??
         (raw?.auctionId || raw?.auction ? "AUCTION" : "DIRECT"),
     ).toUpperCase();
-    const status = String(
-      raw?.status ??
-        raw?.itemStatus ??
-        raw?.tradeStatus ??
-        item?.status ??
-        "SELLING",
-    ).toUpperCase();
+    const itemIdForStatus =
+      raw?.itemId ??
+      raw?.id ??
+      item?.itemId ??
+      item?.id ??
+      raw?.auctionId ??
+      null;
+    const auctionIdForStatus =
+      raw?.auctionId ??
+      raw?.auction?.auctionId ??
+      raw?.auction?.id ??
+      item?.auctionId ??
+      item?.auction?.auctionId ??
+      item?.auction?.id ??
+      null;
+    const isLocallySettled =
+      auctionIdForStatus &&
+      localStorage.getItem(`wondealerSettledAuction:${auctionIdForStatus}`) ===
+        "true";
+    const status = isLocallySettled
+      ? "COMPLETED"
+      : String(
+          raw?.status ??
+            raw?.itemStatus ??
+            raw?.tradeStatus ??
+            item?.status ??
+            "SELLING",
+        ).toUpperCase();
     const thumbnailImg =
       raw?.thumbnailImg ??
       raw?.imageUrl ??
@@ -2424,7 +2454,7 @@ function ItemsTab({ navigate }) {
     return {
       ...raw,
       ...item,
-      itemId,
+      itemId: itemId ?? itemIdForStatus,
       tradeType,
       status,
       title:
@@ -2559,14 +2589,22 @@ function ItemsTab({ navigate }) {
   };
 
   const filtered = items.filter((item) => {
+    if (HIDDEN_ITEM_STATUSES.includes(item.status)) return false;
     if (activeItemTab === "전체") return true;
     if (activeItemTab === "직거래") return item.tradeType === "DIRECT";
     if (activeItemTab === "경매") return item.tradeType.includes("AUCTION");
     return true;
   });
 
-  const sellingCount = items.filter((i) => i.status === "SELLING").length;
-  const reservedCount = items.filter((i) => i.status === "RESERVED").length;
+  const visibleItems = items.filter(
+    (item) => !HIDDEN_ITEM_STATUSES.includes(item.status),
+  );
+  const sellingCount = visibleItems.filter(
+    (i) => i.status === "SELLING",
+  ).length;
+  const reservedCount = visibleItems.filter(
+    (i) => i.status === "RESERVED",
+  ).length;
   const totalPrice = items
     .filter((i) => i.status === "COMPLETED")
     .reduce((s, i) => s + (i.basePrice ?? 0), 0);
@@ -2656,7 +2694,8 @@ function ItemsTab({ navigate }) {
                 const createdDate = item.createdAt
                   ? new Date(item.createdAt).toLocaleDateString("ko-KR")
                   : "";
-                const canEdit = item.status === "SELLING";
+                const isAuctionItem = item.tradeType.includes("AUCTION");
+                const canEdit = item.status === "SELLING" && !isAuctionItem;
 
                 return (
                   <tr key={id}>
@@ -2770,7 +2809,9 @@ function ItemsTab({ navigate }) {
                               title={
                                 canEdit
                                   ? "가격 수정"
-                                  : "판매중 상태에서만 수정 가능"
+                                  : isAuctionItem
+                                    ? "경매 물품은 가격 수정 불가"
+                                    : "판매중 상태에서만 수정 가능"
                               }
                             >
                               <Icon.Edit2 />
