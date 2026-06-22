@@ -680,19 +680,15 @@ export default function ChatPage() {
         }
       }
 
-      const tradeRes = await AxiosInstance.post("/api/trades", {
+      await AxiosInstance.post("/api/trades", {
         itemId,
         paymentMethod: method === "card" ? "PORTONE" : "WONPAY",
         ...(paymentId ? { paymentId } : {}),
       });
-      const newTradeId = tradeRes.data?.data?.tradeId ?? null;
-      setRooms((prev) =>
-        prev.map((r) =>
-          String(roomId(r)) === String(selectedId)
-            ? { ...r, tradeStatus: "PAID", tradeId: newTradeId, lastMessage: "결제 완료" }
-            : r,
-        ),
-      );
+      const refreshRes = await ChatApi.getChatRooms({ page: 0, size: 50 });
+      const rawList = refreshRes.data?.data?.content ?? refreshRes.data?.content ?? [];
+      const list = await enrichRoomsWithItemInfo(rawList);
+      setRooms(list);
       setShowPay(false);
     } catch (err) {
       alert(err.response?.data?.message || "결제에 실패했습니다.");
@@ -743,17 +739,14 @@ export default function ChatPage() {
           isOpen={showPay}
           product={roomProduct(activeRoom)}
           onClose={() => setShowPay(false)}
-          onPaymentSuccess={() => {
-            setRooms((prev) =>
-              prev.map((r) =>
-                String(roomId(r)) === String(selectedId)
-                  ? { ...r, tradeStatus: "PAID", lastMessage: "결제 완료" }
-                  : r,
-              ),
-            );
+          onPaymentSuccess={async () => {
+            const refreshRes = await ChatApi.getChatRooms({ page: 0, size: 50 });
+            const rawList = refreshRes.data?.data?.content ?? refreshRes.data?.content ?? [];
+            const list = await enrichRoomsWithItemInfo(rawList);
+            setRooms(list);
             setShowPay(false);
           }}
-        />
+        />  
       )}
 
       <RoomList
