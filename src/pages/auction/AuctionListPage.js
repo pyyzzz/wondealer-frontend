@@ -461,7 +461,9 @@ const getAuctionImage = (auc) =>
   auc.item?.imageUrls?.[0] ||
   "https://placehold.co/100x100/12131a/ffffff?text=ITEM";
 const getAuctionStatus = (auc) =>
-  String(auc.status ?? auc.auctionStatus ?? auc.item?.status ?? "").toUpperCase();
+  String(
+    auc.status ?? auc.auctionStatus ?? auc.item?.status ?? "",
+  ).toUpperCase();
 const isLocalSettled = (auc) =>
   localStorage.getItem(`wondealerSettledAuction:${getAuctionId(auc)}`) ===
   "true";
@@ -711,7 +713,8 @@ const AuctionListPage = () => {
                     disabled={isAuctionEnded(auc)}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!isAuctionEnded(auc)) handleBidClick(getAuctionId(auc));
+                      if (!isAuctionEnded(auc))
+                        handleBidClick(getAuctionId(auc));
                     }}
                   >
                     {isAuctionEnded(auc) ? "경매종료" : "입찰하기"}

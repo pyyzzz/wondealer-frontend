@@ -234,6 +234,18 @@ const Icon = {
 
 const SIZE = 10;
 
+const isAuctionItem = (item) => {
+  const tradeType = String(
+    item?.tradeType ?? item?.itemType ?? item?.type ?? "",
+  ).toUpperCase();
+
+  return (
+    tradeType.includes("AUCTION") ||
+    item?.auctionId != null ||
+    item?.auction != null
+  );
+};
+
 export default function ItemListPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -311,6 +323,7 @@ export default function ItemListPage() {
     setLoading(true);
     try {
       const params = { page: page - 1, size: SIZE };
+
       if (selectedGameId) params.gameId = selectedGameId;
       if (selectedServerId) params.serverId = selectedServerId;
       if (selectedCategoryId) params.categoryId = selectedCategoryId;
@@ -319,7 +332,7 @@ export default function ItemListPage() {
       const res = await ItemApi.getItems(params);
       const pageData = res.data?.data ?? {};
       const visibleItems = (pageData.content ?? []).filter(
-        (item) => !isDeletedItem(item),
+        (item) => !isDeletedItem(item) && !isAuctionItem(item),
       );
       setItems(visibleItems);
       setTotal(

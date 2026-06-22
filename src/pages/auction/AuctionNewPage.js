@@ -65,7 +65,6 @@ const AuctionNewPage = () => {
   const [description, setDescription] = useState("");
   const [buyNowPrice, setBuyNowPrice] = useState("");
   const [startPrice, setStartPrice] = useState("");
-  const [minBidUnit, setMinBidUnit] = useState("1,000");
   const [duration, setDuration] = useState(24);
   const [endTime, setEndTime] = useState("");
   const [images, setImages] = useState([]);
@@ -170,7 +169,7 @@ const AuctionNewPage = () => {
     try {
       // 백엔드 AuctionCreateReqDto 필드: title, description, categoryId,
       // serverId, startPrice, instantBuyPrice, auctionDays
-      // (gameId, minBidUnit은 DTO에 없으므로 전송하지 않음)
+      // (gameId는 DTO에 없으므로 전송하지 않음)
       const payload = {
         categoryId: Number(categoryId),
         serverId: serverId ? Number(serverId) : null,
@@ -322,18 +321,6 @@ const AuctionNewPage = () => {
                     placeholder="1,000"
                     value={startPrice}
                     onChange={(e) => setStartPrice(formatPrice(e.target.value))}
-                  />
-                  <span>₩</span>
-                </PriceInputWrapper>
-              </FormGroup>
-              <FormGroup>
-                <label>최소 입찰 단위</label>
-                <PriceInputWrapper>
-                  <input
-                    type="text"
-                    placeholder="1,000"
-                    value={minBidUnit}
-                    onChange={(e) => setMinBidUnit(formatPrice(e.target.value))}
                   />
                   <span>₩</span>
                 </PriceInputWrapper>

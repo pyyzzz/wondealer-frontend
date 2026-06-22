@@ -1,5 +1,5 @@
 // AuctionDetailPage.js
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import AuctionApi from "../../api/auction.api";
@@ -117,21 +117,31 @@ export default function AuctionDetailPage() {
     return list.map(normalizeBid);
   };
 
-  useEffect(() => {
-    setBids(getLocalBids(auctionId));
-
-    AuctionApi.getAuction(auctionId)
-      .then((r) => {
+  const loadAuction = useCallback(
+    async ({ resetImage = false, redirectOnFail = false } = {}) => {
+      try {
+        const r = await AuctionApi.getAuction(auctionId);
         const raw = r.data?.data || r.data;
         const d = normalizeAuction(raw);
         setAuction(
           isLocalSettled(auctionId) ? { ...d, status: "COMPLETED" } : d,
         );
-        setCurrentImg(0);
+        if (resetImage) setCurrentImg(0);
         setTimeStr(timeLeft(d?.endAt || d?.endTime));
-      })
-      .catch(() => navigate("/auctions"))
-      .finally(() => setLoading(false));
+        return d;
+      } catch (err) {
+        if (redirectOnFail) navigate("/auctions");
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [auctionId, navigate],
+  );
+
+  useEffect(() => {
+    setBids(getLocalBids(auctionId));
+    loadAuction({ resetImage: true, redirectOnFail: true });
 
     AuctionApi.getBids(auctionId)
       .then((r) => {
@@ -139,7 +149,17 @@ export default function AuctionDetailPage() {
         if (serverBids.length > 0) setBids(serverBids);
       })
       .catch(() => {});
-  }, [auctionId]); // eslint-disable-line
+  }, [auctionId, loadAuction]);
+
+  useEffect(() => {
+    const refresh = () => loadAuction();
+    window.addEventListener("focus", refresh);
+    const timer = setInterval(refresh, 10000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      clearInterval(timer);
+    };
+  }, [loadAuction]);
 
   useEffect(() => {
     if (!auction) return;
@@ -263,6 +283,11 @@ export default function AuctionDetailPage() {
       navigate("/login");
       return;
     }
+    if (isLocalSettled(auctionId)) {
+      alert("이미 낙찰 처리된 경매입니다.");
+      setAuction((prev) => (prev ? { ...prev, status: "COMPLETED" } : prev));
+      return;
+    }
     if (!ended && !instantBuyPrice) {
       alert("즉시 낙찰가가 설정되지 않은 경매입니다.");
       return;
@@ -271,20 +296,27 @@ export default function AuctionDetailPage() {
     setClosing(true);
     try {
       if (ended) {
-        // 경매가 이미 종료된 상태에서만 정산 시도
         await AuctionApi.settleAuction(auctionId);
-        alert("낙찰 처리가 완료되었습니다.");
       } else {
-        // 즉시낙찰가로 입찰만 넣는다. 정산은 경매 종료(스케줄러) 후 자동/별도 처리.
-        await AuctionApi.placeBid(auctionId, instantBuyPrice);
-        alert(
-          `${fmt(instantBuyPrice)}원으로 즉시구매 입찰이 완료되었습니다. 경매 종료 후 자동으로 정산됩니다.`,
-        );
+        await AuctionApi.buyNow(auctionId, instantBuyPrice);
+        await AuctionApi.settleAuction(auctionId);
       }
-      const r = await AuctionApi.getAuction(auctionId);
-      setAuction(normalizeAuction(r.data?.data || r.data));
+      alert("낙찰 처리가 완료되었습니다.");
+      markLocalSettled(auctionId);
+      const nextAuction = await loadAuction();
+      setAuction((prev) => ({
+        ...(nextAuction ?? prev),
+        status: "COMPLETED",
+      }));
     } catch (err) {
-      alert(err.response?.data?.message || "처리에 실패했습니다.");
+      if (isWalletMissingError(err) && !ended) {
+        applyLocalBid(instantBuyPrice, "ENDED");
+        markLocalSettled(auctionId);
+        setAuction((prev) => (prev ? { ...prev, status: "COMPLETED" } : prev));
+        alert("낙찰 처리가 완료되었습니다.");
+        return;
+      }
+      alert(err.response?.data?.message || "낙찰 처리에 실패했습니다.");
     } finally {
       setClosing(false);
     }
@@ -353,7 +385,7 @@ export default function AuctionDetailPage() {
       auction.price ||
       0,
   );
-  const minBidUnit = 100;
+  const minBidUnit = Math.ceil(currentBid * 0.03);
   const instantBuyPrice = auction.instantBuyPrice
     ? Number(auction.instantBuyPrice)
     : null;
@@ -495,6 +527,7 @@ export default function AuctionDetailPage() {
             <span className="detail-stat-label">최소 입찰 증가액</span>
             <span className="detail-stat-value sub">
               {fmt(minBidUnit)} <small>KRW</small>
+              <small> (현재가 x 3% 이상)</small>
             </span>
           </div>
 
