@@ -3353,7 +3353,9 @@ export default function MyPage({ tab: defaultTab }) {
   const [sidebarNickname, setSidebarNickname] = useState(
     user?.nickname || "사용자",
   );
-  const [sidebarProfileImg, setSidebarProfileImg] = useState(null);
+  const [sidebarProfileImg, setSidebarProfileImg] = useState(() =>
+    getSavedProfileImage(),
+  );
 
   const [sharedBalance, setSharedBalance] = useState(0);
   const [bankInfo, setBankInfo] = useState(() => getSavedBankInfo());
@@ -3387,6 +3389,15 @@ export default function MyPage({ tab: defaultTab }) {
       const nextBankInfo = mergeBankInfo(bank);
       setBankInfo(nextBankInfo);
       if (nextBankInfo.accountNumber) saveBankInfo(nextBankInfo);
+      const nextProfileImg =
+        d.profileImg ?? d.profileImage ?? d.profileImageUrl ?? "";
+      if (nextProfileImg) {
+        saveProfileImage(nextProfileImg);
+        setSidebarProfileImg(nextProfileImg);
+      } else {
+        const savedProfileImg = getSavedProfileImage();
+        if (savedProfileImg) setSidebarProfileImg(savedProfileImg);
+      }
     } catch (e) {
       console.error("계좌 정보 조회 오류:", e);
     }

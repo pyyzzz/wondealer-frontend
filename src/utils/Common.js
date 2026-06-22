@@ -22,10 +22,22 @@ const Common = {
       "wondealerBankInfo",
       "wondealerProfileImage",
     ];
-    const preserved = PRESERVED_LOCAL_KEYS.map((key) => [
-      key,
-      localStorage.getItem(key),
-    ]).filter(([, value]) => value !== null);
+    const PRESERVED_PREFIXES = [
+      "wondealerSettledAuction:",
+      "wondealerAuctionBids:",
+      "wondealerCompletedChatRoom:",
+    ];
+    const preserved = [
+      ...PRESERVED_LOCAL_KEYS.map((key) => [
+        key,
+        localStorage.getItem(key),
+      ]),
+      ...Object.keys(localStorage)
+        .filter((key) =>
+          PRESERVED_PREFIXES.some((prefix) => key.startsWith(prefix)),
+        )
+        .map((key) => [key, localStorage.getItem(key)]),
+    ].filter(([, value]) => value !== null);
     localStorage.clear();
     preserved.forEach(([key, value]) => localStorage.setItem(key, value));
   },
