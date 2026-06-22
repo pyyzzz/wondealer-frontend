@@ -65,7 +65,9 @@ const settledAuctionKey = (auctionId) => `wondealerSettledAuction:${auctionId}`;
 
 function getLocalBids(auctionId) {
   try {
-    const saved = JSON.parse(localStorage.getItem(localBidKey(auctionId)) || "[]");
+    const saved = JSON.parse(
+      localStorage.getItem(localBidKey(auctionId)) || "[]",
+    );
     return Array.isArray(saved) ? saved.map(normalizeBid) : [];
   } catch {
     return [];
@@ -122,7 +124,9 @@ export default function AuctionDetailPage() {
       .then((r) => {
         const raw = r.data?.data || r.data;
         const d = normalizeAuction(raw);
-        setAuction(isLocalSettled(auctionId) ? { ...d, status: "COMPLETED" } : d);
+        setAuction(
+          isLocalSettled(auctionId) ? { ...d, status: "COMPLETED" } : d,
+        );
         setCurrentImg(0);
         setTimeStr(timeLeft(d?.endAt || d?.endTime));
       })
@@ -148,7 +152,8 @@ export default function AuctionDetailPage() {
 
   // 모달이 열려 있을 때 배경 스크롤 잠금
   useEffect(() => {
-    document.body.style.overflow = showBidModal || showImageModal ? "hidden" : "";
+    document.body.style.overflow =
+      showBidModal || showImageModal ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
@@ -321,17 +326,35 @@ export default function AuctionDetailPage() {
     );
 
   const auctionStatus = String(auction.status ?? "").toUpperCase();
+  const auctionItemStatus = String(auction.item?.status ?? "").toUpperCase();
+  const statusForEnd = auctionStatus || auctionItemStatus;
   const settled =
     isLocalSettled(auctionId) ||
-    ["COMPLETED", "SETTLED", "SUCCESSFUL_BID"].includes(auctionStatus);
+    [
+      "COMPLETED",
+      "COMPLETE",
+      "SETTLED",
+      "SUCCESSFUL_BID",
+      "SUCCESSFUL",
+      "SOLD",
+      "FINISHED",
+    ].includes(statusForEnd);
   const ended =
     settled ||
     timeStr === "종료" ||
-    auctionStatus === "ENDED" ||
-    auctionStatus === "CLOSED" ||
-    auctionStatus === "COMPLETED" ||
-    auctionStatus === "SETTLED" ||
-    auctionStatus === "SUCCESSFUL_BID";
+    [
+      "ENDED",
+      "END",
+      "CLOSED",
+      "COMPLETED",
+      "COMPLETE",
+      "SETTLED",
+      "SUCCESSFUL_BID",
+      "SUCCESSFUL",
+      "SOLD",
+      "FINISHED",
+      "EXPIRED",
+    ].includes(statusForEnd);
   const canCloseAuction = ended && !settled;
   const currentBid = Number(
     auction.currentBid ||
@@ -351,7 +374,9 @@ export default function AuctionDetailPage() {
   const hasMultipleImages = auctionImages.length > 1;
   const currentImage = auctionImages[currentImg] || auction.imageUrl;
   const myId = user?.memberId ?? user?.id ?? user?.userId ?? null;
-  const myNickname = String(user?.nickname ?? user?.name ?? user?.username ?? "").trim();
+  const myNickname = String(
+    user?.nickname ?? user?.name ?? user?.username ?? "",
+  ).trim();
   const sellerId = auction.sellerId ?? null;
   const sellerNickname = String(auction.sellerNickname ?? "").trim();
   const isOwnAuction =
@@ -359,7 +384,9 @@ export default function AuctionDetailPage() {
     (!!sellerNickname && !!myNickname && sellerNickname === myNickname);
   const showPrevImage = () => {
     if (!hasMultipleImages) return;
-    setCurrentImg((prev) => (prev - 1 + auctionImages.length) % auctionImages.length);
+    setCurrentImg(
+      (prev) => (prev - 1 + auctionImages.length) % auctionImages.length,
+    );
   };
   const showNextImage = () => {
     if (!hasMultipleImages) return;

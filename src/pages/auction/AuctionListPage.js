@@ -461,15 +461,26 @@ const getAuctionImage = (auc) =>
   auc.item?.imageUrls?.[0] ||
   "https://placehold.co/100x100/12131a/ffffff?text=ITEM";
 const getAuctionStatus = (auc) =>
-  String(auc.status ?? auc.auctionStatus ?? "").toUpperCase();
+  String(auc.status ?? auc.auctionStatus ?? auc.item?.status ?? "").toUpperCase();
 const isLocalSettled = (auc) =>
   localStorage.getItem(`wondealerSettledAuction:${getAuctionId(auc)}`) ===
   "true";
 const isAuctionEnded = (auc) =>
   isLocalSettled(auc) ||
-  ["ENDED", "CLOSED", "COMPLETED", "SETTLED", "SUCCESSFUL_BID"].includes(
-    getAuctionStatus(auc),
-  ) || (auc.endTime && new Date(auc.endTime) <= new Date());
+  [
+    "ENDED",
+    "END",
+    "CLOSED",
+    "COMPLETED",
+    "COMPLETE",
+    "SETTLED",
+    "SUCCESSFUL_BID",
+    "SUCCESSFUL",
+    "SOLD",
+    "FINISHED",
+    "EXPIRED",
+  ].includes(getAuctionStatus(auc)) ||
+  (auc.endTime && new Date(auc.endTime) <= new Date());
 
 const AuctionTimer = ({ endTimeStr }) => {
   const [timeLeft, setTimeLeft] = useState("");
