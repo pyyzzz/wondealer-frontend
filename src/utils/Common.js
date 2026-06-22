@@ -17,7 +17,12 @@ const Common = {
   setRole: (role) => localStorage.setItem("role", role),
 
   clearStorage: () => {
-    const preserved = ADMIN_LOCAL_KEYS.map((key) => [
+    const PRESERVED_LOCAL_KEYS = [
+      ...ADMIN_LOCAL_KEYS,
+      "wondealerBankInfo",
+      "wondealerProfileImage",
+    ];
+    const preserved = PRESERVED_LOCAL_KEYS.map((key) => [
       key,
       localStorage.getItem(key),
     ]).filter(([, value]) => value !== null);

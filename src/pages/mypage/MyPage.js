@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import WalletApi from "../../api/wallet.api";
 import Common from "../../utils/Common";
+import { uploadImageFiles } from "../../utils/firebaseUpload";
 import headsetImg from "../../img/headset.JPG";
 import "./MyPage.css";
 
@@ -403,11 +404,28 @@ const fmt = (n) => Number(n ?? 0).toLocaleString("ko-KR");
 const token = () => localStorage.getItem("accessToken");
 const BANK_STORAGE_KEY = "wondealerBankInfo";
 const WITHDRAW_ADJUSTMENT_KEY = "wondealerWithdrawAdjustment";
+const PROFILE_IMAGE_STORAGE_KEY = "wondealerProfileImage";
 
 const toAmount = (value) => {
   if (value === null || value === undefined || value === "") return 0;
   return Number(String(value).replace(/[^\d.-]/g, "")) || 0;
 };
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+const saveProfileImage = (url) => {
+  if (!url) return;
+  localStorage.setItem(PROFILE_IMAGE_STORAGE_KEY, url);
+};
+
+const getSavedProfileImage = () =>
+  localStorage.getItem(PROFILE_IMAGE_STORAGE_KEY) || "";
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -1537,15 +1555,23 @@ function ProfileTab({
         setBank(savedBank.bankName || "신한은행");
         setAccount(savedBank.accountNumber);
         setAccountHolder(savedBank.accountHolder);
-        if (d.profileImg) {
-          setProfileImg(d.profileImg);
-          onProfileImgSaved(d.profileImg);
+        const savedProfileImg = getSavedProfileImage();
+        const nextProfileImg =
+          d.profileImg ?? d.profileImage ?? d.profileImageUrl ?? savedProfileImg;
+        if (nextProfileImg) {
+          setProfileImg(nextProfileImg);
+          onProfileImgSaved(nextProfileImg);
         }
       })
       .catch(() => {
         if (!mounted) return;
         setNickname(user?.nickname ?? "");
         setUsername(user?.username ?? "");
+        const savedProfileImg = getSavedProfileImage();
+        if (savedProfileImg) {
+          setProfileImg(savedProfileImg);
+          onProfileImgSaved(savedProfileImg);
+        }
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -1593,23 +1619,43 @@ function ProfileTab({
     try {
       const tk = token();
       if (profileFile) {
-        const fd = new FormData();
-        fd.append("image", profileFile);
-        const imgRes = await fetch(
-          `${Common.API_URL}/api/members/me/profile-image`,
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${tk}` },
-            body: fd,
-          },
-        );
-        if (!imgRes.ok) throw new Error("이미지 업로드 실패");
-        const imgData = await imgRes.json();
-        const uploaded = imgData?.data?.profileImg || null;
-        if (uploaded) {
-          setProfileImg(uploaded);
-          onProfileImgSaved(uploaded);
+        const localProfileImg = await readFileAsDataUrl(profileFile);
+        let uploaded = "";
+        try {
+          const firebaseUrls = await uploadImageFiles([profileFile], "profiles");
+          uploaded = firebaseUrls[0] || "";
+        } catch (firebaseError) {
+          console.warn("Firebase 프로필 이미지 업로드 실패:", firebaseError);
         }
+        try {
+          const fd = new FormData();
+          fd.append("image", profileFile);
+          const imgRes = await fetch(
+            `${Common.API_URL}/api/members/me/profile-image`,
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${tk}` },
+              body: fd,
+            },
+          );
+          if (imgRes.ok) {
+            const imgData = await imgRes.json().catch(() => ({}));
+            const serverProfileImg =
+              imgData?.data?.profileImg ??
+              imgData?.data?.profileImage ??
+              imgData?.data?.profileImageUrl ??
+              imgData?.profileImg ??
+              imgData?.profileImageUrl ??
+              "";
+            uploaded = uploaded || serverProfileImg;
+          }
+        } catch (uploadError) {
+          console.warn("프로필 이미지 서버 업로드 실패, 로컬 저장 사용:", uploadError);
+        }
+        const nextProfileImg = uploaded || localProfileImg;
+        saveProfileImage(nextProfileImg);
+        setProfileImg(nextProfileImg);
+        onProfileImgSaved(nextProfileImg);
       }
 
       const infoRes = await fetch(`${Common.API_URL}/api/members/me`, {
@@ -2311,11 +2357,68 @@ function ItemsTab({ navigate }) {
     DELETED: "zinc",
   };
 
+  const normalizeRegisteredItem = (raw) => {
+    const item = raw?.item ?? raw?.auctionItem ?? raw?.product ?? raw ?? {};
+    const itemId =
+      raw?.itemId ??
+      raw?.id ??
+      item?.itemId ??
+      item?.id ??
+      raw?.auctionId ??
+      null;
+    const tradeType = String(
+      raw?.tradeType ??
+        raw?.type ??
+        raw?.itemType ??
+        (raw?.auctionId || raw?.auction ? "AUCTION" : "DIRECT"),
+    ).toUpperCase();
+    const status = String(
+      raw?.status ?? raw?.itemStatus ?? raw?.tradeStatus ?? item?.status ?? "SELLING",
+    ).toUpperCase();
+    const thumbnailImg =
+      raw?.thumbnailImg ??
+      raw?.imageUrl ??
+      raw?.images?.[0] ??
+      raw?.imageUrls?.[0] ??
+      item?.thumbnailImg ??
+      item?.imageUrl ??
+      item?.images?.[0] ??
+      item?.imageUrls?.[0] ??
+      "";
+
+    return {
+      ...raw,
+      ...item,
+      itemId,
+      tradeType,
+      status,
+      title: raw?.title ?? raw?.itemName ?? raw?.itemTitle ?? item?.title ?? item?.itemName ?? "",
+      description: raw?.description ?? item?.description ?? "",
+      basePrice: toAmount(
+        raw?.basePrice ??
+          raw?.price ??
+          raw?.itemPrice ??
+          raw?.startPrice ??
+          raw?.currentPrice ??
+          item?.basePrice ??
+          item?.price ??
+          item?.itemPrice,
+      ),
+      categoryId: raw?.categoryId ?? item?.categoryId,
+      categoryName: raw?.categoryName ?? item?.categoryName ?? "",
+      serverId: raw?.serverId ?? item?.serverId,
+      serverName: raw?.serverName ?? item?.serverName ?? "",
+      gameName: raw?.gameName ?? item?.gameName ?? "",
+      createdAt: raw?.createdAt ?? item?.createdAt ?? "",
+      thumbnailImg,
+    };
+  };
+
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(
-        `${Common.API_URL}/api/members/me/items?page=0&size=50`,
+        `${Common.API_URL}/api/members/me/items?page=0&size=100`,
         {
           headers: { Authorization: `Bearer ${token()}` },
           cache: "no-store",
@@ -2323,8 +2426,16 @@ function ItemsTab({ navigate }) {
       );
       if (!res.ok) throw new Error();
       const json = await res.json();
-      const list = json?.data?.content ?? json?.content ?? json?.data ?? [];
-      setItems(Array.isArray(list) ? list : []);
+      const list =
+        json?.data?.content ??
+        json?.data?.items ??
+        json?.data?.list ??
+        json?.content ??
+        json?.items ??
+        json?.list ??
+        (Array.isArray(json?.data) ? json.data : null) ??
+        (Array.isArray(json) ? json : []);
+      setItems(Array.isArray(list) ? list.map(normalizeRegisteredItem) : []);
     } catch {
       setItems([]);
     } finally {
@@ -2409,7 +2520,7 @@ function ItemsTab({ navigate }) {
   const filtered = items.filter((item) => {
     if (activeItemTab === "전체") return true;
     if (activeItemTab === "직거래") return item.tradeType === "DIRECT";
-    if (activeItemTab === "경매") return item.tradeType === "AUCTION";
+    if (activeItemTab === "경매") return item.tradeType.includes("AUCTION");
     return true;
   });
 
@@ -2492,13 +2603,13 @@ function ItemsTab({ navigate }) {
               </tr>
             ) : (
               filtered.map((item) => {
-                const id = item.itemId;
+                const id = item.itemId ?? item.id;
                 const statusLabel = STATUS_KO[item.status] ?? item.status ?? "";
                 const statusColor = STATUS_COLOR[item.status] ?? "zinc";
                 const tradeLabel =
-                  item.tradeType === "AUCTION" ? "경매" : "직거래";
+                  item.tradeType.includes("AUCTION") ? "경매" : "직거래";
                 const tradeColor =
-                  item.tradeType === "AUCTION" ? "amber" : "violet";
+                  item.tradeType.includes("AUCTION") ? "amber" : "violet";
                 const createdDate = item.createdAt
                   ? new Date(item.createdAt).toLocaleDateString("ko-KR")
                   : "";
