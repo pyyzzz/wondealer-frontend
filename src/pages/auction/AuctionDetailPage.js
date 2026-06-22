@@ -263,11 +263,6 @@ export default function AuctionDetailPage() {
       navigate("/login");
       return;
     }
-    if (isLocalSettled(auctionId)) {
-      alert("이미 낙찰 처리된 경매입니다.");
-      setAuction((prev) => (prev ? { ...prev, status: "COMPLETED" } : prev));
-      return;
-    }
     if (!ended && !instantBuyPrice) {
       alert("즉시 낙찰가가 설정되지 않은 경매입니다.");
       return;
@@ -276,25 +271,20 @@ export default function AuctionDetailPage() {
     setClosing(true);
     try {
       if (ended) {
+        // 경매가 이미 종료된 상태에서만 정산 시도
         await AuctionApi.settleAuction(auctionId);
-      } else {
-        await AuctionApi.buyNow(auctionId, instantBuyPrice);
-        await AuctionApi.settleAuction(auctionId);
-      }
-      alert("낙찰 처리가 완료되었습니다.");
-      markLocalSettled(auctionId);
-      const r = await AuctionApi.getAuction(auctionId);
-      const nextAuction = normalizeAuction(r.data?.data || r.data);
-      setAuction({ ...nextAuction, status: "COMPLETED" });
-    } catch (err) {
-      if (isWalletMissingError(err) && !ended) {
-        applyLocalBid(instantBuyPrice, "ENDED");
-        markLocalSettled(auctionId);
-        setAuction((prev) => (prev ? { ...prev, status: "COMPLETED" } : prev));
         alert("낙찰 처리가 완료되었습니다.");
-        return;
+      } else {
+        // 즉시낙찰가로 입찰만 넣는다. 정산은 경매 종료(스케줄러) 후 자동/별도 처리.
+        await AuctionApi.placeBid(auctionId, instantBuyPrice);
+        alert(
+          `${fmt(instantBuyPrice)}원으로 즉시구매 입찰이 완료되었습니다. 경매 종료 후 자동으로 정산됩니다.`,
+        );
       }
-      alert(err.response?.data?.message || "낙찰 처리에 실패했습니다.");
+      const r = await AuctionApi.getAuction(auctionId);
+      setAuction(normalizeAuction(r.data?.data || r.data));
+    } catch (err) {
+      alert(err.response?.data?.message || "처리에 실패했습니다.");
     } finally {
       setClosing(false);
     }
