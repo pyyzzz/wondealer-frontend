@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import AuctionApi from "../../api/auction.api";
+import useWebSocket from "../../hooks/useWebSocket";
 import "./auction.css";
 
 function timeLeft(endAt) {
@@ -249,6 +250,12 @@ export default function AuctionDetailPage() {
         await AuctionApi.buyNow(auctionId, instantBuyPrice);
       }
       alert("낙찰 처리가 완료되었습니다.");
+      // 버튼 즉시 숨김 처리 (새로고침 전에도 반영)
+      setAuction(prev => ({
+        ...prev,
+        status: "ENDED",
+        winnerId: prev.winnerId ?? -1,
+      }));
       const r = await AuctionApi.getAuction(auctionId);
       setAuction(normalizeAuction(r.data?.data || r.data));
     } catch (err) {
@@ -262,6 +269,22 @@ export default function AuctionDetailPage() {
       setClosing(false);
     }
   };
+
+  // WebSocket 구독 — early return 앞에 위치해야 훅 규칙 준수
+  useWebSocket(
+    auctionId ? `/topic/auction/${auctionId}` : null,
+    null,
+    (msg) => {
+      setAuction((prev) => ({
+        ...prev,
+        currentBid: msg.currentPrice ?? prev.currentBid,
+        currentPrice: msg.currentPrice ?? prev.currentPrice,
+        bidCount: msg.bidCount ?? prev.bidCount,
+        status: msg.status ?? prev.status,
+        winnerId: msg.winnerId ?? prev.winnerId,
+      }));
+    },
+  );
 
   if (loading)
     return (
@@ -288,7 +311,7 @@ export default function AuctionDetailPage() {
       </div>
     );
 
-  const ended = timeStr === "종료";
+  const ended = timeStr === "종료" || auction?.status === "ENDED";
   const currentBid = Number(
     auction.currentBid ||
       auction.currentPrice ||
@@ -466,7 +489,7 @@ export default function AuctionDetailPage() {
             </>
           )}
 
-          {ended && (
+          {ended && !auction?.winnerId && (
             <button
               type="button"
               className="detail-btn-outline"

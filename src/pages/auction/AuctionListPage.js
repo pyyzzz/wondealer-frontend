@@ -500,11 +500,15 @@ const AuctionListPage = () => {
       if (res.data?.success) {
         const list = res.data.data;
         setGames(list);
-        if (list.length > 0 && !selectedGameId)
-          setSelectedGameId(list[0].gameId);
+        if (list.length > 0) {
+          const gameId = selectedGameId || list[0].gameId;
+          if (!selectedGameId) setSelectedGameId(gameId);
+          // 페이지 진입 시 항상 최신 경매 목록 재조회
+          fetchAuctions(gameId);
+        }
       }
     });
-  }, []);
+  }, []); // eslint-disable-line
 
   // 2. 게임 변경 시 서버 리스트 업데이트
   useEffect(() => {
@@ -538,7 +542,7 @@ const AuctionListPage = () => {
       selectedServer === "전체 서버" || auc.serverName === selectedServer;
     const matchKeyword =
       !searchKeyword ||
-      auc.itemTitle.toLowerCase().includes(searchKeyword.toLowerCase());
+      (auc.itemTitle ?? "").toLowerCase().includes(searchKeyword.toLowerCase());
     return matchServer && matchKeyword;
   });
 
