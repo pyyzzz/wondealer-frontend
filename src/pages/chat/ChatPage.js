@@ -39,6 +39,15 @@ function fmtDate(iso) {
 function roomId(r) {
   return r.chatRoomId ?? r.id;
 }
+function completedRoomKey(rId) {
+  return `wondealerCompletedChatRoom:${rId}`;
+}
+function isLocalCompletedRoom(rId) {
+  return !!rId && localStorage.getItem(completedRoomKey(rId)) === "true";
+}
+function markLocalCompletedRoom(rId) {
+  if (rId) localStorage.setItem(completedRoomKey(rId), "true");
+}
 function roomPartner(r) {
   return r.opponent?.nickname ?? r.partnerNickname ?? r.partnerName ?? "상대방";
 }
@@ -167,6 +176,7 @@ function roomUnread(r) {
   return r.unreadCount ?? 0;
 }
 function roomStatus(r) {
+  if (isLocalCompletedRoom(roomId(r))) return "COMPLETED";
   if (r.tradeStatus) return r.tradeStatus;
   return roomTradeId(r) ? "PAID" : "CONSULTING";
 }
@@ -414,6 +424,7 @@ export default function ChatPage() {
   const handleIncoming = useCallback(
     (msg) => {
       const isCompleted = isTradeCompleteMessage(msg);
+      if (isCompleted) markLocalCompletedRoom(selectedId);
       setMessages((prev) => {
         if (msgId(msg) && prev.some((m) => msgId(m) === msgId(msg)))
           return prev;
@@ -427,6 +438,16 @@ export default function ChatPage() {
           return prev.map((m, index) =>
             index === optimisticIndex ? { ...msg, isRead: msgRead(msg) } : m,
           );
+        }
+        if (
+          isCompleted &&
+          prev.some(
+            (m) =>
+              isTradeCompleteMessage(m) &&
+              msgContent(m) === msgContent(msg),
+          )
+        ) {
+          return prev;
         }
         return [...prev, msg];
       });
@@ -481,7 +502,9 @@ export default function ChatPage() {
         const nextMessages = [...raw].reverse();
         setMessages(nextMessages);
         ChatApi.readMessages(rId).catch(() => {});
-        const isCompleted = nextMessages.some(isTradeCompleteMessage);
+        const isCompleted =
+          isLocalCompletedRoom(rId) || nextMessages.some(isTradeCompleteMessage);
+        if (isCompleted) markLocalCompletedRoom(rId);
         setRooms((prev) =>
           prev.map((r) =>
             String(roomId(r)) === String(rId)
@@ -574,10 +597,42 @@ export default function ChatPage() {
     if (!window.confirm("거래를 완료 처리하겠습니까?")) return;
     try {
       await TradeApi.confirmTrade(tradeId);
+      markLocalCompletedRoom(selectedId);
+      const completedAt = new Date().toISOString();
+      const completedMessage = "구매자가 인수 확인을 완료했습니다. 거래가 종료되었습니다.";
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `local-completed-${Date.now()}`,
+          content: completedMessage,
+          message: completedMessage,
+          senderNickname: "SYSTEM",
+          createdAt: completedAt,
+          messageType: "SYSTEM",
+          type: "SYSTEM",
+          tradeStatus: "COMPLETED",
+          isRead: true,
+        },
+      ]);
+      sendMessage({
+        content: completedMessage,
+        message: completedMessage,
+        type: "SYSTEM",
+        messageType: "SYSTEM",
+        tradeStatus: "COMPLETED",
+        status: "COMPLETED",
+        roomStatus: "COMPLETED",
+        tradeId,
+      });
       setRooms((prev) =>
         prev.map((r) =>
           String(roomId(r)) === String(selectedId)
-            ? { ...r, tradeStatus: "COMPLETED" }
+            ? {
+                ...r,
+                tradeStatus: "COMPLETED",
+                lastMessage: "거래 완료",
+                lastMessageTime: completedAt,
+              }
             : r,
         ),
       );
@@ -792,7 +847,9 @@ export default function ChatPage() {
           </MsgList>
 
           {isDone && (
-            <DoneBanner>⚠ 이 채팅은 거래가 완료된 채팅방입니다.</DoneBanner>
+            <DoneBanner>
+              ✅ 인수 확인이 완료되어 거래가 종료된 채팅방입니다.
+            </DoneBanner>
           )}
 
           {!isSeller && !isDone && getStep(roomStatus(activeRoom)) === 1 && (
