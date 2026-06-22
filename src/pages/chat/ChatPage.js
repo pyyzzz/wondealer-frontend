@@ -185,7 +185,7 @@ function toNumber(value) {
 }
 function getRoomPrice(r) {
   return toNumber(
-    r?.itemPrice ??    // ChatRoomListResDto.itemPrice (백엔드에서 직접 전달)
+    r?.itemPrice ?? // ChatRoomListResDto.itemPrice (백엔드에서 직접 전달)
       r?.tradePrice ??
       r?.basePrice ??
       r?.price ??
@@ -492,7 +492,19 @@ export default function ChatPage() {
   const dest = selectedId ? `/app/chat/${selectedId}` : null;
 
   const handleIncoming = useCallback(
-    (msg) => {
+    async (msg) => {
+      // 결제 완료 SYSTEM 메시지 수신 → 채팅방 목록 재조회 (판매자/구매자 동시 동기화)
+      if (msg.messageType === "SYSTEM" && msg.tradeStatus === "PAID") {
+        try {
+          const refreshRes = await ChatApi.getChatRooms({ page: 0, size: 50 });
+          const rawList =
+            refreshRes.data?.data?.content ?? refreshRes.data?.content ?? [];
+          const list = await enrichRoomsWithItemInfo(rawList);
+          setRooms(list);
+        } catch {
+          // 재조회 실패 시 기존 state 유지
+        }
+      }
       const isCompleted = isTradeCompleteMessage(msg);
       setMessages((prev) => {
         if (msgId(msg) && prev.some((m) => msgId(m) === msgId(msg)))
@@ -685,8 +697,10 @@ export default function ChatPage() {
         paymentMethod: method === "card" ? "PORTONE" : "WONPAY",
         ...(paymentId ? { paymentId } : {}),
       });
+      // 결제 완료 후 서버 기준으로 채팅방 목록 재조회 (tradeId, tradeStatus 동기화)
       const refreshRes = await ChatApi.getChatRooms({ page: 0, size: 50 });
-      const rawList = refreshRes.data?.data?.content ?? refreshRes.data?.content ?? [];
+      const rawList =
+        refreshRes.data?.data?.content ?? refreshRes.data?.content ?? [];
       const list = await enrichRoomsWithItemInfo(rawList);
       setRooms(list);
       setShowPay(false);
@@ -740,13 +754,18 @@ export default function ChatPage() {
           product={roomProduct(activeRoom)}
           onClose={() => setShowPay(false)}
           onPaymentSuccess={async () => {
-            const refreshRes = await ChatApi.getChatRooms({ page: 0, size: 50 });
-            const rawList = refreshRes.data?.data?.content ?? refreshRes.data?.content ?? [];
+            // 결제 완료 후 서버 기준으로 채팅방 목록 재조회 (tradeId, tradeStatus 동기화)
+            const refreshRes = await ChatApi.getChatRooms({
+              page: 0,
+              size: 50,
+            });
+            const rawList =
+              refreshRes.data?.data?.content ?? refreshRes.data?.content ?? [];
             const list = await enrichRoomsWithItemInfo(rawList);
             setRooms(list);
             setShowPay(false);
           }}
-        />  
+        />
       )}
 
       <RoomList
