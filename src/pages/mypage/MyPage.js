@@ -1071,14 +1071,20 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
     const tk = token();
     try {
       const [buyRes, sellRes, bidRes, itemsRes] = await Promise.allSettled([
-        fetch(`${Common.API_URL}/api/members/me/trades?type=BUY&page=0&size=100`, {
-          headers: { Authorization: `Bearer ${tk}` },
-          cache: "no-store",
-        }),
-        fetch(`${Common.API_URL}/api/members/me/trades?type=SELL&page=0&size=100`, {
-          headers: { Authorization: `Bearer ${tk}` },
-          cache: "no-store",
-        }),
+        fetch(
+          `${Common.API_URL}/api/members/me/trades?type=BUY&page=0&size=100`,
+          {
+            headers: { Authorization: `Bearer ${tk}` },
+            cache: "no-store",
+          },
+        ),
+        fetch(
+          `${Common.API_URL}/api/members/me/trades?type=SELL&page=0&size=100`,
+          {
+            headers: { Authorization: `Bearer ${tk}` },
+            cache: "no-store",
+          },
+        ),
         fetch(`${Common.API_URL}/api/members/me/bids?page=0&size=100`, {
           headers: { Authorization: `Bearer ${tk}` },
           cache: "no-store",
@@ -1109,7 +1115,12 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
           itemId: t.itemId ?? t.item?.itemId ?? t.item?.id ?? null,
           type: "구매",
           amount: getTradeAmount(t) ? -getTradeAmount(t) : 0,
-          label: t.itemName ?? t.title ?? t.item?.title ?? t.item?.itemName ?? "구매",
+          label:
+            t.itemName ??
+            t.title ??
+            t.item?.title ??
+            t.item?.itemName ??
+            "구매",
           date: t.completedAt ?? t.paidAt ?? t.createdAt ?? t.date ?? "",
         })),
         ...sellList.map((t) => ({
@@ -1117,7 +1128,12 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
           itemId: t.itemId ?? t.item?.itemId ?? t.item?.id ?? null,
           type: "판매",
           amount: getTradeAmount(t),
-          label: t.itemName ?? t.title ?? t.item?.title ?? t.item?.itemName ?? "판매",
+          label:
+            t.itemName ??
+            t.title ??
+            t.item?.title ??
+            t.item?.itemName ??
+            "판매",
           date: t.completedAt ?? t.paidAt ?? t.createdAt ?? t.date ?? "",
         })),
       ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
@@ -1220,7 +1236,9 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
     const rawAmount = tx.amount ?? tx.mileage ?? 0;
     const amount = Object.is(rawAmount, -0) ? 0 : rawAmount;
     const label = tx.label ?? tx.type ?? tx.description ?? "거래";
-    const date = formatDate(tx.date ?? tx.createdAt ?? tx.transactionDate ?? "");
+    const date = formatDate(
+      tx.date ?? tx.createdAt ?? tx.transactionDate ?? "",
+    );
     const openItem = () => {
       if (tx.itemId) navigate(`/items/${tx.itemId}`);
     };
@@ -1557,7 +1575,10 @@ function ProfileTab({
         setAccountHolder(savedBank.accountHolder);
         const savedProfileImg = getSavedProfileImage();
         const nextProfileImg =
-          d.profileImg ?? d.profileImage ?? d.profileImageUrl ?? savedProfileImg;
+          d.profileImg ??
+          d.profileImage ??
+          d.profileImageUrl ??
+          savedProfileImg;
         if (nextProfileImg) {
           setProfileImg(nextProfileImg);
           onProfileImgSaved(nextProfileImg);
@@ -1622,7 +1643,10 @@ function ProfileTab({
         const localProfileImg = await readFileAsDataUrl(profileFile);
         let uploaded = "";
         try {
-          const firebaseUrls = await uploadImageFiles([profileFile], "profiles");
+          const firebaseUrls = await uploadImageFiles(
+            [profileFile],
+            "profiles",
+          );
           uploaded = firebaseUrls[0] || "";
         } catch (firebaseError) {
           console.warn("Firebase 프로필 이미지 업로드 실패:", firebaseError);
@@ -1650,7 +1674,10 @@ function ProfileTab({
             uploaded = uploaded || serverProfileImg;
           }
         } catch (uploadError) {
-          console.warn("프로필 이미지 서버 업로드 실패, 로컬 저장 사용:", uploadError);
+          console.warn(
+            "프로필 이미지 서버 업로드 실패, 로컬 저장 사용:",
+            uploadError,
+          );
         }
         const nextProfileImg = uploaded || localProfileImg;
         saveProfileImage(nextProfileImg);
@@ -2121,7 +2148,11 @@ function ActivityTab({ navigate }) {
       thumbnailImg: item.thumbnailImg ?? null,
       gameName: item.gameName ?? "",
       serverName: item.serverName ?? "",
-      targetPath: auctionId ? `/auctions/${auctionId}` : itemId ? `/items/${itemId}` : "",
+      targetPath: auctionId
+        ? `/auctions/${auctionId}`
+        : itemId
+          ? `/items/${itemId}`
+          : "",
     };
   };
 
@@ -2373,7 +2404,11 @@ function ItemsTab({ navigate }) {
         (raw?.auctionId || raw?.auction ? "AUCTION" : "DIRECT"),
     ).toUpperCase();
     const status = String(
-      raw?.status ?? raw?.itemStatus ?? raw?.tradeStatus ?? item?.status ?? "SELLING",
+      raw?.status ??
+        raw?.itemStatus ??
+        raw?.tradeStatus ??
+        item?.status ??
+        "SELLING",
     ).toUpperCase();
     const thumbnailImg =
       raw?.thumbnailImg ??
@@ -2392,7 +2427,13 @@ function ItemsTab({ navigate }) {
       itemId,
       tradeType,
       status,
-      title: raw?.title ?? raw?.itemName ?? raw?.itemTitle ?? item?.title ?? item?.itemName ?? "",
+      title:
+        raw?.title ??
+        raw?.itemName ??
+        raw?.itemTitle ??
+        item?.title ??
+        item?.itemName ??
+        "",
       description: raw?.description ?? item?.description ?? "",
       basePrice: toAmount(
         raw?.basePrice ??
@@ -2606,10 +2647,12 @@ function ItemsTab({ navigate }) {
                 const id = item.itemId ?? item.id;
                 const statusLabel = STATUS_KO[item.status] ?? item.status ?? "";
                 const statusColor = STATUS_COLOR[item.status] ?? "zinc";
-                const tradeLabel =
-                  item.tradeType.includes("AUCTION") ? "경매" : "직거래";
-                const tradeColor =
-                  item.tradeType.includes("AUCTION") ? "amber" : "violet";
+                const tradeLabel = item.tradeType.includes("AUCTION")
+                  ? "경매"
+                  : "직거래";
+                const tradeColor = item.tradeType.includes("AUCTION")
+                  ? "amber"
+                  : "violet";
                 const createdDate = item.createdAt
                   ? new Date(item.createdAt).toLocaleDateString("ko-KR")
                   : "";
