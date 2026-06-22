@@ -41,13 +41,27 @@ function normalizeAuction(data) {
     serverName: item.serverName ?? "",
     images,
     imageUrl: images.length > 0 ? images[0] : null,
-    sellerNickname: item.seller?.nickname ?? "",
+    sellerId:
+      data.sellerId ??
+      data.seller?.memberId ??
+      data.seller?.id ??
+      item.sellerId ??
+      item.seller?.memberId ??
+      item.seller?.id ??
+      null,
+    sellerNickname:
+      data.sellerNickname ??
+      data.seller?.nickname ??
+      item.sellerNickname ??
+      item.seller?.nickname ??
+      "",
     endAt: data.endTime ?? data.endAt,
     currentBid: data.currentPrice ?? data.currentBid,
   };
 }
 
 const localBidKey = (auctionId) => `wondealerAuctionBids:${auctionId}`;
+const settledAuctionKey = (auctionId) => `wondealerSettledAuction:${auctionId}`;
 
 function getLocalBids(auctionId) {
   try {
@@ -62,6 +76,14 @@ function saveLocalBid(auctionId, bid) {
   const next = [normalizeBid(bid), ...getLocalBids(auctionId)].slice(0, 50);
   localStorage.setItem(localBidKey(auctionId), JSON.stringify(next));
   return next;
+}
+
+function isLocalSettled(auctionId) {
+  return localStorage.getItem(settledAuctionKey(auctionId)) === "true";
+}
+
+function markLocalSettled(auctionId) {
+  localStorage.setItem(settledAuctionKey(auctionId), "true");
 }
 
 function isWalletMissingError(err) {
@@ -100,7 +122,7 @@ export default function AuctionDetailPage() {
       .then((r) => {
         const raw = r.data?.data || r.data;
         const d = normalizeAuction(raw);
-        setAuction(d);
+        setAuction(isLocalSettled(auctionId) ? { ...d, status: "COMPLETED" } : d);
         setCurrentImg(0);
         setTimeStr(timeLeft(d?.endAt || d?.endTime));
       })
@@ -236,6 +258,11 @@ export default function AuctionDetailPage() {
       navigate("/login");
       return;
     }
+    if (isLocalSettled(auctionId)) {
+      alert("이미 낙찰 처리된 경매입니다.");
+      setAuction((prev) => (prev ? { ...prev, status: "COMPLETED" } : prev));
+      return;
+    }
     if (!ended && !instantBuyPrice) {
       alert("즉시 낙찰가가 설정되지 않은 경매입니다.");
       return;
@@ -250,11 +277,15 @@ export default function AuctionDetailPage() {
         await AuctionApi.settleAuction(auctionId);
       }
       alert("낙찰 처리가 완료되었습니다.");
+      markLocalSettled(auctionId);
       const r = await AuctionApi.getAuction(auctionId);
-      setAuction(normalizeAuction(r.data?.data || r.data));
+      const nextAuction = normalizeAuction(r.data?.data || r.data);
+      setAuction({ ...nextAuction, status: "COMPLETED" });
     } catch (err) {
       if (isWalletMissingError(err) && !ended) {
         applyLocalBid(instantBuyPrice, "ENDED");
+        markLocalSettled(auctionId);
+        setAuction((prev) => (prev ? { ...prev, status: "COMPLETED" } : prev));
         alert("낙찰 처리가 완료되었습니다.");
         return;
       }
@@ -290,11 +321,18 @@ export default function AuctionDetailPage() {
     );
 
   const auctionStatus = String(auction.status ?? "").toUpperCase();
+  const settled =
+    isLocalSettled(auctionId) ||
+    ["COMPLETED", "SETTLED", "SUCCESSFUL_BID"].includes(auctionStatus);
   const ended =
+    settled ||
     timeStr === "종료" ||
     auctionStatus === "ENDED" ||
     auctionStatus === "CLOSED" ||
-    auctionStatus === "COMPLETED";
+    auctionStatus === "COMPLETED" ||
+    auctionStatus === "SETTLED" ||
+    auctionStatus === "SUCCESSFUL_BID";
+  const canCloseAuction = ended && !settled;
   const currentBid = Number(
     auction.currentBid ||
       auction.currentPrice ||
@@ -312,6 +350,13 @@ export default function AuctionDetailPage() {
   const hasAuctionImages = auctionImages.length > 0 || !!auction.imageUrl;
   const hasMultipleImages = auctionImages.length > 1;
   const currentImage = auctionImages[currentImg] || auction.imageUrl;
+  const myId = user?.memberId ?? user?.id ?? user?.userId ?? null;
+  const myNickname = String(user?.nickname ?? user?.name ?? user?.username ?? "").trim();
+  const sellerId = auction.sellerId ?? null;
+  const sellerNickname = String(auction.sellerNickname ?? "").trim();
+  const isOwnAuction =
+    (!!sellerId && !!myId && String(sellerId) === String(myId)) ||
+    (!!sellerNickname && !!myNickname && sellerNickname === myNickname);
   const showPrevImage = () => {
     if (!hasMultipleImages) return;
     setCurrentImg((prev) => (prev - 1 + auctionImages.length) % auctionImages.length);
@@ -390,6 +435,9 @@ export default function AuctionDetailPage() {
           <div className="detail-info-title">
             {auction.title || "이름 없음"}
           </div>
+          {isOwnAuction && (
+            <div className="detail-owner-badge">내가 등록한 경매</div>
+          )}
           {(auction.serverName || auction.categoryName) && (
             <div className="detail-series-id">
               {[auction.serverName, auction.categoryName]
@@ -472,7 +520,7 @@ export default function AuctionDetailPage() {
             </>
           )}
 
-          {ended && (
+          {canCloseAuction && (
             <button
               type="button"
               className="detail-btn-outline"
@@ -483,6 +531,12 @@ export default function AuctionDetailPage() {
               <span className="detail-btn-icon">🏆</span>
               {closing ? "처리 중..." : "낙찰하기"}
             </button>
+          )}
+
+          {settled && (
+            <div className="detail-timer-row ended" style={{ marginTop: 10 }}>
+              <span className="detail-timer-label">경매종료</span>
+            </div>
           )}
 
           {/* 입찰 내역 (요약 - 최대 3개) */}

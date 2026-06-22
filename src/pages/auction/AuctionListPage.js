@@ -318,6 +318,11 @@ const BuyButton = styled.button`
   &:hover {
     background-color: var(--primary-container);
   }
+  &:disabled {
+    background-color: var(--bg-container-low);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+  }
 `;
 const PaginationNumber = styled.button`
   background: transparent;
@@ -441,6 +446,31 @@ const Icon = {
   ),
 };
 
+const ALL_SERVER = "전체 서버";
+const getAuctionId = (auc) => auc.auctionId ?? auc.id;
+const getAuctionTitle = (auc) =>
+  auc.itemTitle ?? auc.title ?? auc.item?.title ?? auc.item?.itemName ?? "";
+const getAuctionImage = (auc) =>
+  auc.thumbnailImg ||
+  auc.imageUrl ||
+  auc.item?.thumbnailImg ||
+  auc.item?.imageUrl ||
+  auc.images?.[0] ||
+  auc.imageUrls?.[0] ||
+  auc.item?.images?.[0] ||
+  auc.item?.imageUrls?.[0] ||
+  "https://placehold.co/100x100/12131a/ffffff?text=ITEM";
+const getAuctionStatus = (auc) =>
+  String(auc.status ?? auc.auctionStatus ?? "").toUpperCase();
+const isLocalSettled = (auc) =>
+  localStorage.getItem(`wondealerSettledAuction:${getAuctionId(auc)}`) ===
+  "true";
+const isAuctionEnded = (auc) =>
+  isLocalSettled(auc) ||
+  ["ENDED", "CLOSED", "COMPLETED", "SETTLED", "SUCCESSFUL_BID"].includes(
+    getAuctionStatus(auc),
+  ) || (auc.endTime && new Date(auc.endTime) <= new Date());
+
 const AuctionTimer = ({ endTimeStr }) => {
   const [timeLeft, setTimeLeft] = useState("");
   const [isUrgent, setIsUrgent] = useState(false);
@@ -482,11 +512,11 @@ const AuctionListPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [games, setGames] = useState([]);
-  const [servers, setServers] = useState(["전체 서버"]);
+  const [servers, setServers] = useState([ALL_SERVER]);
   const [auctions, setAuctions] = useState([]);
 
   const [selectedGameId, setSelectedGameId] = useState(null);
-  const [selectedServer, setSelectedServer] = useState("전체 서버");
+  const [selectedServer, setSelectedServer] = useState(ALL_SERVER);
   const [searchKeyword, setSearchKeyword] = useState(
     searchParams.get("search") || "",
   );
@@ -500,31 +530,38 @@ const AuctionListPage = () => {
       if (res.data?.success) {
         const list = res.data.data;
         setGames(list);
-        if (list.length > 0 && !selectedGameId)
-          setSelectedGameId(list[0].gameId);
       }
     });
   }, []);
 
   // 2. 게임 변경 시 서버 리스트 업데이트
   useEffect(() => {
+    if (!selectedGameId) {
+      setServers([ALL_SERVER]);
+      setSelectedServer(ALL_SERVER);
+      return;
+    }
     const target = games.find((g) => g.gameId === selectedGameId);
     if (target) {
-      setServers(["전체 서버", ...(serverListData[target.gameName] || [])]);
-      setSelectedServer("전체 서버");
-      fetchAuctions(selectedGameId);
+      setServers([ALL_SERVER, ...(serverListData[target.gameName] || [])]);
+      setSelectedServer(ALL_SERVER);
     }
   }, [selectedGameId, games]);
+
+  useEffect(() => {
+    fetchAuctions(selectedGameId);
+  }, [selectedGameId]);
 
   // 3. 경매 데이터 페칭
   const fetchAuctions = async (gameId) => {
     setIsLoading(true);
     try {
-      const params = { gameId, page: 0, size: 100 };
+      const params = { page: 0, size: 100 };
+      if (gameId) params.gameId = gameId;
       const res = await AuctionApi.getAuctions(params);
-      if (res.data?.success) {
-        setAuctions(res.data.data.content || res.data.data || []);
-      }
+      const data = res.data?.data ?? res.data ?? {};
+      const list = data.content ?? data.auctions ?? data.items ?? data;
+      setAuctions(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -535,10 +572,13 @@ const AuctionListPage = () => {
   // 4. 실시간 필터링 로직
   const filteredData = auctions.filter((auc) => {
     const matchServer =
-      selectedServer === "전체 서버" || auc.serverName === selectedServer;
+      selectedServer === ALL_SERVER ||
+      auc.serverName === selectedServer ||
+      auc.item?.serverName === selectedServer;
+    const title = getAuctionTitle(auc);
     const matchKeyword =
       !searchKeyword ||
-      auc.itemTitle.toLowerCase().includes(searchKeyword.toLowerCase());
+      title.toLowerCase().includes(searchKeyword.toLowerCase());
     return matchServer && matchKeyword;
   });
 
@@ -578,6 +618,12 @@ const AuctionListPage = () => {
             </SearchButton>
           </SearchForm>
           <CategoryTabContainer>
+            <CategoryTab
+              $isActive={!selectedGameId}
+              onClick={() => setSelectedGameId(null)}
+            >
+              전체
+            </CategoryTab>
             {games.map((g) => (
               <CategoryTab
                 key={g.gameId}
@@ -617,28 +663,24 @@ const AuctionListPage = () => {
           ) : (
             filteredData.map((auc) => (
               <ItemCard
-                key={auc.auctionId}
-                onClick={() => handleItemClick(auc.auctionId)}
+                key={getAuctionId(auc)}
+                onClick={() => handleItemClick(getAuctionId(auc))}
               >
                 <ItemThumbnail>
-                  <img
-                    src={
-                      auc.thumbnailImg ||
-                      auc.imageUrl ||
-                      auc.images?.[0] ||
-                      auc.imageUrls?.[0] ||
-                      "https://placehold.co/100x100/12131a/ffffff?text=ITEM"
-                    }
-                    alt="t"
-                  />
+                  <img src={getAuctionImage(auc)} alt="t" />
                 </ItemThumbnail>
                 <ItemInfo>
-                  <ItemName>{auc.itemTitle}</ItemName>
+                  <ItemName>{getAuctionTitle(auc)}</ItemName>
                   <ItemMeta>
                     <span>
-                      {auc.gameName} / {auc.serverName || "전체"}
+                      {auc.gameName || auc.item?.gameName} /{" "}
+                      {auc.serverName || auc.item?.serverName || "전체"}
                     </span>
-                    <AuctionTimer endTimeStr={auc.endTime} />
+                    {isAuctionEnded(auc) ? (
+                      <TimerBadge $isUrgent={false}>경매종료</TimerBadge>
+                    ) : (
+                      <AuctionTimer endTimeStr={auc.endTime} />
+                    )}
                     <span style={{ color: "var(--text-secondary)" }}>
                       {auc.bidCount || 0}명 참여
                     </span>
@@ -655,12 +697,13 @@ const AuctionListPage = () => {
                     </PriceValue>
                   </PriceContainer>
                   <BuyButton
+                    disabled={isAuctionEnded(auc)}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleBidClick(auc.auctionId);
+                      if (!isAuctionEnded(auc)) handleBidClick(getAuctionId(auc));
                     }}
                   >
-                    입찰하기
+                    {isAuctionEnded(auc) ? "경매종료" : "입찰하기"}
                   </BuyButton>
                 </ItemActionGroup>
               </ItemCard>
