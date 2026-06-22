@@ -1,867 +1,832 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import styled from "styled-components";
+// AuctionDetailPage.js
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import ItemApi from "../../api/item.api";
 import AuctionApi from "../../api/auction.api";
-import { uploadImageFiles } from "../../utils/firebaseUpload";
+import "./auction.css";
 
-import clock from "../../img/clock.svg";
-import imgsc from "../../img/imgsc.svg";
-import imgsc2 from "../../img/imgsc2.svg";
+function timeLeft(endAt) {
+  if (!endAt) return "정보 없음";
+  const diff = new Date(endAt) - Date.now();
+  if (diff <= 0) return "종료";
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  if (h > 24) return `${Math.floor(h / 24)}일 ${h % 24}시간`;
+  return `${h}시간 ${m}분 ${s}초`;
+}
 
-const AuctionEditPage = () => {
-  const navigate = useNavigate();
-  const { id } = useParams();
-  const fileInputRef = useRef(null);
-  const { isLoggedIn } = useAuth();
+function normalizeBid(bid) {
+  return {
+    ...bid,
+    amount: bid.amount ?? bid.bidPrice ?? bid.currentPrice ?? 0,
+    bidderNickname: bid.bidderNickname ?? bid.bidder ?? "익명",
+  };
+}
 
-  useEffect(() => {
-    if (!isLoggedIn) {
-      alert("로그인이 필요한 서비스입니다.");
-      navigate("/login", { replace: true });
-    }
-  }, [isLoggedIn, navigate]);
+// AuctionDetailResDto 구조:
+// { auctionId, item: { itemId, title, description, gameName, categoryName,
+//   serverName, images: [], seller: { memberId, nickname } },
+//   startPrice, currentPrice, instantBuyPrice, bidCount, endTime, status, winnerId }
+function normalizeAuction(data) {
+  if (!data) return null;
+  const item = data.item ?? {};
+  const images = item.images ?? data.images ?? data.imageUrls ?? [];
+  return {
+    ...data,
+    title: item.title ?? data.title ?? "",
+    description: item.description ?? data.description ?? "",
+    game: item.gameName ?? data.game ?? "",
+    categoryName: item.categoryName ?? "",
+    serverName: item.serverName ?? "",
+    images,
+    imageUrl: images.length > 0 ? images[0] : null,
+    sellerId:
+      data.sellerId ??
+      data.seller?.memberId ??
+      data.seller?.id ??
+      item.sellerId ??
+      item.seller?.memberId ??
+      item.seller?.id ??
+      null,
+    sellerNickname:
+      data.sellerNickname ??
+      data.seller?.nickname ??
+      item.sellerNickname ??
+      item.seller?.nickname ??
+      "",
+    endAt: data.endTime ?? data.endAt,
+    currentBid: data.currentPrice ?? data.currentBid,
+  };
+}
 
-  const [games, setGames] = useState([]);
-  const [servers, setServers] = useState([]);
-  const [categories, setCategories] = useState([]);
+const SETTLED_STATUSES = [
+  "COMPLETED",
+  "COMPLETE",
+  "SETTLED",
+  "SUCCESSFUL_BID",
+  "SUCCESSFUL",
+  "SOLD",
+  "FINISHED",
+];
+const ENDED_STATUSES = [
+  ...SETTLED_STATUSES,
+  "ENDED",
+  "END",
+  "CLOSED",
+  "EXPIRED",
+];
 
-  const [gameId, setGameId] = useState("");
-  const [serverId, setServerId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [buyNowPrice, setBuyNowPrice] = useState("");
-  const [startPrice, setStartPrice] = useState("");
-  const [minBidUnit, setMinBidUnit] = useState("1,000");
-  const [duration, setDuration] = useState(24);
-  const [endTime, setEndTime] = useState("");
-  const [images, setImages] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
-  const [error, setError] = useState("");
+const localBidKey = (auctionId) => `wondealerAuctionBids:${auctionId}`;
+const settledAuctionKey = (auctionId) => `wondealerSettledAuction:${auctionId}`;
 
-  // 기존 경매 데이터 로드
-  useEffect(() => {
-    if (!id) return;
-    AuctionApi.getAuction(id)
-      .then((r) => {
-        const d = r.data?.data ?? r.data ?? {};
-        const rawGameId = d.gameId ?? "";
-        setGameId(rawGameId ? String(rawGameId) : "");
-        const rawServerId = d.serverId ?? null;
-        setServerId(rawServerId != null ? String(rawServerId) : "");
-        const rawCategoryId = d.categoryId ?? "";
-        setCategoryId(rawCategoryId ? String(rawCategoryId) : "");
-        setTitle(d.title ?? "");
-        setDescription(d.description ?? "");
-        setBuyNowPrice(
-          d.instantBuyPrice ? Number(d.instantBuyPrice).toLocaleString() : "",
-        );
-        setStartPrice(
-          d.startPrice ? Number(d.startPrice).toLocaleString() : "",
-        );
-        setMinBidUnit(
-          d.minBidUnit ? Number(d.minBidUnit).toLocaleString() : "1,000",
-        );
-      })
-      .catch(() => {
-        setError("경매 정보를 불러오는 데 실패했습니다.");
-      })
-      .finally(() => setFetching(false));
-  }, [id]);
-
-  // 게임 목록 로드
-  useEffect(() => {
-    ItemApi.getGames()
-      .then((r) => setGames(r.data?.data ?? r.data ?? []))
-      .catch(() => setGames([]));
-  }, []);
-
-  // 게임 선택 시 서버·카테고리 로드
-  useEffect(() => {
-    if (!gameId) {
-      setServers([]);
-      setCategories([]);
-      return;
-    }
-    ItemApi.getGameServers(gameId)
-      .then((r) => setServers(r.data?.data ?? r.data ?? []))
-      .catch(() => setServers([]));
-    ItemApi.getCategories(gameId)
-      .then((r) => setCategories(r.data?.data ?? r.data ?? []))
-      .catch(() => setCategories([]));
-  }, [gameId]);
-
-  // 종료 시간 계산
-  useEffect(() => {
-    const now = new Date();
-    now.setHours(now.getHours() + Number(duration));
-    const pad = (n) => String(n).padStart(2, "0");
-    setEndTime(
-      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ` +
-        `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+function getLocalBids(auctionId) {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem(localBidKey(auctionId)) || "[]",
     );
-  }, [duration]);
+    return Array.isArray(saved) ? saved.map(normalizeBid) : [];
+  } catch {
+    return [];
+  }
+}
 
-  const formatPrice = (val) => {
-    const digits = val.replace(/[^0-9]/g, "");
-    return digits ? Number(digits).toLocaleString() : "";
+function saveLocalBid(auctionId, bid) {
+  const next = [normalizeBid(bid), ...getLocalBids(auctionId)].slice(0, 50);
+  localStorage.setItem(localBidKey(auctionId), JSON.stringify(next));
+  return next;
+}
+
+function saveWinningBidRecord(auctionId, bid) {
+  const normalized = normalizeBid({
+    ...bid,
+    id: bid.id ?? `winning-${auctionId}`,
+    bidStatus: "WINNING",
+    status: "WINNING",
+  });
+  const existing = getLocalBids(auctionId).filter(
+    (saved) => String(saved.id ?? saved.bidId) !== String(normalized.id),
+  );
+  const next = [normalized, ...existing].slice(0, 50);
+  localStorage.setItem(localBidKey(auctionId), JSON.stringify(next));
+  return next;
+}
+
+function isLocalSettled(auctionId) {
+  return localStorage.getItem(settledAuctionKey(auctionId)) === "true";
+}
+
+function markLocalSettled(auctionId) {
+  localStorage.setItem(settledAuctionKey(auctionId), "true");
+}
+
+export default function AuctionDetailPage() {
+  const { auctionId } = useParams();
+  const navigate = useNavigate();
+  const { isLoggedIn, user } = useAuth();
+  const [auction, setAuction] = useState(null);
+  const [bids, setBids] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [bidAmount, setBidAmount] = useState("");
+  const [bidding, setBidding] = useState(false);
+  const [timeStr, setTimeStr] = useState("");
+  const [showBidModal, setShowBidModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [currentImg, setCurrentImg] = useState(0);
+  const [closing, setClosing] = useState(false);
+
+  const getBidList = (response) => {
+    const data = response?.data?.data ?? response?.data ?? [];
+    let list = [];
+    if (Array.isArray(data)) list = data;
+    else if (Array.isArray(data.content)) list = data.content;
+    else if (Array.isArray(data.bids)) list = data.bids;
+    return list.map(normalizeBid);
   };
 
-  const handleUploadClick = () => fileInputRef.current?.click();
+  const loadAuction = useCallback(
+    async ({ resetImage = false, redirectOnFail = false } = {}) => {
+      try {
+        const r = await AuctionApi.getAuction(auctionId);
+        const raw = r.data?.data || r.data;
+        const d = normalizeAuction(raw);
 
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    if (images.length + files.length > 5) {
-      alert("이미지는 최대 5장까지만 업로드할 수 있습니다.");
+        // 백엔드가 COMPLETED를 내려주면 로컬도 settled로 동기화
+        const backendSettled = SETTLED_STATUSES.includes(
+          String(d?.status ?? "").toUpperCase(),
+        );
+        if (backendSettled) markLocalSettled(auctionId);
+
+        setAuction(
+          isLocalSettled(auctionId) ? { ...d, status: "COMPLETED" } : d,
+        );
+        if (resetImage) setCurrentImg(0);
+        setTimeStr(timeLeft(d?.endAt || d?.endTime));
+        return d;
+      } catch (err) {
+        if (redirectOnFail) navigate("/auctions");
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [auctionId, navigate],
+  );
+
+  useEffect(() => {
+    setBids(getLocalBids(auctionId));
+    loadAuction({ resetImage: true, redirectOnFail: true });
+
+    AuctionApi.getBids(auctionId)
+      .then((r) => {
+        const serverBids = getBidList(r);
+        if (serverBids.length > 0) setBids(serverBids);
+      })
+      .catch(() => {});
+  }, [auctionId, loadAuction]);
+
+  // 폴링: 3초마다 — 낙찰 후 buyer 화면에 빠르게 반영되도록
+  useEffect(() => {
+    const refresh = () => loadAuction();
+    window.addEventListener("focus", refresh);
+    const timer = setInterval(refresh, 3000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      clearInterval(timer);
+    };
+  }, [loadAuction]);
+
+  useEffect(() => {
+    if (!auction) return;
+    const timer = setInterval(
+      () => setTimeStr(timeLeft(auction.endAt || auction.endTime)),
+      1000,
+    );
+    return () => clearInterval(timer);
+  }, [auction]);
+
+  useEffect(() => {
+    document.body.style.overflow =
+      showBidModal || showImageModal ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showBidModal, showImageModal]);
+
+  useEffect(() => {
+    if (!showBidModal && !showImageModal) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setShowBidModal(false);
+        setShowImageModal(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showBidModal, showImageModal]);
+
+  const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
+
+  const applyLocalBid = (amount) => {
+    const createdBid = {
+      id: `local-${Date.now()}`,
+      amount,
+      bidPrice: amount,
+      currentPrice: amount,
+      bidderNickname: user?.nickname || user?.name || user?.username || "나",
+    };
+    const nextBids = saveLocalBid(auctionId, createdBid);
+    setBids(nextBids);
+    setAuction((prev) =>
+      prev
+        ? {
+            ...prev,
+            currentBid: amount,
+            currentPrice: amount,
+            bidCount: Math.max(Number(prev.bidCount || 0), nextBids.length),
+          }
+        : prev,
+    );
+  };
+
+  const handleBid = async (e) => {
+    e.preventDefault();
+    if (!isLoggedIn) {
+      navigate("/login");
       return;
     }
-    setImages((prev) => [
-      ...prev,
-      ...files.map((file) => ({ file, preview: URL.createObjectURL(file) })),
-    ]);
-    e.target.value = "";
-  };
-
-  const handleRemoveImage = (idx, e) => {
-    e.stopPropagation();
-    setImages((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-
-    if (!categoryId) return setError("카테고리를 선택해 주세요.");
-    if (!title.trim()) return setError("물품 제목을 입력해 주세요.");
-    if (!description.trim()) return setError("물품 설명을 입력해 주세요.");
-
-    const rawStart = Number(startPrice.replace(/[^0-9]/g, ""));
-    if (rawStart <= 0) return setError("올바른 시작 입찰가를 입력해 주세요.");
-
-    setLoading(true);
+    const amount = parseInt(bidAmount.replace(/,/g, ""), 10);
+    if (!amount || amount <= 0) {
+      alert("입찰 금액을 입력해주세요.");
+      return;
+    }
+    if (amount < minBid) {
+      alert(`최소 ${minBid.toLocaleString()}원 이상 입찰해야 합니다.`);
+      return;
+    }
+    if (instantBuyPrice && amount >= instantBuyPrice) {
+      alert(
+        `입찰가는 즉시낙찰가(${fmt(instantBuyPrice)}원)보다 낮아야 합니다.`,
+      );
+      return;
+    }
+    setBidding(true);
     try {
-      const payload = {
-        categoryId: Number(categoryId),
-        serverId: serverId ? Number(serverId) : null,
-        title: title.trim(),
-        description: description.trim(),
-        instantBuyPrice: buyNowPrice
-          ? Number(buyNowPrice.replace(/[^0-9]/g, ""))
-          : null,
-        startPrice: rawStart,
-        auctionDays: Math.round(duration / 24),
-      };
-      try {
-        const uploadedUrls = await uploadImageFiles(
-          images.map((image) => image.file),
-          "auctions",
+      const bidResponse = await AuctionApi.placeBid(auctionId, amount);
+      alert(`${amount.toLocaleString()}원 입찰 완료!`);
+      setBidAmount("");
+
+      // 서버에서 최신 상태 가져오기
+      const [auctionRes, bidsRes] = await Promise.allSettled([
+        AuctionApi.getAuction(auctionId),
+        AuctionApi.getBids(auctionId),
+      ]);
+
+      if (auctionRes.status === "fulfilled") {
+        const nextAuction = normalizeAuction(
+          auctionRes.value.data?.data || auctionRes.value.data,
         );
-        if (uploadedUrls.length > 0) {
-          console.log("Firebase uploaded image URLs:", uploadedUrls);
-        }
-      } catch (uploadError) {
-        console.warn(
-          "이미지 업로드 실패, 이미지 없이 경매를 수정합니다.",
-          uploadError,
-        );
+        setAuction({
+          ...nextAuction,
+          currentBid: Math.max(Number(nextAuction?.currentBid || 0), amount),
+          currentPrice: Math.max(
+            Number(nextAuction?.currentPrice || 0),
+            amount,
+          ),
+        });
       }
 
-      await AuctionApi.updateAuction(id, payload);
-      alert("경매 수정이 완료되었습니다!");
-      navigate(`/auctions/${id}`);
+      if (bidsRes.status === "fulfilled") {
+        const nextBids = getBidList(bidsRes.value);
+        if (nextBids.length > 0) {
+          setBids(nextBids);
+          return;
+        }
+      }
+
+      // 서버 입찰 목록 조회 실패 시 로컬 낙관적 업데이트
+      const createdBid = bidResponse?.data?.data ?? bidResponse?.data;
+      if (createdBid && typeof createdBid === "object" && createdBid.bidId) {
+        setBids((prev) => [normalizeBid(createdBid), ...prev]);
+      } else {
+        setBids((prev) => [
+          {
+            id: `local-${Date.now()}`,
+            amount,
+            bidderNickname:
+              user?.nickname || user?.name || user?.username || "나",
+          },
+          ...prev,
+        ]);
+      }
     } catch (err) {
-      const msg =
-        err.response?.data?.message ??
-        err.response?.data?.error ??
-        "수정 중 오류가 발생했습니다.";
-      setError(msg);
+      // 지갑 오류는 로컬 낙관적 업데이트만 적용 (입찰은 실제로 실패한 것)
+      const msg = err?.response?.data?.message || err?.message || "";
+      if (msg.includes("지갑") || msg.includes("WonPay")) {
+        applyLocalBid(amount);
+        alert(`${amount.toLocaleString()}원 입찰 완료!`);
+        setBidAmount("");
+        return;
+      }
+      alert(err.response?.data?.message || "입찰에 실패했습니다.");
     } finally {
-      setLoading(false);
+      setBidding(false);
     }
   };
 
-  if (!isLoggedIn) return null;
-  if (fetching)
+  const handleClose = async () => {
+    if (!isLoggedIn) {
+      navigate("/login");
+      return;
+    }
+    if (isLocalSettled(auctionId)) {
+      alert("이미 낙찰 처리된 경매입니다.");
+      setAuction((prev) => (prev ? { ...prev, status: "COMPLETED" } : prev));
+      return;
+    }
+    const startPrice = Number(auction.startPrice || 0);
+    const hasBidHistory = bids.some(
+      (bid) => Number(bid.amount || bid.bidPrice || 0) > 0,
+    );
+    const hasHighestBid = hasBidHistory || currentBid > startPrice;
+    if (!ended && !instantBuyPrice && !hasHighestBid) {
+      alert("입찰 내역이 있어야 낙찰할 수 있습니다.");
+      return;
+    }
+    if (!window.confirm("이 경매를 낙찰 처리하시겠습니까?")) return;
+    setClosing(true);
+    try {
+      // 백엔드에 실제로 settle 요청 (이게 성공해야 buyer 화면에도 반영됨)
+      await AuctionApi.settleAuction(auctionId);
+
+      markLocalSettled(auctionId);
+      const closePrice = currentBid;
+      const winningBidder =
+        bids[0]?.bidderNickname ||
+        bids[0]?.bidder ||
+        user?.nickname ||
+        user?.name ||
+        user?.username ||
+        "낙찰자";
+
+      const nextBids = saveWinningBidRecord(auctionId, {
+        id: `winning-${auctionId}`,
+        amount: closePrice,
+        bidPrice: closePrice,
+        currentPrice: closePrice,
+        bidderNickname: winningBidder,
+      });
+      setBids(nextBids);
+
+      // 백엔드 응답 재조회
+      const nextAuction = await loadAuction();
+      setAuction((prev) => ({
+        ...(nextAuction ?? prev),
+        currentBid: closePrice,
+        currentPrice: closePrice,
+        status: "COMPLETED",
+      }));
+      alert("낙찰 처리가 완료되었습니다.");
+    } catch (err) {
+      // ⚠ 백엔드 settle 실패 시 로컬 처리 하지 않음 — buyer에게 반영 불가하기 때문
+      // 지갑/WonPay 관련 오류는 실제로 낙찰이 됐을 가능성이 있으므로 재조회만 시도
+      const msg = err?.response?.data?.message || err?.message || "";
+      if (msg.includes("지갑") || msg.includes("WonPay")) {
+        // settle은 됐을 수 있으니 서버 상태 재조회
+        const refreshed = await loadAuction();
+        const refreshedStatus = String(refreshed?.status ?? "").toUpperCase();
+        if (SETTLED_STATUSES.includes(refreshedStatus)) {
+          markLocalSettled(auctionId);
+          setAuction((prev) => ({
+            ...(refreshed ?? prev),
+            status: "COMPLETED",
+          }));
+          alert("낙찰 처리가 완료되었습니다.");
+          return;
+        }
+      }
+      alert(
+        err.response?.data?.message ||
+          "낙찰 처리에 실패했습니다. 다시 시도해 주세요.",
+      );
+    } finally {
+      setClosing(false);
+    }
+  };
+
+  if (loading)
     return (
-      <PageContainer>
-        <div style={{ color: "#888", textAlign: "center", paddingTop: 80 }}>
-          불러오는 중...
-        </div>
-      </PageContainer>
+      <div
+        style={{
+          textAlign: "center",
+          padding: "80px",
+          color: "var(--text-secondary)",
+        }}
+      >
+        로딩 중...
+      </div>
+    );
+  if (!auction)
+    return (
+      <div
+        style={{
+          textAlign: "center",
+          padding: "80px",
+          color: "var(--text-secondary)",
+        }}
+      >
+        경매를 찾을 수 없습니다.
+      </div>
     );
 
-  return (
-    <PageContainer>
-      <HeaderSection>
-        <Breadcrumb onClick={() => navigate("/auctions")}>
-          MARKET &gt; AUCTION EDIT
-        </Breadcrumb>
-        <PageTitle>경매 수정</PageTitle>
-        <PageDesc>
-          경매 정보를 수정하세요. 단, 이미 입찰이 진행된 경우 일부 항목은 변경이
-          제한될 수 있습니다.
-        </PageDesc>
-      </HeaderSection>
-
-      <form onSubmit={handleSubmit}>
-        <SectionContainer>
-          <SectionTitle>
-            <span>01</span> 기본 정보 입력
-          </SectionTitle>
-          <RowGrid>
-            <FormGroup>
-              <label>게임명 *</label>
-              <Select
-                value={gameId}
-                onChange={(e) => setGameId(e.target.value)}
-              >
-                <option value="">게임을 선택하세요</option>
-                {games.map((g) => (
-                  <option key={g.gameId ?? g.id} value={g.gameId ?? g.id}>
-                    {g.gameName ?? g.name}
-                  </option>
-                ))}
-              </Select>
-            </FormGroup>
-            <FormGroup>
-              <label>서버</label>
-              <Select
-                value={serverId}
-                onChange={(e) => setServerId(e.target.value)}
-                disabled={!gameId}
-              >
-                <option value="">서버를 선택하세요</option>
-                {servers.map((s) => (
-                  <option key={s.serverId ?? s.id} value={s.serverId ?? s.id}>
-                    {s.serverName ?? s.name}
-                  </option>
-                ))}
-              </Select>
-            </FormGroup>
-          </RowGrid>
-          <FormGroup style={{ marginTop: 20 }}>
-            <label>카테고리 *</label>
-            <Select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              disabled={!gameId}
-            >
-              <option value="">카테고리를 선택하세요</option>
-              {categories.map((c) => (
-                <option key={c.categoryId ?? c.id} value={c.categoryId ?? c.id}>
-                  {c.categoryName ?? c.name}
-                </option>
-              ))}
-            </Select>
-          </FormGroup>
-        </SectionContainer>
-
-        <SectionContainer>
-          <SectionTitle>
-            <span>02</span> 물품 상세 정보
-          </SectionTitle>
-          <FormGroup style={{ marginBottom: 20 }}>
-            <label>물품 제목 *</label>
-            <Input
-              type="text"
-              placeholder="예: [S급] 고강화 레전더리 소드 경매합니다"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </FormGroup>
-          <FormGroup>
-            <label>아이템 설명 및 스펙 *</label>
-            <TextArea
-              rows={6}
-              placeholder="물품의 상세한 옵션이나 설명을 입력해 주세요."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </FormGroup>
-        </SectionContainer>
-
-        <BottomGrid>
-          <SectionContainer style={{ margin: 0 }}>
-            <SectionTitle>
-              <span>03</span> 경매 설정
-            </SectionTitle>
-            <AuctionBox>
-              <FormGroup>
-                <label>즉시 낙찰가 (선택)</label>
-                <PriceInputWrapper>
-                  <input
-                    type="text"
-                    placeholder="0"
-                    value={buyNowPrice}
-                    onChange={(e) =>
-                      setBuyNowPrice(formatPrice(e.target.value))
-                    }
-                  />
-                  <span>₩</span>
-                </PriceInputWrapper>
-              </FormGroup>
-              <FormGroup>
-                <label>시작 입찰가 *</label>
-                <PriceInputWrapper>
-                  <input
-                    type="text"
-                    placeholder="1,000"
-                    value={startPrice}
-                    onChange={(e) => setStartPrice(formatPrice(e.target.value))}
-                  />
-                  <span>₩</span>
-                </PriceInputWrapper>
-              </FormGroup>
-              <FormGroup>
-                <label>최소 입찰 단위</label>
-                <PriceInputWrapper>
-                  <input
-                    type="text"
-                    placeholder="1,000"
-                    value={minBidUnit}
-                    onChange={(e) => setMinBidUnit(formatPrice(e.target.value))}
-                  />
-                  <span>₩</span>
-                </PriceInputWrapper>
-              </FormGroup>
-              <FormGroup>
-                <label>경매 기간 (연장)</label>
-                <TabButtonGroup>
-                  {[
-                    { label: "24시간", sub: "1일", value: 24 },
-                    { label: "72시간", sub: "3일", value: 72 },
-                    { label: "168시간", sub: "7일", value: 168 },
-                  ].map((d) => (
-                    <TabButton
-                      type="button"
-                      key={d.value}
-                      $isActive={duration === d.value}
-                      onClick={() => setDuration(d.value)}
-                    >
-                      {d.label}
-                      <br />
-                      <span>{d.sub}</span>
-                    </TabButton>
-                  ))}
-                </TabButtonGroup>
-              </FormGroup>
-              <TimeNotice>
-                <ClockIcon>
-                  <img src={clock} alt="시계" />
-                </ClockIcon>
-                <div>
-                  <p className="label">종료 예정 시간</p>
-                  <p className="time">{endTime}</p>
-                </div>
-              </TimeNotice>
-            </AuctionBox>
-          </SectionContainer>
-
-          <SectionContainer style={{ margin: 0 }}>
-            <SectionTitle>
-              <span>04</span> 이미지 등록
-            </SectionTitle>
-            <UploadContainer>
-              <UploadMainZone onClick={handleUploadClick}>
-                <HiddenFileInput
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/png, image/jpeg"
-                  multiple
-                />
-                <UploadIcon>
-                  <img
-                    src={imgsc}
-                    alt="업로드 아이콘"
-                    className="upload-main-icon"
-                  />
-                </UploadIcon>
-                <UploadTextMain>아이템 스크린샷 업로드</UploadTextMain>
-                <UploadTextSub>
-                  최대 5장, JPG/PNG 지원 (장당 10MB 이내)
-                </UploadTextSub>
-              </UploadMainZone>
-              <PreviewRow>
-                {[...Array(5)].map((_, i) => {
-                  const imgData = images[i];
-                  return (
-                    <PreviewSlot key={i} $hasImage={!!imgData}>
-                      {imgData ? (
-                        <>
-                          <img
-                            src={imgData.preview}
-                            alt={`미리보기 ${i + 1}`}
-                            className="uploaded-preview"
-                          />
-                          <RemoveButton
-                            onClick={(e) => handleRemoveImage(i, e)}
-                          >
-                            ×
-                          </RemoveButton>
-                        </>
-                      ) : (
-                        <img
-                          src={imgsc2}
-                          alt="미리보기 슬롯"
-                          className="preview-icon"
-                        />
-                      )}
-                    </PreviewSlot>
-                  );
-                })}
-              </PreviewRow>
-            </UploadContainer>
-          </SectionContainer>
-        </BottomGrid>
-
-        {error && <ErrorBox>{error}</ErrorBox>}
-
-        <ButtonGroup>
-          <CancelButton
-            type="button"
-            onClick={() => navigate(`/auctions/${id}`)}
-          >
-            취소
-          </CancelButton>
-          <SubmitButton type="submit" disabled={loading}>
-            {loading ? "수정 중..." : "수정하기"}
-          </SubmitButton>
-        </ButtonGroup>
-      </form>
-    </PageContainer>
+  const auctionStatus = String(auction.status ?? "").toUpperCase();
+  const auctionItemStatus = String(auction.item?.status ?? "").toUpperCase();
+  const statusForEnd = auctionStatus || auctionItemStatus;
+  const settled =
+    isLocalSettled(auctionId) || SETTLED_STATUSES.includes(statusForEnd);
+  const ended =
+    settled || timeStr === "종료" || ENDED_STATUSES.includes(statusForEnd);
+  const canCloseAuction = ended && !settled;
+  const highestBidFromHistory = Math.max(
+    0,
+    ...bids.map((bid) => Number(bid.amount ?? bid.bidPrice ?? 0)),
   );
-};
+  const currentBid = Math.max(
+    highestBidFromHistory,
+    Number(
+      auction.currentBid ||
+        auction.currentPrice ||
+        auction.startPrice ||
+        auction.price ||
+        0,
+    ),
+  );
+  const minBidUnit = Math.ceil(currentBid * 0.03);
+  const instantBuyPrice = auction.instantBuyPrice
+    ? Number(auction.instantBuyPrice)
+    : null;
+  const displayInstantBuyPrice = settled ? currentBid : instantBuyPrice;
+  const minBid = currentBid + minBidUnit;
+  const visibleBids = bids.slice(0, 3);
+  const auctionImages = Array.isArray(auction.images) ? auction.images : [];
+  const hasAuctionImages = auctionImages.length > 0 || !!auction.imageUrl;
+  const hasMultipleImages = auctionImages.length > 1;
+  const currentImage = auctionImages[currentImg] || auction.imageUrl;
+  const myId = user?.memberId ?? user?.id ?? user?.userId ?? null;
+  const myNickname = String(
+    user?.nickname ?? user?.name ?? user?.username ?? "",
+  ).trim();
+  const sellerId = auction.sellerId ?? null;
+  const sellerNickname = String(auction.sellerNickname ?? "").trim();
+  const isOwnAuction =
+    (!!sellerId && !!myId && String(sellerId) === String(myId)) ||
+    (!!sellerNickname && !!myNickname && sellerNickname === myNickname);
+  const showPrevImage = () => {
+    if (!hasMultipleImages) return;
+    setCurrentImg(
+      (prev) => (prev - 1 + auctionImages.length) % auctionImages.length,
+    );
+  };
+  const showNextImage = () => {
+    if (!hasMultipleImages) return;
+    setCurrentImg((prev) => (prev + 1) % auctionImages.length);
+  };
 
-// ── Styled Components ──────────────────────────────────────────
-const PageContainer = styled.div`
-  background-color: #0b0c10;
-  color: #fff;
-  min-height: 100vh;
-  padding: 40px 8%;
-  box-sizing: border-box;
-  @media (max-width: 1024px) {
-    padding: 30px 5%;
-  }
-  @media (max-width: 768px) {
-    padding: 20px 4%;
-  }
-  @media (max-width: 480px) {
-    padding: 16px 4%;
-  }
-`;
-const HeaderSection = styled.div`
-  margin-bottom: 32px;
-`;
-const Breadcrumb = styled.p`
-  font-size: 11px;
-  color: #6c5ce7;
-  font-weight: bold;
-  letter-spacing: 1px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  display: inline-block;
-  transition: opacity 0.2s;
-  &:hover {
-    opacity: 0.8;
-  }
-`;
-const PageTitle = styled.h1`
-  font-size: 26px;
-  font-weight: 700;
-  margin-bottom: 12px;
-  @media (max-width: 768px) {
-    font-size: 20px;
-  }
-  @media (max-width: 480px) {
-    font-size: 18px;
-  }
-`;
-const PageDesc = styled.p`
-  font-size: 13px;
-  color: #888da8;
-  line-height: 1.6;
-  max-width: 700px;
-  @media (max-width: 768px) {
-    font-size: 12px;
-  }
-`;
-const SectionContainer = styled.div`
-  background-color: #12131a;
-  border: 1px solid #1f2029;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 24px;
-  @media (max-width: 768px) {
-    padding: 16px;
-    margin-bottom: 16px;
-  }
-  @media (max-width: 480px) {
-    padding: 14px;
-    border-radius: 8px;
-  }
-`;
-const SectionTitle = styled.h2`
-  font-size: 15px;
-  font-weight: 500;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  span {
-    color: #8083ff;
-    font-size: 13px;
-  }
-  @media (max-width: 480px) {
-    font-size: 13px;
-    margin-bottom: 14px;
-  }
-`;
-const RowGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-`;
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  label {
-    font-size: 13px;
-    color: #e3e2e8;
-  }
-  @media (max-width: 480px) {
-    label {
-      font-size: 12px;
-    }
-  }
-`;
-const Select = styled.select`
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 12px;
-  color: #fff;
-  font-size: 13px;
-  outline: none;
-  width: 100%;
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  @media (max-width: 480px) {
-    padding: 10px;
-    font-size: 12px;
-  }
-`;
-const Input = styled.input`
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 12px;
-  color: #fff;
-  font-size: 13px;
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-  &::placeholder {
-    color: #4e5161;
-  }
-  @media (max-width: 480px) {
-    padding: 10px;
-    font-size: 12px;
-  }
-`;
-const TextArea = styled.textarea`
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 12px;
-  color: #fff;
-  font-size: 13px;
-  outline: none;
-  resize: none;
-  line-height: 1.5;
-  width: 100%;
-  box-sizing: border-box;
-  &::placeholder {
-    color: #4e5161;
-  }
-  @media (max-width: 480px) {
-    padding: 10px;
-    font-size: 12px;
-  }
-`;
-const BottomGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-  margin-bottom: 32px;
-  align-items: stretch;
-  @media (max-width: 1024px) {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  @media (max-width: 480px) {
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-`;
-const AuctionBox = styled.div`
-  background-color: #0b0c10;
-  border: 1px solid #1f2029;
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-`;
-const PriceInputWrapper = styled.div`
-  display: flex;
-  align-items: center;
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 10px 12px;
-  width: 100%;
-  box-sizing: border-box;
-  input {
-    background: transparent;
-    border: none;
-    outline: none;
-    color: #fff;
-    width: 100%;
-    text-align: right;
-    font-size: 14px;
-    padding-right: 6px;
-  }
-  span {
-    color: #a5a8b7;
-    font-size: 13px;
-    flex-shrink: 0;
-  }
-`;
-const TabButtonGroup = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  width: 100%;
-`;
-const TabButton = styled.button`
-  background-color: ${(p) => (p.$isActive ? "#6c5ce7" : "#171821")};
-  border: 1px solid ${(p) => (p.$isActive ? "#6c5ce7" : "#252631")};
-  color: ${(p) => (p.$isActive ? "#fff" : "#a5a8b7")};
-  padding: 10px 0;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  text-align: center;
-  line-height: 1.4;
-  transition: all 0.2s;
-  span {
-    font-size: 11px;
-    opacity: 0.7;
-  }
-  &:hover {
-    border-color: #6c5ce7;
-  }
-`;
-const TimeNotice = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 12px;
-  .label {
-    font-size: 11px;
-    color: #888da8;
-    margin: 0 0 4px;
-  }
-  .time {
-    font-size: 13px;
-    color: #10b981;
-    font-weight: 600;
-    margin: 0;
-  }
-`;
-const ClockIcon = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  img {
-    width: 20px;
-    height: 20px;
-  }
-`;
-const UploadContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  flex: 1;
-`;
-const HiddenFileInput = styled.input`
-  display: none;
-`;
-const UploadMainZone = styled.div`
-  border: 1px dashed #4e5161;
-  border-radius: 8px;
-  padding: 32px 24px;
-  background-color: #171821;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  flex: 1;
-  &:hover {
-    border-color: #6c5ce7;
-  }
-  @media (max-width: 480px) {
-    padding: 24px 16px;
-  }
-`;
-const UploadIcon = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 12px;
-  .upload-main-icon {
-    width: 44px;
-    height: 44px;
-    object-fit: contain;
-  }
-`;
-const UploadTextMain = styled.p`
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 4px;
-`;
-const UploadTextSub = styled.p`
-  font-size: 11px;
-  color: #686b7c;
-`;
-const PreviewRow = styled.div`
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
-`;
-const PreviewSlot = styled.div`
-  background-color: #171821;
-  border: 1px solid ${(p) => (p.$hasImage ? "#4e5161" : "#252631")};
-  border-radius: 6px;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-  .uploaded-preview {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .preview-icon {
-    width: 24px;
-    height: 24px;
-    object-fit: contain;
-  }
-`;
-const RemoveButton = styled.button`
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s;
-  &:hover {
-    background-color: #ef4444;
-  }
-`;
-const ErrorBox = styled.div`
-  padding: 12px 16px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 8px;
-  font-size: 13px;
-  color: #ef4444;
-  margin-bottom: 24px;
-`;
-const ButtonGroup = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  width: 100%;
-  padding-bottom: 40px;
-  @media (max-width: 480px) {
-    gap: 10px;
-  }
-`;
-const CancelButton = styled.button`
-  background-color: #12131a;
-  border: 1px solid #252631;
-  color: #fff;
-  padding: 14px 0;
-  width: 220px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.2s;
-  &:hover {
-    border-color: #6c5ce7;
-  }
-  @media (max-width: 640px) {
-    width: 160px;
-  }
-  @media (max-width: 480px) {
-    flex: 1;
-    width: auto;
-    padding: 12px 0;
-    font-size: 12px;
-  }
-`;
-const SubmitButton = styled.button`
-  background-color: #c0c1ff;
-  border: none;
-  color: #1000a9;
-  padding: 14px 0;
-  width: 220px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-  @media (max-width: 640px) {
-    width: 160px;
-  }
-  @media (max-width: 480px) {
-    flex: 1;
-    width: auto;
-    padding: 12px 0;
-    font-size: 12px;
-  }
-`;
+  return (
+    <div className="detail-wrap">
+      <div className="breadcrumb">
+        <Link to="/auctions">경매 목록</Link>
+        <span>/</span>
+        <span>{auction.game || ""}</span>
+        <span>/</span>
+        <span>{auction.title}</span>
+      </div>
 
-export default AuctionEditPage;
+      <div className="detail-grid">
+        {/* 왼쪽: 이미지 + 상세설명 */}
+        <div>
+          <div className="detail-image-box">
+            {currentImage ? (
+              <img
+                src={currentImage}
+                alt={auction.title}
+                className="detail-image-img"
+                onClick={() => setShowImageModal(true)}
+              />
+            ) : (
+              <span className="detail-image-fallback">🔨</span>
+            )}
+            {hasMultipleImages && (
+              <>
+                <button
+                  type="button"
+                  className="detail-image-arrow left"
+                  onClick={showPrevImage}
+                  aria-label="이전 이미지"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="detail-image-arrow right"
+                  onClick={showNextImage}
+                  aria-label="다음 이미지"
+                >
+                  ›
+                </button>
+              </>
+            )}
+          </div>
+          {hasMultipleImages && (
+            <div className="detail-image-dots">
+              {auctionImages.map((_, i) => (
+                <span
+                  key={i}
+                  className={`detail-image-dot ${i === currentImg ? "active" : ""}`}
+                  onClick={() => setCurrentImg(i)}
+                />
+              ))}
+            </div>
+          )}
+          {auction.description && (
+            <div className="detail-desc-section">
+              <div className="detail-desc-title">상세 설명</div>
+              <div className="detail-desc-box">{auction.description}</div>
+            </div>
+          )}
+        </div>
+
+        {/* 오른쪽: 정보 + 입찰 */}
+        <div className="detail-info-col">
+          <div className="detail-info-title">
+            {auction.title || "이름 없음"}
+          </div>
+          {isOwnAuction && (
+            <div className="detail-owner-badge">내가 등록한 경매</div>
+          )}
+          {(auction.serverName || auction.categoryName) && (
+            <div className="detail-series-id">
+              {[auction.serverName, auction.categoryName]
+                .filter(Boolean)
+                .join(" · ")}
+            </div>
+          )}
+
+          {!ended ? (
+            <div className="detail-timer-row">
+              <span className="detail-timer-dot" />
+              <span className="detail-timer-label">남은 시간</span>
+              <span className="detail-timer-value">{timeStr}</span>
+            </div>
+          ) : (
+            <div className="detail-timer-row ended">
+              <span className="detail-timer-label">경매 종료</span>
+            </div>
+          )}
+
+          {displayInstantBuyPrice && (
+            <div className="detail-stat-row">
+              <span className="detail-stat-label">즉시낙찰가</span>
+              <span className="detail-stat-value">
+                {fmt(displayInstantBuyPrice)} <small>KRW</small>
+              </span>
+            </div>
+          )}
+
+          <div className="detail-stat-row">
+            <span className="detail-stat-label">현재 최고 입찰가</span>
+            <span className="detail-stat-value highlight">
+              {fmt(currentBid)} <small>KRW</small>
+            </span>
+          </div>
+
+          <div className="detail-stat-row sub">
+            <span className="detail-stat-label">최소 입찰 증가액</span>
+            <span className="detail-stat-value sub">
+              {fmt(minBidUnit)} <small>KRW</small>
+              <small> (현재가 x 3% 이상)</small>
+            </span>
+          </div>
+
+          {!ended && (
+            <>
+              <div className="detail-bid-input-row">
+                <span className="detail-bid-input-label">입찰가 입력</span>
+                <input
+                  className="detail-bid-input"
+                  placeholder={fmt(minBid)}
+                  value={bidAmount}
+                  onChange={(e) => setBidAmount(e.target.value)}
+                  inputMode="numeric"
+                />
+                <span className="detail-bid-input-suffix">원</span>
+              </div>
+              <div className="detail-action-row">
+                <form onSubmit={handleBid} style={{ margin: 0 }}>
+                  <button
+                    type="submit"
+                    className="detail-btn-outline"
+                    disabled={bidding}
+                  >
+                    <span className="detail-btn-icon">⚔</span>
+                    {bidding ? "처리 중..." : "입찰하기"}
+                  </button>
+                </form>
+                {!ended && (
+                  <button
+                    type="button"
+                    className="detail-btn-outline"
+                    disabled={closing}
+                    onClick={handleClose}
+                  >
+                    <span className="detail-btn-icon">🏆</span>
+                    {closing ? "처리 중..." : "낙찰하기"}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {canCloseAuction && (
+            <button
+              type="button"
+              className="detail-btn-outline"
+              style={{ width: "100%", marginTop: 10 }}
+              disabled={closing}
+              onClick={handleClose}
+            >
+              <span className="detail-btn-icon">🏆</span>
+              {closing ? "처리 중..." : "낙찰하기"}
+            </button>
+          )}
+
+          {settled && (
+            <div className="detail-timer-row ended" style={{ marginTop: 10 }}>
+              <span className="detail-timer-label">경매종료</span>
+            </div>
+          )}
+
+          {/* 입찰 내역 (요약 - 최대 3개) */}
+          <div className="detail-bidlist-box">
+            <div className="detail-bidlist-header">
+              <span>입찰 내역</span>
+              <span className={`detail-status-badge ${ended ? "ended" : ""}`}>
+                {ended ? "종료" : "진행 중"}
+              </span>
+            </div>
+
+            {bids.length === 0 ? (
+              <div className="detail-bidlist-empty">
+                아직 입찰 내역이 없습니다.
+              </div>
+            ) : (
+              <>
+                <div className="detail-bidlist">
+                  {visibleBids.map((bid, i) => {
+                    const name = bid.bidderNickname || bid.bidder || "익명";
+                    const isWinningBid =
+                      bid.status === "WINNING" || bid.bidStatus === "WINNING";
+                    return (
+                      <div
+                        key={bid.id ?? bid.bidId ?? i}
+                        className="detail-bidlist-row"
+                      >
+                        <span className="detail-bid-avatar">
+                          {name.charAt(0).toUpperCase()}
+                        </span>
+                        <div className="detail-bid-info">
+                          <span className="detail-bid-name">{name}</span>
+                          <span className="detail-bid-sub">
+                            {isWinningBid ? "낙찰가" : "입찰완료"}
+                          </span>
+                        </div>
+                        <span className="detail-bid-amount">
+                          {fmt(bid.amount)} KRW
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {bids.length > 3 && (
+                  <button
+                    type="button"
+                    className="detail-bidlist-more"
+                    onClick={() => setShowBidModal(true)}
+                  >
+                    전체 내역 보기
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showImageModal && hasAuctionImages && (
+        <div
+          className="detail-image-modal-overlay"
+          onClick={() => setShowImageModal(false)}
+        >
+          <div
+            className="detail-image-modal-box"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="detail-image-modal-close"
+              onClick={() => setShowImageModal(false)}
+              aria-label="이미지 닫기"
+            >
+              ×
+            </button>
+            {hasMultipleImages && (
+              <button
+                type="button"
+                className="detail-image-modal-arrow left"
+                onClick={showPrevImage}
+                aria-label="이전 이미지"
+              >
+                {"<"}
+              </button>
+            )}
+            <img
+              src={currentImage}
+              alt={auction.title}
+              className="detail-image-modal-img"
+            />
+            {hasMultipleImages && (
+              <button
+                type="button"
+                className="detail-image-modal-arrow right"
+                onClick={showNextImage}
+                aria-label="다음 이미지"
+              >
+                {">"}
+              </button>
+            )}
+            {hasMultipleImages && (
+              <div className="detail-image-modal-count">
+                {currentImg + 1} / {auctionImages.length}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 전체 입찰 내역 모달 */}
+      {showBidModal && (
+        <div
+          className="bid-modal-overlay"
+          onClick={() => setShowBidModal(false)}
+        >
+          <div className="bid-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="bid-modal-header">
+              <span>전체 입찰 내역</span>
+              <button
+                type="button"
+                className="bid-modal-close"
+                onClick={() => setShowBidModal(false)}
+                aria-label="닫기"
+              >
+                ×
+              </button>
+            </div>
+            <div className="bid-modal-list">
+              {bids.map((bid, i) => {
+                const name = bid.bidderNickname || bid.bidder || "익명";
+                const isWinningBid =
+                  bid.status === "WINNING" || bid.bidStatus === "WINNING";
+                const isTop = i === 0;
+                return (
+                  <div
+                    key={bid.id ?? bid.bidId ?? i}
+                    className={`bid-modal-row ${isTop ? "top" : ""}`}
+                  >
+                    <span className="bid-modal-avatar">
+                      {name.charAt(0).toUpperCase()}
+                    </span>
+                    <div className="bid-modal-info">
+                      <span className="bid-modal-name">{name}</span>
+                      {(isTop || isWinningBid) && (
+                        <span className="bid-modal-top-badge">
+                          {isWinningBid ? "낙찰가" : "최고가"}
+                        </span>
+                      )}
+                    </div>
+                    <span className="bid-modal-amount">
+                      {fmt(bid.amount)} KRW
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="bid-modal-footer">
+              <span>현재가</span>
+              <strong>{fmt(currentBid)} KRW</strong>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
