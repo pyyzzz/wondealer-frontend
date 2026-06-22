@@ -393,7 +393,19 @@
 .mp-activity-time {
   font-size: 10px;
   color: var(--mp-text-subtle);
+}
+.mp-activity-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
   flex-shrink: 0;
+}
+.mp-activity-price {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--mp-text);
+  white-space: nowrap;
 }
 
 /* ── Charge Tab ── */
@@ -1011,6 +1023,13 @@
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+}
+.mp-list-modal {
+  max-width: 720px;
+}
+.mp-list-modal-body {
+  max-height: min(68vh, 620px);
+  overflow-y: auto;
 }
 .mp-modal-header {
   display: flex;

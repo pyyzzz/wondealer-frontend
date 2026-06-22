@@ -404,6 +404,41 @@ const token = () => localStorage.getItem("accessToken");
 const BANK_STORAGE_KEY = "wondealerBankInfo";
 const WITHDRAW_ADJUSTMENT_KEY = "wondealerWithdrawAdjustment";
 
+const toAmount = (value) => {
+  if (value === null || value === undefined || value === "") return 0;
+  return Number(String(value).replace(/[^\d.-]/g, "")) || 0;
+};
+
+const formatDate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("ko-KR");
+};
+
+const getTradeAmount = (trade) =>
+  toAmount(
+    trade?.tradePrice ??
+      trade?.totalAmount ??
+      trade?.paymentAmount ??
+      trade?.paidAmount ??
+      trade?.settlementAmount ??
+      trade?.finalPrice ??
+      trade?.currentPrice ??
+      trade?.winningBid ??
+      trade?.basePrice ??
+      trade?.price ??
+      trade?.amount ??
+      trade?.itemPrice ??
+      trade?.item?.itemPrice ??
+      trade?.item?.basePrice ??
+      trade?.item?.price ??
+      trade?.item?.finalPrice ??
+      trade?.product?.basePrice ??
+      trade?.product?.itemPrice ??
+      trade?.product?.price,
+  );
+
 const normalizeBankInfo = (data = {}) => ({
   bankName: data.bankName ?? "",
   accountNumber: data.accountNumber ?? "",
@@ -1011,24 +1046,26 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
   });
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const [showAllActivity, setShowAllActivity] = useState(false);
 
   const fetchData = useCallback(async () => {
     const tk = token();
     try {
       const [buyRes, sellRes, bidRes, itemsRes] = await Promise.allSettled([
-        fetch(`${Common.API_URL}/api/members/me/trades?type=BUY&page=0`, {
+        fetch(`${Common.API_URL}/api/members/me/trades?type=BUY&page=0&size=100`, {
           headers: { Authorization: `Bearer ${tk}` },
           cache: "no-store",
         }),
-        fetch(`${Common.API_URL}/api/members/me/trades?type=SELL&page=0`, {
+        fetch(`${Common.API_URL}/api/members/me/trades?type=SELL&page=0&size=100`, {
           headers: { Authorization: `Bearer ${tk}` },
           cache: "no-store",
         }),
-        fetch(`${Common.API_URL}/api/members/me/bids?page=0`, {
+        fetch(`${Common.API_URL}/api/members/me/bids?page=0&size=100`, {
           headers: { Authorization: `Bearer ${tk}` },
           cache: "no-store",
         }),
-        fetch(`${Common.API_URL}/api/members/me/items?page=0`, {
+        fetch(`${Common.API_URL}/api/members/me/items?page=0&size=100`, {
           headers: { Authorization: `Bearer ${tk}` },
           cache: "no-store",
         }),
@@ -1050,24 +1087,22 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
 
       const txList = [
         ...buyList.map((t) => ({
-          id: t.orderId ?? t.itemId ?? t.id,
-          amount: -(t.basePrice ?? t.price ?? t.amount ?? 0),
-          label: t.itemName ?? t.title ?? "구매",
-          date: t.createdAt
-            ? new Date(t.createdAt).toLocaleDateString("ko-KR")
-            : (t.date ?? ""),
+          id: t.tradeId ?? t.orderId ?? t.itemId ?? t.id,
+          itemId: t.itemId ?? t.item?.itemId ?? t.item?.id ?? null,
+          type: "구매",
+          amount: getTradeAmount(t) ? -getTradeAmount(t) : 0,
+          label: t.itemName ?? t.title ?? t.item?.title ?? t.item?.itemName ?? "구매",
+          date: t.completedAt ?? t.paidAt ?? t.createdAt ?? t.date ?? "",
         })),
         ...sellList.map((t) => ({
-          id: t.orderId ?? t.itemId ?? t.id,
-          amount: t.basePrice ?? t.price ?? t.amount ?? 0,
-          label: t.itemName ?? t.title ?? "판매",
-          date: t.createdAt
-            ? new Date(t.createdAt).toLocaleDateString("ko-KR")
-            : (t.date ?? ""),
+          id: t.tradeId ?? t.orderId ?? t.itemId ?? t.id,
+          itemId: t.itemId ?? t.item?.itemId ?? t.item?.id ?? null,
+          type: "판매",
+          amount: getTradeAmount(t),
+          label: t.itemName ?? t.title ?? t.item?.title ?? t.item?.itemName ?? "판매",
+          date: t.completedAt ?? t.paidAt ?? t.createdAt ?? t.date ?? "",
         })),
-      ]
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 3);
+      ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
       setTransactions(txList);
 
       // ── items 목록 파싱 (bidList보다 먼저 선언) ─────────────────
@@ -1120,7 +1155,6 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
       // ── 최근 활동내역 ──────────────────────────────────────────
       const recentItems = [...itemList]
         .sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0))
-        .slice(0, 3)
         .map((i) => ({
           id: i.itemId ?? i.id,
           tag:
@@ -1140,6 +1174,15 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
           time: i.createdAt
             ? new Date(i.createdAt).toLocaleDateString("ko-KR")
             : "",
+          price:
+            i.basePrice ??
+            i.price ??
+            i.itemPrice ??
+            i.tradePrice ??
+            i.currentPrice ??
+            i.finalPrice ??
+            i.winningBid ??
+            0,
           img: i.thumbnailImg ? null : "📦",
           thumbnailImg: i.thumbnailImg ?? null,
         }));
@@ -1154,6 +1197,116 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const renderTransaction = (tx, i) => {
+    const rawAmount = tx.amount ?? tx.mileage ?? 0;
+    const amount = Object.is(rawAmount, -0) ? 0 : rawAmount;
+    const label = tx.label ?? tx.type ?? tx.description ?? "거래";
+    const date = formatDate(tx.date ?? tx.createdAt ?? tx.transactionDate ?? "");
+    const openItem = () => {
+      if (tx.itemId) navigate(`/items/${tx.itemId}`);
+    };
+
+    return (
+      <div
+        key={tx.id ?? i}
+        className="mp-tx-item"
+        onClick={openItem}
+        role={tx.itemId ? "button" : undefined}
+        tabIndex={tx.itemId ? 0 : undefined}
+        style={tx.itemId ? { cursor: "pointer" } : undefined}
+        onKeyDown={(e) => {
+          if (tx.itemId && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            openItem();
+          }
+        }}
+      >
+        <div className="mp-tx-info">
+          {amount > 0 ? <Icon.ArrowUpRight /> : <Icon.ArrowDownLeft />}
+          <div>
+            <div className="mp-tx-name">
+              {tx.type && label !== tx.type ? `${tx.type} · ${label}` : label}
+            </div>
+            <div className="mp-tx-date">{date}</div>
+          </div>
+        </div>
+        <span className={`mp-tx-amount ${amount > 0 ? "plus" : "minus"}`}>
+          {amount > 0 ? "+" : ""}
+          {fmt(amount)} M
+        </span>
+      </div>
+    );
+  };
+
+  const renderActivity = (a, i) => {
+    const tag = a.tag ?? a.status ?? a.type ?? "";
+    const tagColor =
+      a.tagColor ??
+      (tag === "구매완료" ? "violet" : tag === "판매완료" ? "green" : "amber");
+    const title = a.title ?? a.itemName ?? a.name ?? "";
+    const sub = a.sub ?? a.description ?? "";
+    const time = formatDate(a.time ?? a.createdAt ?? "");
+    const price = toAmount(
+      a.price ??
+        a.basePrice ??
+        a.itemPrice ??
+        a.tradePrice ??
+        a.currentPrice ??
+        a.finalPrice ??
+        a.winningBid,
+    );
+    const img = a.img ?? a.emoji ?? "📦";
+    const itemId = a.itemId ?? a.id;
+    const openItem = () => {
+      if (itemId) navigate(`/items/${itemId}`);
+    };
+
+    return (
+      <div
+        key={a.id ?? i}
+        className="mp-activity-item"
+        onClick={openItem}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && itemId) {
+            e.preventDefault();
+            openItem();
+          }
+        }}
+        role={itemId ? "button" : undefined}
+        tabIndex={itemId ? 0 : undefined}
+        style={itemId ? { cursor: "pointer" } : undefined}
+      >
+        <div className="mp-activity-img">
+          {a.thumbnailImg ? (
+            <img
+              src={a.thumbnailImg}
+              alt={a.title}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                borderRadius: 8,
+              }}
+            />
+          ) : (
+            img
+          )}
+        </div>
+        <div className="mp-activity-body">
+          <Badge color={tagColor}>{tag}</Badge>
+          <div className="mp-activity-title">{title}</div>
+          <div className="mp-activity-sub">{sub}</div>
+        </div>
+        <div className="mp-activity-meta">
+          <span className="mp-activity-price">
+            {price ? `${fmt(price)} M` : "-"}
+          </span>
+          <span className="mp-activity-time">{time}</span>
+        </div>
+      </div>
+    );
+  };
 
   const STAT_ITEMS = [
     {
@@ -1213,7 +1366,11 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
         <div className="mp-card mp-tx-panel">
           <div className="mp-tx-header">
             <span className="mp-tx-title">최근 거래 내역</span>
-            <button className="mp-tx-link" type="button">
+            <button
+              className="mp-tx-link"
+              type="button"
+              onClick={() => setShowAllTransactions(true)}
+            >
               전체보기
             </button>
           </div>
@@ -1222,32 +1379,7 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
               거래 내역이 없습니다.
             </div>
           ) : (
-            transactions.map((tx, i) => {
-              const amount = tx.amount ?? tx.mileage ?? 0;
-              const label = tx.label ?? tx.type ?? tx.description ?? "거래";
-              const date = tx.date ?? tx.createdAt ?? tx.transactionDate ?? "";
-              return (
-                <div key={tx.id ?? i} className="mp-tx-item">
-                  <div className="mp-tx-info">
-                    {amount > 0 ? (
-                      <Icon.ArrowUpRight />
-                    ) : (
-                      <Icon.ArrowDownLeft />
-                    )}
-                    <div>
-                      <div className="mp-tx-name">{label}</div>
-                      <div className="mp-tx-date">{date}</div>
-                    </div>
-                  </div>
-                  <span
-                    className={`mp-tx-amount ${amount > 0 ? "plus" : "minus"}`}
-                  >
-                    {amount > 0 ? "+" : ""}
-                    {fmt(amount)}
-                  </span>
-                </div>
-              );
-            })
+            transactions.slice(0, 3).map(renderTransaction)
           )}
         </div>
       </div>
@@ -1273,7 +1405,11 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
         <span style={{ fontSize: 13, fontWeight: 700, color: "#e4e4e7" }}>
           최근 활동 내역
         </span>
-        <button className="mp-tx-link" type="button">
+        <button
+          className="mp-tx-link"
+          type="button"
+          onClick={() => setShowAllActivity(true)}
+        >
           전체보기
         </button>
       </div>
@@ -1282,65 +1418,67 @@ function MileageTab({ balance, onGoCharge, onGoWithdraw, navigate }) {
         {recentActivity.length === 0 ? (
           <div className="mp-empty">활동 내역이 없습니다.</div>
         ) : (
-          recentActivity.map((a, i) => {
-            const tag = a.tag ?? a.status ?? a.type ?? "";
-            const tagColor =
-              a.tagColor ??
-              (tag === "구매완료"
-                ? "violet"
-                : tag === "판매완료"
-                  ? "green"
-                  : "amber");
-            const title = a.title ?? a.itemName ?? a.name ?? "";
-            const sub = a.sub ?? a.description ?? "";
-            const time = a.time ?? a.createdAt ?? "";
-            const img = a.img ?? a.emoji ?? "📦";
-            const itemId = a.itemId ?? a.id;
-            const openItem = () => {
-              if (itemId) navigate(`/items/${itemId}`);
-            };
-            return (
-              <div
-                key={a.id ?? i}
-                className="mp-activity-item"
-                onClick={openItem}
-                onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === " ") && itemId) {
-                    e.preventDefault();
-                    openItem();
-                  }
-                }}
-                role={itemId ? "button" : undefined}
-                tabIndex={itemId ? 0 : undefined}
-                style={itemId ? { cursor: "pointer" } : undefined}
-              >
-                <div className="mp-activity-img">
-                  {a.thumbnailImg ? (
-                    <img
-                      src={a.thumbnailImg}
-                      alt={a.title}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        borderRadius: 8,
-                      }}
-                    />
-                  ) : (
-                    img
-                  )}
-                </div>
-                <div className="mp-activity-body">
-                  <Badge color={tagColor}>{tag}</Badge>
-                  <div className="mp-activity-title">{title}</div>
-                  <div className="mp-activity-sub">{sub}</div>
-                </div>
-                <span className="mp-activity-time">{time}</span>
-              </div>
-            );
-          })
+          recentActivity.slice(0, 3).map(renderActivity)
         )}
       </div>
+      {showAllTransactions && (
+        <div
+          className="mp-modal-backdrop"
+          onClick={() => setShowAllTransactions(false)}
+        >
+          <div
+            className="mp-modal mp-list-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mp-modal-header">
+              <div className="mp-modal-title">전체 거래 내역</div>
+              <button
+                className="mp-modal-close"
+                type="button"
+                onClick={() => setShowAllTransactions(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="mp-modal-body mp-list-modal-body">
+              {transactions.length === 0 ? (
+                <div className="mp-empty">거래 내역이 없습니다.</div>
+              ) : (
+                transactions.map(renderTransaction)
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {showAllActivity && (
+        <div
+          className="mp-modal-backdrop"
+          onClick={() => setShowAllActivity(false)}
+        >
+          <div
+            className="mp-modal mp-list-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mp-modal-header">
+              <div className="mp-modal-title">전체 활동 내역</div>
+              <button
+                className="mp-modal-close"
+                type="button"
+                onClick={() => setShowAllActivity(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="mp-modal-body mp-list-modal-body">
+              {recentActivity.length === 0 ? (
+                <div className="mp-empty">활동 내역이 없습니다.</div>
+              ) : (
+                recentActivity.map(renderActivity)
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1816,7 +1954,7 @@ function ProfileTab({
 }
 
 // ── 활동 기록 탭 ───────────────────────────────────────────────
-function ActivityTab() {
+function ActivityTab({ navigate }) {
   const [activeSubTab, setActiveSubTab] = useState("구매 내역");
   const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
@@ -1876,6 +2014,21 @@ function ActivityTab() {
 
   const mapItem = (item, i) => {
     const id = item.itemId ?? item.id ?? item.orderId ?? i;
+    const itemId =
+      item.itemId ??
+      item.item?.itemId ??
+      item.item?.id ??
+      item.productId ??
+      item.product?.id ??
+      (activeSubTab === "구매 내역" || activeSubTab === "판매 내역"
+        ? (item.id ?? null)
+        : null);
+    const auctionId =
+      item.auctionId ??
+      item.auction?.auctionId ??
+      item.auction?.id ??
+      item.bidAuctionId ??
+      null;
     const rawTag = item.tag ?? item.tradeType ?? item.type ?? "";
     const rawStatus = item.status ?? item.itemStatus ?? "";
 
@@ -1906,6 +2059,8 @@ function ActivityTab() {
 
     return {
       id,
+      itemId,
+      auctionId,
       tag: TAG_KO[rawTag] ?? rawTag,
       tagColor: item.tagColor ?? TAG_COLOR[rawTag] ?? "zinc",
       status: STATUS_KO[rawStatus] ?? rawStatus,
@@ -1915,11 +2070,12 @@ function ActivityTab() {
         ? new Date(item.createdAt).toLocaleDateString("ko-KR")
         : (item.sub ?? item.date ?? ""),
       seller: item.sellerNickname ?? item.seller ?? item.counterpart ?? "",
-      price: item.basePrice ?? item.price ?? item.amount ?? 0,
+      price: getTradeAmount(item),
       img: item.thumbnailImg ? null : (item.img ?? item.emoji ?? "📦"),
       thumbnailImg: item.thumbnailImg ?? null,
       gameName: item.gameName ?? "",
       serverName: item.serverName ?? "",
+      targetPath: auctionId ? `/auctions/${auctionId}` : itemId ? `/items/${itemId}` : "",
     };
   };
 
@@ -2010,7 +2166,19 @@ function ActivityTab() {
               <div
                 key={item.id}
                 className="mp-activity-item"
-                style={{ alignItems: "center" }}
+                onClick={() => item.targetPath && navigate(item.targetPath)}
+                role={item.targetPath ? "button" : undefined}
+                tabIndex={item.targetPath ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (item.targetPath && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    navigate(item.targetPath);
+                  }
+                }}
+                style={{
+                  alignItems: "center",
+                  cursor: item.targetPath ? "pointer" : "default",
+                }}
               >
                 <div
                   className="mp-activity-img"
@@ -3184,7 +3352,7 @@ export default function MyPage({ tab: defaultTab }) {
           />
         );
       case "activity":
-        return <ActivityTab />;
+        return <ActivityTab navigate={navigate} />;
       case "items":
         return <ItemsTab navigate={navigate} />;
       case "support":

@@ -247,6 +247,7 @@ export default function AuctionDetailPage() {
         await AuctionApi.settleAuction(auctionId);
       } else {
         await AuctionApi.buyNow(auctionId, instantBuyPrice);
+        await AuctionApi.settleAuction(auctionId);
       }
       alert("낙찰 처리가 완료되었습니다.");
       const r = await AuctionApi.getAuction(auctionId);
@@ -288,7 +289,12 @@ export default function AuctionDetailPage() {
       </div>
     );
 
-  const ended = timeStr === "종료";
+  const auctionStatus = String(auction.status ?? "").toUpperCase();
+  const ended =
+    timeStr === "종료" ||
+    auctionStatus === "ENDED" ||
+    auctionStatus === "CLOSED" ||
+    auctionStatus === "COMPLETED";
   const currentBid = Number(
     auction.currentBid ||
       auction.currentPrice ||

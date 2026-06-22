@@ -117,6 +117,14 @@ function App() {
           }
         />
         <Route
+          path="/mypage/support"
+          element={
+            <PrivateRoute>
+              <MyPage tab="support" />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/admin/*"
           element={
             <AdminRoute>

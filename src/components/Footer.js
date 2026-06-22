@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import styled from "styled-components";
 import logo from "../img/logo.svg";
 
@@ -8,12 +9,12 @@ const Footer = () => {
       {/* 상단 섹션 */}
       <TopSection>
         <LinkGroup>
-          <FooterLink href="#">아이템 마켓</FooterLink>
-          <FooterLink href="#">경매</FooterLink>
-          <FooterLink href="#">아이템 거래 내역</FooterLink>
-          <FooterLink href="#">개인정보처리방침</FooterLink>
-          <FooterLink href="#">위험 고지</FooterLink>
-          <FooterLink href="#">고객센터</FooterLink>
+          <FooterLink to="/items">아이템 마켓</FooterLink>
+          <FooterLink to="/auctions">경매</FooterLink>
+          <FooterLink to="/mypage">아이템 거래 내역</FooterLink>
+          <FooterLink to="/">개인정보처리방침</FooterLink>
+          <FooterLink to="/">위험 고지</FooterLink>
+          <FooterLink to="/mypage/support">고객센터</FooterLink>
         </LinkGroup>
       </TopSection>
       {/* 보안 문구 + 우측 로고 */}
@@ -142,7 +143,7 @@ const BottomSection = styled.div`
   width: 100%;
 `;
 
-const FooterLink = styled.a`
+const FooterLink = styled(Link)`
   font-size: 14px;
   font-weight: 500;
   color: var(--text-primary); /* 수정 */
