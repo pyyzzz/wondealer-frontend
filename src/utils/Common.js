@@ -1,38 +1,36 @@
 import axios from "axios";
+import { ADMIN_LOCAL_KEYS } from "./adminLocalState";
 
 const Common = {
-  // ── 백엔드 주소 ────────────────────────────────────────────
   API_URL: "http://localhost:8111",
+  TOSS_CLIENT_KEY: process.env.REACT_APP_TOSS_CLIENT_KEY || "",
 
-  // ── 토스페이먼츠 클라이언트 키 ─────────────────────────────
-  TOSS_CLIENT_KEY: process.env.REACT_APP_TOSS_CLIENT_KEY,
-
-  // ── Access Token 관리 (localStorage) ──────────────────────
   getAccessToken: () => localStorage.getItem("accessToken"),
   setAccessToken: (token) => localStorage.setItem("accessToken", token),
 
-  // ── Refresh Token 관리 (localStorage) ─────────────────────
   getRefreshToken: () => localStorage.getItem("refreshToken"),
   setRefreshToken: (token) => localStorage.setItem("refreshToken", token),
 
-  // ── 유저 정보 관리 ─────────────────────────────────────────
   getNickname: () => localStorage.getItem("nickname"),
   setNickname: (nickname) => localStorage.setItem("nickname", nickname),
+  getRole: () => localStorage.getItem("role"),
+  setRole: (role) => localStorage.setItem("role", role),
 
-  // ── 로컬스토리지 전체 초기화 (로그아웃 시 호출) ────────────
-  clearStorage: () => localStorage.clear(),
+  clearStorage: () => {
+    const preserved = ADMIN_LOCAL_KEYS.map((key) => [
+      key,
+      localStorage.getItem(key),
+    ]).filter(([, value]) => value !== null);
+    localStorage.clear();
+    preserved.forEach(([key, value]) => localStorage.setItem(key, value));
+  },
 
-  // ── 401 에러 시 Access Token 자동 재발급 ───────────────────
-  // AxiosInstance 응답 인터셉터에서 401 발생 시 호출
-  // 성공: 새 토큰 저장 후 true 반환 → 원본 요청 재시도
-  // 실패: localStorage 초기화 후 false 반환 → 로그인 페이지 이동
   handleUnauthorized: async () => {
     try {
-      const res = await axios.post(`${Common.API_URL}/auth/reissue`, {
+      const res = await axios.post("/auth/reissue", {
         accessToken: Common.getAccessToken(),
         refreshToken: Common.getRefreshToken(),
       });
-      // 백엔드 응답 구조: { success, message, data: { accessToken, refreshToken } }
       Common.setAccessToken(res.data.data.accessToken);
       Common.setRefreshToken(res.data.data.refreshToken);
       return true;

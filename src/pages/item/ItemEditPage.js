@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
+import ItemApi from "../../api/item.api";
+import { uploadImageFiles } from "../../utils/firebaseUpload";
 
 import item from "../../img/item.svg";
 import gameMoney from "../../img/gamemoney.svg";
@@ -49,7 +50,6 @@ const ItemEditPage = () => {
   const { itemId } = useParams();
   const fileInputRef = useRef(null);
 
-  // 상태 관리 (초기값은 비워두고 useEffect에서 채움)
   const [category, setCategory] = useState("item");
   const [gameName, setGameName] = useState("");
   const [serverName, setServerName] = useState("");
@@ -59,38 +59,30 @@ const ItemEditPage = () => {
   const [price, setPrice] = useState("");
   const [images, setImages] = useState([]);
 
-  // 기존 등록 데이터 불러오기 (수정 페이지 핵심)
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
   useEffect(() => {
-    // 실제 프로젝트에서는 ItemApi.getItem(itemId) 등을 호출하여 데이터를 가져옵니다.
-    // 여기서는 예시 데이터를 불러온 것으로 가정합니다.
-    const fetchItemData = async () => {
-      console.log(`${itemId}번 물품 정보를 불러옵니다.`);
-
-      // 임시 데이터 (나중에 API 연동 시 이 부분을 axios.get()? 교체하세요)
-      const dummyData = {
-        category: "item",
-        gameName: "lostark",
-        serverName: "루페온",
-        quantity: "", // 게임 머니일 경우
-        title: "기존에 등록했던 [S급] 전설의 검",
-        description: "기존에 작성했던 상세 설명 내용입니다.",
-        price: "50000",
-        // 기존 이미지가 있다면 URL 형태로 가져옵니다.
-        existingImages: [{ preview: "https://placehold.co/100", file: null }],
-      };
-
-      setCategory(dummyData.category);
-      setGameName(dummyData.gameName);
-      setServerName(dummyData.serverName);
-      setQuantity(dummyData.quantity || "");
-      setTitle(dummyData.title);
-      setDescription(dummyData.description);
-      setPrice(dummyData.price);
-      setImages(dummyData.existingImages);
-    };
-
-    fetchItemData();
-  }, [itemId, navigate]);
+    ItemApi.getItem(itemId)
+      .then((r) => {
+        const d = r.data?.data || r.data;
+        setCategory(d.category || "item");
+        setGameName(d.gameName || "");
+        setServerName(d.serverName || "");
+        setQuantity(d.quantity || "");
+        setTitle(d.title || "");
+        setDescription(d.details || d.description || "");
+        setPrice(String(d.price || ""));
+        if (d.existingImages?.length) {
+          setImages(
+            d.existingImages.map((url) => ({ preview: url, file: null })),
+          );
+        }
+      })
+      .catch(() => navigate("/items"))
+      .finally(() => setLoading(false));
+  }, [itemId]); // eslint-disable-line
 
   // 가격 계산 로직
   const inputPrice = Number(price) || 0;
@@ -100,6 +92,7 @@ const ItemEditPage = () => {
   const handleUploadClick = () => {
     if (fileInputRef.current) fileInputRef.current.click();
   };
+
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
     if (images.length + files.length > 5) {
@@ -110,53 +103,68 @@ const ItemEditPage = () => {
       file,
       preview: URL.createObjectURL(file),
     }));
-    // 기존 이미지 배열 뒤에 새로 추가한 이미지 합치는 것
-    setImages((prevImages) => [...prevImages, ...newImages]);
+    setImages((prev) => [...prev, ...newImages]);
   };
 
   const handleRemoveImage = (indexToRemove, e) => {
     e.stopPropagation();
-    setImages((prevImages) =>
-      prevImages.filter((_, idx) => idx !== indexToRemove),
-    );
+    setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  // 수정하기 제출 핸들러
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!gameName) return alert("게임을 선택해 주세요.");
     if (!serverName) return alert("서버를 선택해 주세요.");
     if (!title.trim()) return alert("물품 제목을 입력해 주세요.");
     if (inputPrice <= 0) return alert("올바른 가격을 입력해 주세요.");
 
+    setError("");
+    setSaving(true);
+
     const updateData = {
-      category,
-      gameName,
-      serverName,
-      quantity: category === "money" ? quantity : null,
-      title,
-      description,
-      price: inputPrice,
-      images: images.map((img) => img.file).filter(Boolean), // 파일 객체만 추출 (새로 업로드한 경우)
+      title: title,
+      description: description,
+      basePrice: Number(inputPrice),
+      categoryId: Number(categoryId),
+      serverId: serverName ? Number(serverId) : null,
+      removedImageIds: [],
     };
 
-    console.log("수정된 데이터:", updateData);
-
-    /* [나중에 실제 API 연동 시 주석 해제하여 사용]
+    try {
       try {
-        // 기존 데이터를 수정할 때는 주로 PUT 또는 PATCH 메서드를 사용하며, itemId를 주소에 보냅니다.
-        await axios.put(`/api/items/${itemId}`, updateData);
-        alert("물품 정보 수정이 완료되었습니다!");
-        navigate("/mypage", { state: { tab: "registration-management" } });
-      } catch (error) {
-        console.error("수정 실패:", error);
-        alert("수정 중 오류가 발생했습니다. 다시 시도해주세요.");
+        const uploadedUrls = await uploadImageFiles(
+          images.map((image) => image.file),
+          "items",
+        );
+        if (uploadedUrls.length > 0) {
+          console.log("Firebase uploaded image URLs:", uploadedUrls);
+        }
+      } catch (uploadError) {
+        console.warn(
+          "이미지 업로드 실패, 이미지 없이 상품을 수정합니다.",
+          uploadError,
+        );
       }
-    */
 
-    alert("물품 정보 수정이 완료되었습니다!");
-    navigate("/mypage", { state: { tab: "registration-management" } });
+      await ItemApi.updateItem(itemId, updateData);
+      alert("물품 정보 수정이 완료되었습니다!");
+      navigate("/mypage");
+    } catch (err) {
+      setError(err.response?.data?.message || "수정 중 오류 발생");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <PageContainer>
+        <div style={{ textAlign: "center", padding: "80px", color: "#888da8" }}>
+          로딩 중...
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>
@@ -310,8 +318,8 @@ const ItemEditPage = () => {
         </FormGroup>
       </SectionContainer>
 
-      {/* 가격 설정 + 05 이미지 등록 */}
-      <BottomGrid isMoney={category === "money"}>
+      {/* 가격 설정 + 이미지 등록 */}
+      <BottomGrid $single={category === "money"}>
         <SectionContainer style={{ margin: 0 }}>
           <SectionTitle>
             <span>04</span> 가격 설정
@@ -367,7 +375,7 @@ const ItemEditPage = () => {
                 {[...Array(5)].map((_, i) => {
                   const imgData = images[i];
                   return (
-                    <PreviewSlot key={i} hasImage={!!imgData}>
+                    <PreviewSlot key={i} $hasImage={!!imgData}>
                       {imgData ? (
                         <>
                           <img
@@ -393,264 +401,75 @@ const ItemEditPage = () => {
         )}
       </BottomGrid>
 
-      {/* 하단 버튼  */}
+      {/* ── 2번 파일: 에러 메시지 표시 ── */}
+      {error && <ErrorBox>{error}</ErrorBox>}
+
+      {/* 하단 버튼 */}
       <ButtonGroup>
-        {/* 취소 시 무조건 메인으로 이동하도록 navigate("/") 설정 */}
         <CancelButton type="button" onClick={() => navigate("/")}>
           취소
         </CancelButton>
-        <SubmitButton type="button" onClick={handleSubmit}>
-          수정하기
+        <SubmitButton type="button" onClick={handleSubmit} disabled={saving}>
+          {saving ? "저장 중..." : "수정하기"}
         </SubmitButton>
       </ButtonGroup>
     </PageContainer>
   );
 };
 
-// ── Styled Components (ItemNewPage와 동일) ───────────────────────
+// ── Styled Components ──────────────────────────────────────────────
 const PageContainer = styled.div`
-  background-color: #0b0c10;
-  color: #ffffff;
-  min-height: 100vh;
   padding: 40px 8%;
-  box-sizing: border-box;
-`;
-const HeaderSection = styled.div`
-  margin-bottom: 32px;
-`;
-const Breadcrumb = styled.p`
-  font-size: 11px;
-  color: #6c5ce7;
-  font-weight: bold;
-  letter-spacing: 1px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  display: inline-block;
-`;
-const PageTitle = styled.h1`
-  font-size: 26px;
-  font-weight: 700;
-  margin-bottom: 12px;
-`;
-const PageDesc = styled.p`
-  font-size: 13px;
-  color: #888da8;
-  line-height: 1.6;
-  max-width: 700px;
-`;
-const SectionContainer = styled.div`
-  background-color: #12131a;
-  border: 1px solid #1f2029;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 24px;
-`;
-const SectionTitle = styled.h2`
-  font-size: 15px;
-  font-weight: 500;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  span {
-    color: #8083ff;
-    font-size: 13px;
+  @media (max-width: 768px) {
+    padding: 20px 4%;
   }
 `;
+
 const CategoryGroup = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-`;
-const Card = styled.div`
-  background-color: ${(props) => (props.isActive ? "#1a1b26" : "#171821")};
-  border: 1px solid ${(props) => (props.isActive ? "#6c5ce7" : "#252631")};
-  border-radius: 8px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  cursor: pointer;
-  position: relative;
-`;
-const IconWrapper = styled.div`
-  background-color: #1f202e;
-  padding: 10px;
-  border-radius: 8px;
-  flex-shrink: 0;
-`;
-const CardContent = styled.div`
-  padding-right: 20px;
-  h3 {
-    font-size: 14px;
-    font-weight: 400;
-    margin-bottom: 4px;
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
   }
-  p {
-    font-size: 11px;
-    color: #c7c4d7;
-    line-height: 1.4;
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
   }
 `;
-const CheckBadge = styled.div`
-  position: absolute;
-  top: 50%;
-  right: 16px;
-  transform: translateY(-50%);
-  background-color: #6c5ce7;
-  color: white;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-`;
+
 const RowGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 20px;
-`;
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  label {
-    font-size: 13px;
-    color: #e3e2e8;
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
   }
 `;
-const Select = styled.select`
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 12px;
-  color: #ffffff;
-  font-size: 13px;
-  outline: none;
-  width: 100%;
-`;
-const Input = styled.input`
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 12px;
-  color: #ffffff;
-  font-size: 13px;
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-`;
-const InputWrapper = styled.div`
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  input {
-    width: 100%;
-    background-color: #171821;
-    border: 1px solid #252631;
-    border-radius: 6px;
-    padding: 12px 70px 12px 12px;
-    color: #ffffff;
-    font-size: 13px;
-    outline: none;
-    box-sizing: border-box;
-  }
-`;
-const TextArea = styled.textarea`
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 12px;
-  color: #ffffff;
-  font-size: 13px;
-  outline: none;
-  resize: none;
-  line-height: 1.5;
-  width: 100%;
-  box-sizing: border-box;
-`;
+
 const BottomGrid = styled.div`
   display: grid;
   grid-template-columns: ${(props) =>
-    props.isMoney ? "1fr" : "repeat(2, 1fr)"};
+    props.$single ? "1fr" : "repeat(2, 1fr)"};
   gap: 24px;
-  margin-bottom: 32px;
-`;
-const PriceBox = styled.div`
-  background-color: #0b0c10;
-  border: 1px solid #1f2029;
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-`;
-const PriceRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  label {
-    font-size: 13px;
-    color: #a5a8b7;
-  }
-  &.sub-row {
-    border-top: 1px solid #1f2029;
-    padding-top: 14px;
-    .minus-price {
-      color: #ef4444;
-      font-size: 13px;
-    }
-  }
-  &.total-row {
-    border-top: 1px solid #1f2029;
-    padding-top: 14px;
-    .total-price {
-      color: #10b981;
-      font-size: 15px;
-      font-weight: 700;
-    }
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
   }
 `;
-const PriceInputWrapper = styled.div`
-  display: flex;
-  align-items: center;
-  background-color: #171821;
-  border: 1px solid #252631;
-  border-radius: 6px;
-  padding: 8px 12px;
-  width: ${(props) => (props.isMoney ? "30%" : "50%")};
-  min-width: 150px;
-  input {
-    background: transparent;
-    border: none;
-    outline: none;
-    color: white;
-    width: 100%;
-    text-align: right;
-    font-size: 14px;
-    padding-right: 6px;
-  }
-  span {
-    color: #a5a8b7;
-    font-size: 13px;
-  }
-`;
+
 const UploadContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  flex: 1;
 `;
 const HiddenFileInput = styled.input`
   display: none;
 `;
 const UploadMainZone = styled.div`
-  border: 1px dashed #4e5161;
+  border: 1px dashed var(--outline);
   border-radius: 8px;
   padding: 32px 24px;
-  background-color: #171821;
+  background-color: var(--bg-container-low);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -658,8 +477,12 @@ const UploadMainZone = styled.div`
   justify-content: center;
   text-align: center;
   flex: 1;
+  transition: border-color 0.2s;
   &:hover {
-    border-color: #6c5ce7;
+    border-color: var(--color-primary);
+  }
+  @media (max-width: 480px) {
+    padding: 24px 16px;
   }
 `;
 const UploadIcon = styled.div`
@@ -680,7 +503,7 @@ const UploadTextMain = styled.p`
 `;
 const UploadTextSub = styled.p`
   font-size: 11px;
-  color: #686b7c;
+  color: var(--text-secondary);
 `;
 const PreviewRow = styled.div`
   display: grid;
@@ -688,17 +511,17 @@ const PreviewRow = styled.div`
   gap: 8px;
 `;
 const PreviewSlot = styled.div`
-  background-color: #171821;
-  border: 1px solid ${(props) => (props.hasImage ? "#4e5161" : "#252631")};
+  background-color: var(--bg-container-low);
+  border: 1px solid
+    ${(props) => (props.$hasImage ? "var(--outline)" : "var(--border-color)")};
   border-radius: 6px;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #4e5161;
-  font-size: 12px;
   position: relative;
   overflow: hidden;
+  color: var(--outline);
   .uploaded-preview {
     width: 100%;
     height: 100%;
@@ -715,7 +538,7 @@ const RemoveButton = styled.button`
   top: 4px;
   right: 4px;
   background-color: rgba(0, 0, 0, 0.6);
-  color: #ffffff;
+  color: #fff;
   border: none;
   border-radius: 50%;
   width: 18px;
@@ -725,39 +548,31 @@ const RemoveButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
   transition: background-color 0.2s;
-  &:hover {
-    background-color: #ef4444;
-  }
 `;
+
 const ButtonGroup = styled.div`
   display: flex;
   justify-content: center;
   gap: 25px;
-  width: 100%;
+  @media (max-width: 600px) {
+    flex-direction: column;
+    width: 100%;
+  }
 `;
+
 const CancelButton = styled.button`
-  background-color: #12131a;
-  border: 1px solid #252631;
-  color: #ffffff;
-  padding: 14px 0;
   width: 220px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+  @media (max-width: 600px) {
+    width: 100%;
+  }
 `;
+
 const SubmitButton = styled.button`
-  background-color: #c0c1ff;
-  border: none;
-  color: #1000a9;
-  padding: 14px 0;
   width: 220px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+  @media (max-width: 600px) {
+    width: 100%;
+  }
 `;
 
 export default ItemEditPage;

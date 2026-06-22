@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import { useAuth } from "../../context/AuthContext";
 import ItemApi from "../../api/item.api";
@@ -10,41 +10,9 @@ import clock from "../../img/clock.svg";
 import imgsc from "../../img/imgsc.svg";
 import imgsc2 from "../../img/imgsc2.svg";
 
-const FALLBACK_GAMES = [
-  { gameId: 1, gameName: "로스트아크" },
-  { gameId: 2, gameName: "메이플스토리" },
-];
-
-const FALLBACK_SERVERS = {
-  1: [
-    { serverId: 1, serverName: "아브렐슈드" },
-    { serverId: 2, serverName: "카단" },
-    { serverId: 3, serverName: "니나브" },
-    { serverId: 4, serverName: "루페온" },
-  ],
-  2: [
-    { serverId: 5, serverName: "리부트" },
-    { serverId: 6, serverName: "일반" },
-  ],
-};
-
-const FALLBACK_CATEGORIES = {
-  1: [
-    { categoryId: 1, categoryName: "아이템" },
-    { categoryId: 2, categoryName: "게임머니" },
-    { categoryId: 3, categoryName: "계정" },
-    { categoryId: 4, categoryName: "기타" },
-  ],
-  2: [
-    { categoryId: 5, categoryName: "아이템" },
-    { categoryId: 6, categoryName: "게임머니" },
-    { categoryId: 7, categoryName: "계정" },
-    { categoryId: 8, categoryName: "기타" },
-  ],
-};
-
-const AuctionNewPage = () => {
+const AuctionEditPage = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
   const fileInputRef = useRef(null);
   const { isLoggedIn } = useAuth();
 
@@ -58,6 +26,7 @@ const AuctionNewPage = () => {
   const [games, setGames] = useState([]);
   const [servers, setServers] = useState([]);
   const [categories, setCategories] = useState([]);
+
   const [gameId, setGameId] = useState("");
   const [serverId, setServerId] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -70,55 +39,62 @@ const AuctionNewPage = () => {
   const [endTime, setEndTime] = useState("");
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
 
+  // 기존 경매 데이터 로드
+  useEffect(() => {
+    if (!id) return;
+    AuctionApi.getAuction(id)
+      .then((r) => {
+        const d = r.data?.data ?? r.data ?? {};
+        const rawGameId = d.gameId ?? "";
+        setGameId(rawGameId ? String(rawGameId) : "");
+        const rawServerId = d.serverId ?? null;
+        setServerId(rawServerId != null ? String(rawServerId) : "");
+        const rawCategoryId = d.categoryId ?? "";
+        setCategoryId(rawCategoryId ? String(rawCategoryId) : "");
+        setTitle(d.title ?? "");
+        setDescription(d.description ?? "");
+        setBuyNowPrice(
+          d.instantBuyPrice ? Number(d.instantBuyPrice).toLocaleString() : "",
+        );
+        setStartPrice(
+          d.startPrice ? Number(d.startPrice).toLocaleString() : "",
+        );
+        setMinBidUnit(
+          d.minBidUnit ? Number(d.minBidUnit).toLocaleString() : "1,000",
+        );
+      })
+      .catch(() => {
+        setError("경매 정보를 불러오는 데 실패했습니다.");
+      })
+      .finally(() => setFetching(false));
+  }, [id]);
+
+  // 게임 목록 로드
   useEffect(() => {
     ItemApi.getGames()
-      .then((r) => {
-        const list = r.data?.data ?? r.data ?? [];
-        setGames(list.length > 0 ? list : FALLBACK_GAMES);
-      })
-      .catch(() => setGames(FALLBACK_GAMES));
+      .then((r) => setGames(r.data?.data ?? r.data ?? []))
+      .catch(() => setGames([]));
   }, []);
 
+  // 게임 선택 시 서버·카테고리 로드
   useEffect(() => {
     if (!gameId) {
       setServers([]);
       setCategories([]);
-      setServerId("");
-      setCategoryId("");
       return;
     }
-    setServerId("");
-    setCategoryId("");
-
-    const fbServers = FALLBACK_SERVERS[Number(gameId)] ?? [];
-    const fbCats = FALLBACK_CATEGORIES[Number(gameId)] ?? [];
-    setServers(fbServers);
-    setCategories(fbCats);
-
     ItemApi.getGameServers(gameId)
-      .then((r) => {
-        const l = r.data?.data ?? r.data ?? [];
-        if (l.length > 0) setServers(l);
-      })
-      .catch(() => {});
-
+      .then((r) => setServers(r.data?.data ?? r.data ?? []))
+      .catch(() => setServers([]));
     ItemApi.getCategories(gameId)
-      .then((r) => {
-        const l = r.data?.data ?? r.data ?? [];
-        if (l.length > 0) setCategories(l);
-      })
-      .catch(() => {});
+      .then((r) => setCategories(r.data?.data ?? r.data ?? []))
+      .catch(() => setCategories([]));
   }, [gameId]);
 
-  useEffect(() => {
-    const firstCategory = categories[0];
-    setCategoryId(
-      firstCategory ? String(firstCategory.categoryId ?? firstCategory.id) : "",
-    );
-  }, [categories]);
-
+  // 종료 시간 계산
   useEffect(() => {
     const now = new Date();
     now.setHours(now.getHours() + Number(duration));
@@ -158,7 +134,6 @@ const AuctionNewPage = () => {
     e.preventDefault();
     setError("");
 
-    if (!gameId) return setError("게임을 선택해 주세요.");
     if (!categoryId) return setError("카테고리를 선택해 주세요.");
     if (!title.trim()) return setError("물품 제목을 입력해 주세요.");
     if (!description.trim()) return setError("물품 설명을 입력해 주세요.");
@@ -168,9 +143,6 @@ const AuctionNewPage = () => {
 
     setLoading(true);
     try {
-      // 백엔드 AuctionCreateReqDto 필드: title, description, categoryId,
-      // serverId, startPrice, instantBuyPrice, auctionDays
-      // (gameId, minBidUnit은 DTO에 없으므로 전송하지 않음)
       const payload = {
         categoryId: Number(categoryId),
         serverId: serverId ? Number(serverId) : null,
@@ -182,7 +154,6 @@ const AuctionNewPage = () => {
         startPrice: rawStart,
         auctionDays: Math.round(duration / 24),
       };
-
       try {
         const uploadedUrls = await uploadImageFiles(
           images.map((image) => image.file),
@@ -190,25 +161,22 @@ const AuctionNewPage = () => {
         );
         if (uploadedUrls.length > 0) {
           console.log("Firebase uploaded image URLs:", uploadedUrls);
-          payload.imageUrls = uploadedUrls;
         }
       } catch (uploadError) {
         console.warn(
-          "이미지 업로드 실패, 이미지 없이 경매를 등록합니다.",
+          "이미지 업로드 실패, 이미지 없이 경매를 수정합니다.",
           uploadError,
         );
       }
 
-      await AuctionApi.createAuction(payload);
-
-      alert("경매 물품 등록이 완료되었습니다!");
-      navigate("/auctions");
+      await AuctionApi.updateAuction(id, payload);
+      alert("경매 수정이 완료되었습니다!");
+      navigate(`/auctions/${id}`);
     } catch (err) {
-      console.error("경매 등록 오류:", err.response ?? err);
       const msg =
         err.response?.data?.message ??
         err.response?.data?.error ??
-        `등록 중 오류가 발생했습니다. (${err.response?.status ?? "네트워크 오류"})`;
+        "수정 중 오류가 발생했습니다.";
       setError(msg);
     } finally {
       setLoading(false);
@@ -216,19 +184,25 @@ const AuctionNewPage = () => {
   };
 
   if (!isLoggedIn) return null;
+  if (fetching)
+    return (
+      <PageContainer>
+        <div style={{ color: "#888", textAlign: "center", paddingTop: 80 }}>
+          불러오는 중...
+        </div>
+      </PageContainer>
+    );
 
   return (
     <PageContainer>
       <HeaderSection>
         <Breadcrumb onClick={() => navigate("/auctions")}>
-          MARKET &gt; AUCTION REGISTRATION
+          MARKET &gt; AUCTION EDIT
         </Breadcrumb>
-        <PageTitle>경매 등록</PageTitle>
+        <PageTitle>경매 수정</PageTitle>
         <PageDesc>
-          당신의 소중한 자산을 경매를 통해 합리적인 가격에 판매하세요.
-          <br />
-          투명한 시세 데이터와 안전한 에스크로 거래 시스템을 통해 최적의 거래
-          경험을 제공합니다.
+          경매 정보를 수정하세요. 단, 이미 입찰이 진행된 경우 일부 항목은 변경이
+          제한될 수 있습니다.
         </PageDesc>
       </HeaderSection>
 
@@ -257,7 +231,7 @@ const AuctionNewPage = () => {
               <Select
                 value={serverId}
                 onChange={(e) => setServerId(e.target.value)}
-                disabled={!gameId || servers.length === 0}
+                disabled={!gameId}
               >
                 <option value="">서버를 선택하세요</option>
                 {servers.map((s) => (
@@ -268,6 +242,21 @@ const AuctionNewPage = () => {
               </Select>
             </FormGroup>
           </RowGrid>
+          <FormGroup style={{ marginTop: 20 }}>
+            <label>카테고리 *</label>
+            <Select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              disabled={!gameId}
+            >
+              <option value="">카테고리를 선택하세요</option>
+              {categories.map((c) => (
+                <option key={c.categoryId ?? c.id} value={c.categoryId ?? c.id}>
+                  {c.categoryName ?? c.name}
+                </option>
+              ))}
+            </Select>
+          </FormGroup>
         </SectionContainer>
 
         <SectionContainer>
@@ -339,7 +328,7 @@ const AuctionNewPage = () => {
                 </PriceInputWrapper>
               </FormGroup>
               <FormGroup>
-                <label>경매 기간</label>
+                <label>경매 기간 (연장)</label>
                 <TabButtonGroup>
                   {[
                     { label: "24시간", sub: "1일", value: 24 },
@@ -432,11 +421,14 @@ const AuctionNewPage = () => {
         {error && <ErrorBox>{error}</ErrorBox>}
 
         <ButtonGroup>
-          <CancelButton type="button" onClick={() => navigate("/auctions")}>
+          <CancelButton
+            type="button"
+            onClick={() => navigate(`/auctions/${id}`)}
+          >
             취소
           </CancelButton>
           <SubmitButton type="submit" disabled={loading}>
-            {loading ? "등록 중..." : "등록하기"}
+            {loading ? "수정 중..." : "수정하기"}
           </SubmitButton>
         </ButtonGroup>
       </form>
@@ -444,9 +436,10 @@ const AuctionNewPage = () => {
   );
 };
 
+// ── Styled Components ──────────────────────────────────────────
 const PageContainer = styled.div`
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: #0b0c10;
+  color: #fff;
   min-height: 100vh;
   padding: 40px 8%;
   box-sizing: border-box;
@@ -465,7 +458,7 @@ const HeaderSection = styled.div`
 `;
 const Breadcrumb = styled.p`
   font-size: 11px;
-  color: var(--color-primary);
+  color: #6c5ce7;
   font-weight: bold;
   letter-spacing: 1px;
   margin-bottom: 8px;
@@ -489,32 +482,26 @@ const PageTitle = styled.h1`
 `;
 const PageDesc = styled.p`
   font-size: 13px;
-  color: var(--text-secondary);
+  color: #888da8;
   line-height: 1.6;
   max-width: 700px;
   @media (max-width: 768px) {
     font-size: 12px;
   }
-  @media (max-width: 480px) {
-    font-size: 11px;
-    br {
-      display: none;
-    }
-  }
 `;
 const SectionContainer = styled.div`
-  background-color: var(--bg-container);
-  border: 1px solid var(--border-color);
+  background-color: #12131a;
+  border: 1px solid #1f2029;
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-
   @media (max-width: 768px) {
     padding: 16px;
     margin-bottom: 16px;
+  }
+  @media (max-width: 480px) {
+    padding: 14px;
+    border-radius: 8px;
   }
 `;
 const SectionTitle = styled.h2`
@@ -525,7 +512,7 @@ const SectionTitle = styled.h2`
   align-items: center;
   gap: 8px;
   span {
-    color: var(--color-primary);
+    color: #8083ff;
     font-size: 13px;
   }
   @media (max-width: 480px) {
@@ -548,21 +535,20 @@ const FormGroup = styled.div`
   gap: 8px;
   label {
     font-size: 13px;
-    color: var(--text-primary);
+    color: #e3e2e8;
   }
   @media (max-width: 480px) {
     label {
       font-size: 12px;
-      color: var(--text-primary);
     }
   }
 `;
 const Select = styled.select`
-  background-color: var(--bg-container-low);
-  border: 1px solid var(--border-color);
+  background-color: #171821;
+  border: 1px solid #252631;
   border-radius: 6px;
   padding: 12px;
-  color: var(--text-primary);
+  color: #fff;
   font-size: 13px;
   outline: none;
   width: 100%;
@@ -570,33 +556,23 @@ const Select = styled.select`
     opacity: 0.5;
     cursor: not-allowed;
   }
-  &:focus {
-    border-color: var(--border-focus);
-  }
-  option {
-    background-color: var(--bg-container-low);
-    color: var(--text-primary);
-  }
   @media (max-width: 480px) {
     padding: 10px;
     font-size: 12px;
   }
 `;
 const Input = styled.input`
-  background-color: var(--bg-container-low);
-  border: 1px solid var(--border-color);
+  background-color: #171821;
+  border: 1px solid #252631;
   border-radius: 6px;
   padding: 12px;
-  color: var(--text-primary);
+  color: #fff;
   font-size: 13px;
   outline: none;
   width: 100%;
   box-sizing: border-box;
   &::placeholder {
-    color: var(--outline);
-  }
-  &:focus {
-    border-color: var(--border-focus);
+    color: #4e5161;
   }
   @media (max-width: 480px) {
     padding: 10px;
@@ -604,11 +580,11 @@ const Input = styled.input`
   }
 `;
 const TextArea = styled.textarea`
-  background-color: var(--bg-container-low);
-  border: 1px solid var(--border-color);
+  background-color: #171821;
+  border: 1px solid #252631;
   border-radius: 6px;
   padding: 12px;
-  color: var(--text-primary);
+  color: #fff;
   font-size: 13px;
   outline: none;
   resize: none;
@@ -616,10 +592,7 @@ const TextArea = styled.textarea`
   width: 100%;
   box-sizing: border-box;
   &::placeholder {
-    color: var(--outline);
-  }
-  &:focus {
-    border-color: var(--border-focus);
+    color: #4e5161;
   }
   @media (max-width: 480px) {
     padding: 10px;
@@ -642,8 +615,8 @@ const BottomGrid = styled.div`
   }
 `;
 const AuctionBox = styled.div`
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  background-color: #0b0c10;
+  border: 1px solid #1f2029;
   border-radius: 8px;
   padding: 16px;
   display: flex;
@@ -653,27 +626,24 @@ const AuctionBox = styled.div`
 const PriceInputWrapper = styled.div`
   display: flex;
   align-items: center;
-  background-color: var(--bg-container-low);
-  border: 1px solid var(--border-color);
+  background-color: #171821;
+  border: 1px solid #252631;
   border-radius: 6px;
   padding: 10px 12px;
   width: 100%;
   box-sizing: border-box;
-  &:focus-within {
-    border-color: var(--border-focus);
-  }
   input {
     background: transparent;
     border: none;
     outline: none;
-    color: var(--text-primary);
+    color: #fff;
     width: 100%;
     text-align: right;
     font-size: 14px;
     padding-right: 6px;
   }
   span {
-    color: var(--text-secondary);
+    color: #a5a8b7;
     font-size: 13px;
     flex-shrink: 0;
   }
@@ -685,13 +655,9 @@ const TabButtonGroup = styled.div`
   width: 100%;
 `;
 const TabButton = styled.button`
-  background-color: ${(props) =>
-    props.$isActive ? "var(--color-primary)" : "var(--bg-container-low)"};
-  border: 1px solid
-    ${(props) =>
-      props.$isActive ? "var(--color-primary)" : "var(--border-color)"};
-  color: ${(props) =>
-    props.$isActive ? "var(--on-primary)" : "var(--text-secondary)"};
+  background-color: ${(p) => (p.$isActive ? "#6c5ce7" : "#171821")};
+  border: 1px solid ${(p) => (p.$isActive ? "#6c5ce7" : "#252631")};
+  color: ${(p) => (p.$isActive ? "#fff" : "#a5a8b7")};
   padding: 10px 0;
   border-radius: 6px;
   font-size: 12px;
@@ -704,25 +670,25 @@ const TabButton = styled.button`
     opacity: 0.7;
   }
   &:hover {
-    border-color: var(--color-primary);
+    border-color: #6c5ce7;
   }
 `;
 const TimeNotice = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  background-color: var(--bg-container-low);
-  border: 1px solid var(--border-color);
+  background-color: #171821;
+  border: 1px solid #252631;
   border-radius: 6px;
   padding: 12px;
   .label {
     font-size: 11px;
-    color: var(--text-secondary);
+    color: #888da8;
     margin: 0 0 4px;
   }
   .time {
     font-size: 13px;
-    color: var(--color-success);
+    color: #10b981;
     font-weight: 600;
     margin: 0;
   }
@@ -746,10 +712,10 @@ const HiddenFileInput = styled.input`
   display: none;
 `;
 const UploadMainZone = styled.div`
-  border: 1px dashed var(--outline);
+  border: 1px dashed #4e5161;
   border-radius: 8px;
   padding: 32px 24px;
-  background-color: var(--bg-container-low);
+  background-color: #171821;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -757,9 +723,8 @@ const UploadMainZone = styled.div`
   justify-content: center;
   text-align: center;
   flex: 1;
-  transition: border-color 0.2s;
   &:hover {
-    border-color: var(--color-primary);
+    border-color: #6c5ce7;
   }
   @media (max-width: 480px) {
     padding: 24px 16px;
@@ -783,7 +748,7 @@ const UploadTextMain = styled.p`
 `;
 const UploadTextSub = styled.p`
   font-size: 11px;
-  color: var(--text-secondary);
+  color: #686b7c;
 `;
 const PreviewRow = styled.div`
   display: grid;
@@ -791,9 +756,8 @@ const PreviewRow = styled.div`
   gap: 8px;
 `;
 const PreviewSlot = styled.div`
-  background-color: var(--bg-container-low);
-  border: 1px solid
-    ${(props) => (props.hasImage ? "var(--outline)" : "var(--border-color)")};
+  background-color: #171821;
+  border: 1px solid ${(p) => (p.$hasImage ? "#4e5161" : "#252631")};
   border-radius: 6px;
   aspect-ratio: 1;
   display: flex;
@@ -801,7 +765,6 @@ const PreviewSlot = styled.div`
   justify-content: center;
   position: relative;
   overflow: hidden;
-  color: var(--outline);
   .uploaded-preview {
     width: 100%;
     height: 100%;
@@ -830,7 +793,7 @@ const RemoveButton = styled.button`
   justify-content: center;
   transition: background-color 0.2s;
   &:hover {
-    background-color: var(--color-danger);
+    background-color: #ef4444;
   }
 `;
 const ErrorBox = styled.div`
@@ -839,7 +802,7 @@ const ErrorBox = styled.div`
   border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: 8px;
   font-size: 13px;
-  color: var(--color-danger);
+  color: #ef4444;
   margin-bottom: 24px;
 `;
 const ButtonGroup = styled.div`
@@ -853,9 +816,9 @@ const ButtonGroup = styled.div`
   }
 `;
 const CancelButton = styled.button`
-  background-color: var(--bg-container);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
+  background-color: #12131a;
+  border: 1px solid #252631;
+  color: #fff;
   padding: 14px 0;
   width: 220px;
   border-radius: 8px;
@@ -864,7 +827,7 @@ const CancelButton = styled.button`
   cursor: pointer;
   transition: border-color 0.2s;
   &:hover {
-    border-color: var(--color-primary);
+    border-color: #6c5ce7;
   }
   @media (max-width: 640px) {
     width: 160px;
@@ -877,22 +840,18 @@ const CancelButton = styled.button`
   }
 `;
 const SubmitButton = styled.button`
-  background-color: var(--color-primary);
+  background-color: #c0c1ff;
   border: none;
-  color: var(--on-primary);
+  color: #1000a9;
   padding: 14px 0;
   width: 220px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s;
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-  }
-  &:hover:not(:disabled) {
-    opacity: 0.9;
   }
   @media (max-width: 640px) {
     width: 160px;
@@ -905,4 +864,4 @@ const SubmitButton = styled.button`
   }
 `;
 
-export default AuctionNewPage;
+export default AuctionEditPage;

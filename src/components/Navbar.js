@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import ItemApi from "../api/item.api";
 
 import walletIcon from "../img/walletIcon.svg";
 import chatIcon from "../img/chatIcon.svg";
@@ -13,99 +14,163 @@ import moon from "../img/moon.svg";
 const Navbar = () => {
   const { isLoggedIn, user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { theme, setTheme } = useTheme();
 
-  const { theme, setTheme } = useTheme(); // ThemeContext에서 테마 가져옴
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [games, setGames] = useState([]); // ✅ 게임 목록
 
-  const [searchKeyword, setSearchKeyword] = useState(""); // 네비바 검색어 입력
+  const isAdminPage = location.pathname.startsWith("/admin");
 
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // 로그인 완료 후 닉네임 드롭다운
+  // 닉네임 표시: nickname 우선, 없으면 email 앞부분
+  const displayName =
+    user?.nickname ||
+    user?.name ||
+    (user?.email ? user.email.split("@")[0] : "") ||
+    user?.username ||
+    "사용자";
+
+  // ✅ 게임 목록 로드 (관리자 페이지 제외)
+  useEffect(() => {
+    if (isAdminPage) return;
+    ItemApi.getGames()
+      .then((r) => {
+        const list = r.data?.data ?? r.data ?? [];
+        setGames(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {});
+  }, [isAdminPage]);
 
   const handleLogout = () => {
     logout();
-    setIsMenuOpen(false); // 로그아웃 시 드롭다운 닫기
+    setIsMenuOpen(false);
     navigate("/");
   };
-  // 검색바 실행
-  const handleSearch = (e) => {
-    if (e.key && e.key !== "Enter") return;
 
-    if (!searchKeyword.trim()) {
+  // ✅ 게임명 매칭 → /items?gameId=xxx, 없으면 /items?keyword=xxx
+  const handleSearch = (e) => {
+    if (e?.key !== undefined && e.key !== "Enter") return;
+
+    const kw = searchKeyword.trim();
+    if (!kw) {
       alert("검색어를 입력하세요.");
       return;
     }
-    navigate(`/search?q=${encodeURIComponent(searchKeyword)}`);
+
+    const matched = games.find((g) =>
+      (g.gameName ?? g.name ?? "").toLowerCase().includes(kw.toLowerCase()),
+    );
+
+    if (matched) {
+      const gameId = matched.gameId ?? matched.id;
+      navigate(`/items?gameId=${gameId}`);
+    } else {
+      navigate(`/items?keyword=${encodeURIComponent(kw)}`);
+    }
+
+    setSearchKeyword("");
+  };
+
+  const handleProtectedNavigation = (path) => {
+    if (!isLoggedIn) {
+      alert("로그인이 필요한 서비스입니다.");
+      navigate("/login");
+      return;
+    }
+    navigate(path);
   };
 
   return (
     <Nav>
       <LeftGroup>
-        {/* 로고 */}
         <Logo onClick={() => navigate("/")}>
           <LogoImg src={logo} alt="WONDEALER" />
         </Logo>
-        {/* 판매/경매 등록 버튼 */}
-        <MenuButton onClick={() => navigate("/items/new")}>판매등록</MenuButton>
-        <MenuButton onClick={() => navigate("/auctions/new")}>
-          경매등록
-        </MenuButton>
-        <MenuButton onClick={() => navigate("/auctions/new")}>
-          경매조회
-        </MenuButton>
+        {!isAdminPage && (
+          <>
+            <MenuButton onClick={() => navigate("/items/new")}>
+              판매등록
+            </MenuButton>
+            <MenuButton onClick={() => navigate("/auctions/new")}>
+              경매등록
+            </MenuButton>
+            <MenuButton onClick={() => navigate("/auctions")}>
+              경매조회
+            </MenuButton>
+          </>
+        )}
       </LeftGroup>
 
       <RightGroup>
-        {/* 검색바 */}
-        <SearchBar>
-          <SearchInput
-            placeholder="게임검색"
-            value={searchKeyword}
-            onChange={(e) => setSearchKeyword(e.target.value)}
-            onKeyDown={handleSearch}
-          />
-          <SearchButton onClick={handleSearch}>🔍</SearchButton>
-        </SearchBar>
+        {!isAdminPage && (
+          <>
+            <SearchBar>
+              <SearchInput
+                placeholder="게임 검색"
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                onKeyDown={handleSearch}
+              />
+              <SearchButton onClick={handleSearch}>검색</SearchButton>
+            </SearchBar>
 
-        {/* 아이콘 메뉴 */}
-        <IconButton onClick={() => navigate("/mypage/wallet")}>
-          <IconImg src={walletIcon} alt="지갑" />
-        </IconButton>
+            <IconButton
+              onClick={() => handleProtectedNavigation("/mypage/wallet")}
+              title="지갑"
+            >
+              <IconImg src={walletIcon} alt="지갑" />
+            </IconButton>
 
-        <IconButton onClick={() => navigate("/chat")}>
-          <IconImg src={chatIcon} alt="채팅" />
-        </IconButton>
+            <IconButton
+              onClick={() => handleProtectedNavigation("/chat")}
+              title="채팅"
+            >
+              <IconImg src={chatIcon} alt="채팅" />
+            </IconButton>
+          </>
+        )}
 
         <ThemeSwitcher>
-          {/* 왼쪽: 달 아이콘 (클릭 시 다크 모드로 변경) */}
-          <IconButton onClick={() => setTheme("dark")}>
+          <IconButton
+            $active={theme === "dark"}
+            aria-pressed={theme === "dark"}
+            onClick={() => setTheme("dark")}
+            title="다크 모드"
+          >
             <IconImg src={moon} alt="다크 모드" />
           </IconButton>
           <Separator>|</Separator>
-          {/* 오른쪽: 해 아이콘 (클릭 시 라이트 모드로 변경) */}
-          <IconButton onClick={() => setTheme("light")}>
+          <IconButton
+            $active={theme === "light"}
+            aria-pressed={theme === "light"}
+            onClick={() => setTheme("light")}
+            title="라이트 모드"
+          >
             <IconImg src={sun} alt="라이트 모드" />
           </IconButton>
         </ThemeSwitcher>
+
         {isLoggedIn ? (
           <UserMenuContainer>
             <NicknameButton onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              <span>{user?.nickname || "닉네임"}</span>
-              <span className="arrow">{isMenuOpen ? "⋀" : "⋁"}</span>
+              <span>{displayName}</span>
+              <span className="arrow">{isMenuOpen ? "▲" : "▼"}</span>
             </NicknameButton>
 
-            {/* 드롭다운 메뉴 (isMenuOpen이 true일 때만 노출) */}
             {isMenuOpen && (
               <DropdownMenu>
-                <DropdownItem className="title">
-                  {user?.nickname || "닉네임"}
-                </DropdownItem>
-                <DropdownItem
-                  onClick={() => {
-                    navigate("/mypage");
-                    setIsMenuOpen(false);
-                  }}
-                >
-                  마이페이지
-                </DropdownItem>
+                <DropdownItem className="title">{displayName}</DropdownItem>
+                {!isAdminPage && (
+                  <DropdownItem
+                    onClick={() => {
+                      navigate("/mypage");
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    마이페이지
+                  </DropdownItem>
+                )}
                 <DropdownItem onClick={handleLogout}>로그아웃</DropdownItem>
               </DropdownMenu>
             )}
@@ -123,14 +188,17 @@ const Navbar = () => {
   );
 };
 
-// ── Styled Components ─────────────────────────────────────────
+// ==========================================
+// Styled Components
+// ==========================================
+
 const Nav = styled.nav`
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
   height: 60px;
-  background-color: var(--bg-container);
+  background-color: var(--surface-container);
   border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
@@ -138,6 +206,11 @@ const Nav = styled.nav`
 
   @media (max-width: 768px) {
     padding: 0 16px;
+  }
+
+  @media (max-width: 420px) {
+    padding: 0 10px;
+    gap: 8px;
   }
 `;
 
@@ -156,6 +229,7 @@ const RightGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 
   @media (max-width: 768px) {
     gap: 8px;
@@ -172,7 +246,6 @@ const Logo = styled.div`
   @media (max-width: 768px) {
     margin-right: -25px;
   }
-
   @media (max-width: 580px) {
     margin-right: 0;
   }
@@ -183,9 +256,7 @@ const LogoImg = styled.img`
   width: 220px;
   flex-shrink: 0;
   object-fit: contain;
-
   filter: none !important;
-
   margin-left: -25px;
 
   @media (max-width: 768px) {
@@ -193,17 +264,20 @@ const LogoImg = styled.img`
     height: 80px;
     margin-left: -20px;
   }
-
   @media (max-width: 580px) {
     width: 140px;
     height: 60px;
     margin-left: -15px;
   }
+
+  @media (max-width: 420px) {
+    width: 112px;
+    margin-left: -8px;
+  }
 `;
 
 const MenuButton = styled.button`
-  color: ${(props) =>
-    props.$active ? "var(--text-primary)" : "var(--text-secondary)"};
+  color: var(--text-secondary);
   background: none;
   border: none;
   font-size: 14px;
@@ -225,7 +299,7 @@ const MenuButton = styled.button`
     left: 0;
     right: 0;
     height: 3px;
-    background-color: #c0c1ff;
+    background-color: var(--primary);
     display: none;
   }
 
@@ -244,8 +318,8 @@ const SearchBar = styled.div`
   background-color: #ffffff;
   border-radius: 30px;
   padding: 4px 4px 4px 20px;
-  border: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-color, #e1e4e6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   width: 260px;
   height: 38px;
 
@@ -262,7 +336,7 @@ const SearchInput = styled.input`
   border: none;
   background: none;
   font-size: 14px;
-  color: #121317;
+  color: #121317 !important;
   outline: none;
   padding: 0;
 
@@ -272,16 +346,17 @@ const SearchInput = styled.input`
 `;
 
 const SearchButton = styled.button`
-  width: 30px;
   height: 30px;
-  background-color: #6339f9;
+  min-width: 44px;
+  background-color: var(--primary);
   border: none;
-  border-radius: 50%;
+  border-radius: 999px;
   display: flex;
   justify-content: center;
   align-items: center;
-  color: white;
-  font-size: 13px;
+  color: var(--on-primary);
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
   transition: transform 0.2s;
   margin-left: 8px;
@@ -300,6 +375,7 @@ const NavButton = styled.button`
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
+
   &:hover {
     background-color: var(--bg-container-high);
   }
@@ -307,6 +383,42 @@ const NavButton = styled.button`
   @media (max-width: 580px) {
     font-size: 12px;
     padding: 6px 8px;
+  }
+`;
+
+const SignUpButton = styled(NavButton)`
+  background-color: var(--color-primary);
+  color: var(--on-primary);
+  font-weight: 600;
+  border: 1px solid var(--color-primary);
+
+  &:hover {
+    background-color: var(--primary-container);
+    border-color: var(--primary-container);
+    color: var(--on-primary);
+  }
+`;
+
+const IconButton = styled.button`
+  background: none;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: ${(props) =>
+    props.$active ? "var(--bg-container-high)" : "transparent"};
+  outline: ${(props) =>
+    props.$active ? "1px solid var(--color-primary)" : "none"};
+
+  &:hover {
+    background-color: var(--bg-container-high);
+  }
+
+  @media (max-width: 580px) {
+    padding: 4px;
   }
 `;
 
@@ -322,39 +434,21 @@ const ThemeSwitcher = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
+
+  @media (max-width: 420px) {
+    gap: 0;
+  }
 `;
 
 const Separator = styled.span`
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 200;
-  margin: 0 2px; // 아이콘과의 좌우 여백
+  margin: 0 2px;
   user-select: none;
-`;
 
-const SignUpButton = styled(NavButton)`
-  background-color: var(--color-primary);
-  color: var(--on-primary);
-  font-weight: 600;
-  border: 1px solid var(--color-primary);
-
-  &:hover {
-    background-color: #512bd4;
-    border-color: #512bd4;
-    color: var(--text-primary);
-  }
-`;
-
-const IconButton = styled.button`
-  font-size: 18px;
-  padding: 6px;
-  border-radius: 6px;
-  &:hover {
-    background-color: var(--bg-container-high);
-  }
-  @media (max-width: 580px) {
-    font-size: 16px;
-    padding: 4px;
+  @media (max-width: 420px) {
+    display: none;
   }
 `;
 
@@ -364,8 +458,8 @@ const UserMenuContainer = styled.div`
 `;
 
 const NicknameButton = styled.button`
-  background-color: #2a2b2e;
-  color: #ffffff;
+  background-color: var(--surface-container-high);
+  color: var(--on-surface);
   border: none;
   border-radius: 8px;
   padding: 8px 14px;
@@ -378,17 +472,33 @@ const NicknameButton = styled.button`
   transition: background-color 0.2s;
 
   &:hover {
-    background-color: #38393d;
+    background-color: var(--surface-bright);
   }
 
   .arrow {
     font-size: 10px;
-    color: #aaaaaa;
+    color: var(--outline);
   }
+
   @media (max-width: 580px) {
     padding: 6px 10px;
     font-size: 12px;
     gap: 4px;
+  }
+
+  span:first-child {
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 420px) {
+    padding: 6px 8px;
+
+    span:first-child {
+      max-width: 64px;
+    }
   }
 `;
 
@@ -397,8 +507,8 @@ const DropdownMenu = styled.div`
   top: calc(100% + 8px);
   right: 0;
   width: 140px;
-  background-color: #1e1f22;
-  border: 1px solid #2d2f34;
+  background-color: var(--surface-container);
+  border: 1px solid var(--outline-variant);
   border-radius: 12px;
   padding: 6px 0;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
@@ -409,22 +519,23 @@ const DropdownMenu = styled.div`
 const DropdownItem = styled.div`
   padding: 10px 16px;
   font-size: 14px;
-  color: #cccccc;
+  color: var(--on-surface-variant);
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: #2a2b2e;
-    color: #ffffff;
+    background-color: var(--surface-container-high);
+    color: var(--on-surface);
   }
 
   &.title {
     font-weight: 700;
-    color: #ffffff;
+    color: var(--on-surface);
     cursor: default;
-    border-bottom: 1px solid #2d2f34;
+    border-bottom: 1px solid var(--outline-variant);
     padding-bottom: 12px;
     margin-bottom: 4px;
+
     &:hover {
       background: none;
     }

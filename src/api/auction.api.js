@@ -1,45 +1,38 @@
-import axios from "axios";
 import AxiosInstance from "./AxiosInstance";
-import Common from "../utils/Common";
 
-const publicApi = axios.create({ baseURL: Common.API_URL });
-
-// ── 경매 API ──────────────────────────────────
 const AuctionApi = {
+  // 목록/단건 조회
+  getAuctions: (params) => AxiosInstance.get("/api/auctions", { params }),
+  getAuction: (id) => AxiosInstance.get(`/api/auctions/${id}`),
 
-  // GET /api/auctions — 경매 목록 조회
-  getAuctions: (params) =>
-    // TODO: 프론트B 구현
-    // params: { gameId, categoryId, status, page, size }
-    publicApi.get("/api/auctions", { params }),
+  // 경매 등록 - ItemController.createAuctionItem: POST /api/items/auction
+  // @RequestBody AuctionCreateReqDto (JSON, multipart 아님!)
+  createAuction: (payload) => AxiosInstance.post("/api/items/auction", payload),
 
-  // GET /api/auctions/:auctionId — 경매 상세 조회
-  getAuction: (auctionId) =>
-    // TODO: 프론트B 구현
-    publicApi.get(`/api/auctions/${auctionId}`),
+  // 경매 수정 - 백엔드에 별도 PUT 엔드포인트가 없다면 추후 확인 필요
+  updateAuction: (id, payload) =>
+    AxiosInstance.put(`/api/auctions/${id}`, payload),
 
-  // POST /api/items/auction — 경매 등록
-  createAuction: (data) =>
-    // TODO: 프론트B 구현
-    // data: FormData (이미지 포함 + 경매 설정)
-    AxiosInstance.post("/api/items/auction", data, {
-      headers: { "Content-Type": "multipart/form-data" },
-    }),
+  // 경매 취소
+  deleteAuction: (id) => AxiosInstance.delete(`/api/auctions/${id}`),
+  cancelAuction: (id) => AxiosInstance.delete(`/api/auctions/${id}`),
 
-  // DELETE /api/auctions/:auctionId — 경매 취소 (입찰자 없을 때만)
-  cancelAuction: (auctionId) =>
-    // TODO: 프론트B 구현
-    AxiosInstance.delete(`/api/auctions/${auctionId}`),
+  // 입찰 관련
+  getAuctionBids: (id, params) =>
+    AxiosInstance.get(`/api/auctions/${id}/bids`, { params }),
+  getBids: (id, params) =>
+    AxiosInstance.get(`/api/auctions/${id}/bids`, { params }),
 
-  // GET /api/auctions/:auctionId/bids — 입찰 내역 조회
-  getBids: (auctionId) =>
-    // TODO: 프론트B 구현
-    publicApi.get(`/api/auctions/${auctionId}/bids`),
+  placeBid: (id, amount) =>
+    AxiosInstance.post(`/api/auctions/${id}/bids`, { bidPrice: amount }),
+  buyNow: (id, amount) =>
+    AxiosInstance.post(`/api/auctions/${id}/bids`, { bidPrice: amount }),
 
-  // POST /api/auctions/:auctionId/instant-buy — 즉시 낙찰
-  instantBuy: (auctionId) =>
-    // TODO: 프론트B 구현
-    AxiosInstance.post(`/api/auctions/${auctionId}/instant-buy`),
+  getMyAuctions: (params) => AxiosInstance.get("/api/auctions/my", { params }),
+  getMyBids: (params) => AxiosInstance.get("/api/auctions/my-bids", { params }),
+
+  settleAuction: (id) => AxiosInstance.post(`/api/auctions/${id}/settle`),
+  closeAuction: (id) => AxiosInstance.post(`/api/auctions/${id}/settle`),
 };
 
 export default AuctionApi;

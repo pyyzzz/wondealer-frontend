@@ -5,26 +5,48 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(
-    () => localStorage.getItem("accessToken") !== null
+    () => localStorage.getItem("accessToken") !== null,
   );
 
-  // 새로고침 후에도 유저 정보 유지: localStorage에서 복원
   const [user, setUser] = useState(() => {
     const nickname = localStorage.getItem("nickname");
-    return nickname ? { nickname } : null;
+    const authority = localStorage.getItem("authority");
+    const email = localStorage.getItem("email");
+    // ✅ accessToken 있을 때만 user 복원
+    const token = localStorage.getItem("accessToken");
+    return token && (nickname || email) ? { nickname, authority, email } : null;
   });
 
-  // 로그인 성공 시 호출
-  // userData: { accessToken, refreshToken, nickname }
   const login = (userData) => {
     Common.setAccessToken(userData.accessToken);
-    Common.setRefreshToken(userData.refreshToken);
-    if (userData.nickname) Common.setNickname(userData.nickname);
+    if (userData.refreshToken) Common.setRefreshToken(userData.refreshToken);
+
+    const nickname = userData.nickname ?? null;
+    const email = userData.email ?? null;
+    const authority = userData.authority ?? null;
+
+    if (nickname) localStorage.setItem("nickname", nickname);
+    if (email) localStorage.setItem("email", email);
+    if (authority) localStorage.setItem("authority", authority);
+
+    const nextUser = { nickname, email, authority };
+
+    // ✅ 동기적으로 즉시 반영
     setIsLoggedIn(true);
-    setUser({ nickname: userData.nickname });
+    setUser(nextUser); // 이게 호출되면 Navbar 즉시 리렌더
   };
 
-  // 로그아웃 시 호출
+  const updateUser = (partial) => {
+    setUser((prev) => {
+      const next = { ...prev, ...partial };
+      if (partial.nickname) localStorage.setItem("nickname", partial.nickname);
+      if (partial.email) localStorage.setItem("email", partial.email);
+      if (partial.authority)
+        localStorage.setItem("authority", partial.authority);
+      return next;
+    });
+  };
+
   const logout = () => {
     Common.clearStorage();
     setIsLoggedIn(false);
@@ -32,7 +54,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
+    <AuthContext.Provider
+      value={{ isLoggedIn, user, login, logout, updateUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

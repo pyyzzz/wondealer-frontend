@@ -1,37 +1,98 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import Common from "../utils/Common";
 
-/**
- * STOMP WebSocket 커스텀 훅
- *
- * 사용 예시:
- *   경매: useWebSocket("/topic/auction/7", "/app/auction/7/bid", onMessage)
- *   채팅: useWebSocket("/topic/chat/3", "/app/chat/3", onMessage)
- *
- * @param {string} subscribeTopic  - 구독할 토픽 경로
- * @param {string} sendDestination - 메시지 전송 경로
- * @param {function} onMessage     - 메시지 수신 시 콜백
- */
 const useWebSocket = (subscribeTopic, sendDestination, onMessage) => {
   const clientRef = useRef(null);
+  const onMessageRef = useRef(onMessage);
+  const pendingQueueRef = useRef([]);
+  const tokenRef = useRef(null);
 
   useEffect(() => {
-    // TODO: 프론트B 구현
-    // 1. STOMP 클라이언트 생성
-    // 2. SockJS로 /ws 연결
-    // 3. subscribeTopic 구독
-    // 4. 메시지 수신 시 onMessage 콜백 호출
-    // 5. 컴포넌트 언마운트 시 연결 해제
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
 
-  }, [subscribeTopic]);
+  useEffect(() => {
+    if (!subscribeTopic) return;
 
-  // 메시지 전송 함수 반환
-  const sendMessage = (body) => {
-    // TODO: 프론트B 구현
-    // clientRef.current.publish({ destination: sendDestination, body: JSON.stringify(body) })
-  };
+    const token = Common.getAccessToken();
+    if (!token) return;
+    tokenRef.current = token;
+
+    const BACKEND_URL = "http://localhost:8111"; // 백엔드 포트로 직접 지정
+    const socketUrl = `${BACKEND_URL}/ws`;
+
+    const flushQueue = (client) => {
+      if (pendingQueueRef.current.length === 0 || !sendDestination) return;
+      const queued = pendingQueueRef.current;
+      pendingQueueRef.current = [];
+      queued.forEach((body) => {
+        client.publish({
+          destination: sendDestination,
+          body: JSON.stringify(body),
+          headers: { Authorization: `Bearer ${tokenRef.current}` },
+        });
+      });
+    };
+
+    const client = new Client({
+      webSocketFactory: () => new SockJS(socketUrl),
+      connectHeaders: { Authorization: `Bearer ${token}` },
+      reconnectDelay: 5000,
+      onConnect: () => {
+        console.log("WebSocket 연결 성공:", subscribeTopic); // 디버깅용
+        client.subscribe(subscribeTopic, (message) => {
+          try {
+            const body = JSON.parse(message.body);
+            onMessageRef.current?.(body);
+          } catch {
+            onMessageRef.current?.(message.body);
+          }
+        });
+
+        flushQueue(client);
+      },
+      onStompError: (frame) => {
+        console.error("STOMP error:", frame);
+      },
+      onWebSocketError: (event) => {
+        console.warn("WebSocket 연결 실패 — 서버 주소 확인:", socketUrl);
+      },
+      onDisconnect: () => {
+        console.warn("WebSocket 연결 종료");
+      },
+    });
+
+    client.activate();
+    clientRef.current = client;
+
+    return () => {
+      if (clientRef.current) {
+        clientRef.current.deactivate();
+      }
+      clientRef.current = null;
+      pendingQueueRef.current = [];
+    };
+  }, [subscribeTopic, sendDestination]);
+
+  const sendMessage = useCallback(
+    (body) => {
+      if (!sendDestination) return;
+
+      if (clientRef.current?.connected && tokenRef.current) {
+        clientRef.current.publish({
+          destination: sendDestination,
+          body: JSON.stringify(body),
+          headers: { Authorization: `Bearer ${tokenRef.current}` },
+        });
+      } else {
+        console.warn("WebSocket 미연결 상태 — 연결 후 자동 전송됩니다.");
+        pendingQueueRef.current.push(body);
+      }
+    },
+    [sendDestination],
+  );
 
   return { sendMessage };
 };

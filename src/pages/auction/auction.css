@@ -1,0 +1,772 @@
+/* ============================================
+   경매 상세페이지
+   ※ 색상을 직접 지정하지 않고 앱 전역 테마 토큰
+     (var(--text-primary) 등)을 그대로 사용해
+     다크/라이트 모드가 자동으로 전환됨
+   ============================================ */
+
+.detail-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .detail-wrap {
+    padding: 20px 16px 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .detail-wrap {
+    padding: 16px 12px 32px;
+  }
+}
+
+/* 브레드크럼 */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.breadcrumb a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: var(--color-primary);
+}
+
+@media (max-width: 480px) {
+  .breadcrumb {
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+}
+
+/* 그리드 레이아웃 */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 28px;
+}
+
+@media (max-width: 860px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+/* 이미지 영역 */
+.detail-image-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--bg-container-low);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+@media (max-width: 860px) {
+  .detail-image-box {
+    max-width: 420px;
+    margin: 0 auto;
+  }
+}
+
+.detail-image-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: zoom-in;
+}
+
+.detail-image-fallback {
+  font-size: 64px;
+  opacity: 0.5;
+}
+
+.detail-image-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.detail-image-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-color);
+  cursor: pointer;
+}
+
+.detail-image-dot.active {
+  background: var(--color-primary);
+}
+
+.detail-image-arrow,
+.detail-image-modal-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.detail-image-arrow:hover,
+.detail-image-modal-arrow:hover {
+  background: rgba(0, 0, 0, 0.65);
+  transform: translateY(-50%) scale(1.04);
+}
+
+.detail-image-arrow::before,
+.detail-image-modal-arrow::before {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.detail-image-arrow.left,
+.detail-image-modal-arrow.left {
+  left: 12px;
+}
+
+.detail-image-arrow.right,
+.detail-image-modal-arrow.right {
+  right: 12px;
+}
+
+.detail-image-arrow.left::before,
+.detail-image-modal-arrow.left::before {
+  content: "<";
+}
+
+.detail-image-arrow.right::before,
+.detail-image-modal-arrow.right::before {
+  content: ">";
+}
+
+.detail-image-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.detail-image-modal-box {
+  position: relative;
+  width: min(92vw, 920px);
+  height: min(84vh, 720px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-image-modal-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #000;
+}
+
+.detail-image-modal-close {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 26px;
+  cursor: pointer;
+  z-index: 4;
+}
+
+.detail-image-modal-arrow.left {
+  left: 18px;
+}
+
+.detail-image-modal-arrow.right {
+  right: 18px;
+}
+
+.detail-image-modal-count {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* 정보 컬럼 */
+.detail-info-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-info-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+  word-break: keep-all;
+}
+
+@media (max-width: 480px) {
+  .detail-info-title {
+    font-size: 20px;
+  }
+}
+
+.detail-series-id {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+/* 타이머 */
+.detail-timer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.detail-timer-row.ended {
+  border-color: var(--color-danger);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.detail-timer-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  box-shadow: 0 0 6px var(--color-danger);
+  animation: pulse-dot 1.4s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.detail-timer-label {
+  color: var(--text-secondary);
+}
+
+.detail-timer-value {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 480px) {
+  .detail-timer-row {
+    font-size: 13px;
+    padding: 9px 12px;
+  }
+}
+
+/* 스탯 행 (즉시낙찰가 / 현재최고입찰가 / 최소입찰증가액) */
+.detail-stat-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.detail-stat-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.detail-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.detail-stat-value small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+.detail-stat-value.highlight {
+  color: var(--color-primary);
+  font-size: 24px;
+}
+
+.detail-stat-row.sub .detail-stat-label,
+.detail-stat-value.sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+@media (max-width: 480px) {
+  .detail-stat-label {
+    font-size: 13px;
+  }
+  .detail-stat-value {
+    font-size: 17px;
+  }
+  .detail-stat-value.highlight {
+    font-size: 20px;
+  }
+}
+
+/* 입찰가 입력 */
+.detail-bid-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.detail-bid-input-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.detail-bid-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-container-low);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.detail-bid-input::placeholder {
+  color: var(--outline);
+}
+
+.detail-bid-input:focus {
+  border-color: var(--border-focus);
+}
+
+.detail-bid-input-suffix {
+  color: var(--text-secondary);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* 액션 버튼 (입찰하기 / 낙찰하기) */
+.detail-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+@media (max-width: 360px) {
+  .detail-action-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detail-btn-outline {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  border-radius: 8px;
+  padding: 11px 0;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.detail-btn-outline:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--on-primary);
+}
+
+.detail-btn-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.detail-btn-icon {
+  font-size: 14px;
+}
+
+/* ── 입찰 내역 (요약) ───────────── */
+
+.detail-bidlist-box {
+  margin-top: 24px;
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.detail-bidlist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.detail-status-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--on-primary);
+}
+
+.detail-status-badge.ended {
+  background: var(--color-danger);
+  color: var(--on-tertiary-container);
+}
+
+.detail-bidlist-empty {
+  text-align: center;
+  padding: 24px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.detail-bidlist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-bidlist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.detail-bidlist-row:last-child {
+  border-bottom: none;
+}
+
+.detail-bid-avatar {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bg-container-low);
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-bid-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detail-bid-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-bid-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.detail-bid-amount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.detail-bidlist-more {
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 10px 0 0;
+  cursor: pointer;
+  text-align: center;
+}
+
+.detail-bidlist-more:hover {
+  color: var(--color-primary);
+}
+
+/* 상세 설명 */
+.detail-desc-section {
+  margin-top: 36px;
+}
+
+@media (max-width: 860px) {
+  .detail-desc-section {
+    margin-top: 24px;
+  }
+}
+
+.detail-desc-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  border-left: 3px solid var(--color-primary);
+  padding-left: 10px;
+  color: var(--text-primary);
+}
+
+.detail-desc-box {
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 18px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 480px) {
+  .detail-desc-box {
+    padding: 14px;
+    font-size: 13px;
+  }
+}
+
+/* ============================================
+   전체 입찰 내역 모달
+   ============================================ */
+
+.bid-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+@media (max-width: 480px) {
+  .bid-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+}
+
+.bid-modal-box {
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+/* 모바일에서는 바텀시트 형태로 전환 */
+@media (max-width: 480px) {
+  .bid-modal-box {
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+  }
+}
+
+.bid-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.bid-modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.bid-modal-close:hover {
+  color: var(--text-primary);
+}
+
+.bid-modal-list {
+  overflow-y: auto;
+  padding: 8px 20px;
+  flex: 1;
+}
+
+.bid-modal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.bid-modal-row:last-child {
+  border-bottom: none;
+}
+
+.bid-modal-row.top {
+  background: rgba(108, 92, 231, 0.08);
+  margin: 0 -12px;
+  padding: 12px;
+  border-radius: 8px;
+  border-bottom: none;
+}
+
+.bid-modal-avatar {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bg-container-low);
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bid-modal-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bid-modal-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bid-modal-top-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--on-primary);
+  background: var(--color-primary);
+  padding: 2px 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.bid-modal-amount {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.bid-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color);
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.bid-modal-footer strong {
+  font-size: 16px;
+  color: var(--color-primary);
+}

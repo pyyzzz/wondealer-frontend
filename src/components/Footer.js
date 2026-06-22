@@ -47,9 +47,9 @@ const Footer = () => {
   );
 };
 
-// ── Styled Components ─────────────────────────────────────────
+// ── Styled Components (색상 변수로 변경됨!) ──────────────────────────
 const FooterWrap = styled.footer`
-  background-color: #0d0e12;
+  background-color: var(--bg-primary); /* 수정 */
   border-top: 1px solid var(--border-color);
   padding: 20px 60px 30px;
   margin-top: auto;
@@ -101,19 +101,18 @@ const MiddleSection = styled.div`
 
 const SecuritySection = styled.div`
   max-width: 480px;
-  // margin-bottom: 24px;
 `;
 
 const SecurityTitle = styled.p`
   font-size: 14px;
   font-weight: 600;
-  color: #c7c4d7;
+  color: var(--text-secondary); /* 수정 */
   margin-bottom: 8px;
 `;
 
 const SecurityDesc = styled.p`
   font-size: 12px;
-  color: #c7c4d7;
+  color: var(--text-secondary); /* 수정 */
   line-height: 1.6;
 `;
 
@@ -146,7 +145,7 @@ const BottomSection = styled.div`
 const FooterLink = styled.a`
   font-size: 14px;
   font-weight: 500;
-  color: #ffffff;
+  color: var(--text-primary); /* 수정 */
   text-decoration: none;
   transition: color 0.2s ease;
 
@@ -157,7 +156,7 @@ const FooterLink = styled.a`
 
 const Copyright = styled.p`
   font-size: 11px;
-  color: #c7c4d7;
+  color: var(--text-secondary); /* 수정 */
   letter-spacing: 0.5px;
 `;
 
