@@ -167,10 +167,10 @@ const AuctionNewPage = () => {
 
     setLoading(true);
     try {
-      // 백엔드 AuctionCreateReqDto 필드: title, description, categoryId,
-      // serverId, startPrice, instantBuyPrice, auctionDays
-      // (gameId는 DTO에 없으므로 전송하지 않음)
+      // 백엔드 DTO에 명시되어 있지 않더라도,
+      // 엔티티 구조를 바탕으로 상태값을 강제로 주입해 보냅니다.
       const payload = {
+        gameId: Number(gameId), // 게임 ID (필터링을 위해 필수일 수 있음)
         categoryId: Number(categoryId),
         serverId: serverId ? Number(serverId) : null,
         title: title.trim(),
@@ -180,35 +180,44 @@ const AuctionNewPage = () => {
           : null,
         startPrice: rawStart,
         auctionDays: Math.round(duration / 24),
+
+        // [프론트엔드에서의 해결 시도]
+        // 백엔드 목록 조회 조건인 ONGOING과 SELLING을 강제로 보냄
+        status: "ONGOING", // Auction의 상태
+        itemStatus: "SELLING", // Item의 상태 (백엔드 필드명에 따라 다를 수 있음)
+        item: {
+          // 객체 중첩 구조일 경우를 대비
+          status: "SELLING",
+        },
       };
 
+      // 이미지 업로드 로직
       try {
         const uploadedUrls = await uploadImageFiles(
           images.map((image) => image.file),
           "auctions",
         );
         if (uploadedUrls.length > 0) {
-          console.log("Firebase uploaded image URLs:", uploadedUrls);
           payload.imageUrls = uploadedUrls;
         }
       } catch (uploadError) {
-        console.warn(
-          "이미지 업로드 실패, 이미지 없이 경매를 등록합니다.",
-          uploadError,
-        );
+        console.warn("이미지 업로드 실패", uploadError);
       }
 
-      await AuctionApi.createAuction(payload);
+      console.log("최종 전송 데이터:", payload); // 데이터 확인용
+
+      const response = await AuctionApi.createAuction(payload);
+      console.log("서버 응답:", response);
 
       alert("경매 물품 등록이 완료되었습니다!");
-      navigate("/auctions");
+
+      // 목록으로 이동하기 전에 데이터 반영 시간을 위해 아주 미세한 지연을 줍니다.
+      setTimeout(() => {
+        navigate("/auctions");
+      }, 500);
     } catch (err) {
-      console.error("경매 등록 오류:", err.response ?? err);
-      const msg =
-        err.response?.data?.message ??
-        err.response?.data?.error ??
-        `등록 중 오류가 발생했습니다. (${err.response?.status ?? "네트워크 오류"})`;
-      setError(msg);
+      console.error("경매 등록 오류:", err);
+      setError(err.response?.data?.message ?? "등록 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,5 @@
 // AuctionDetailPage.js
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import AuctionApi from "../../api/auction.api";
@@ -23,6 +23,46 @@ function normalizeBid(bid) {
     amount: bid.amount ?? bid.bidPrice ?? bid.currentPrice ?? 0,
     bidderNickname: bid.bidderNickname ?? bid.bidder ?? "익명",
   };
+}
+
+function getBidList(response) {
+  const data = response?.data?.data ?? response?.data ?? response;
+  const list =
+    data?.content ??
+    data?.bids ??
+    data?.items ??
+    data?.list ??
+    (Array.isArray(data) ? data : []);
+  return Array.isArray(list) ? list.map(normalizeBid) : [];
+}
+
+const localBidKey = (auctionId) => `wondealerAuctionBids:${auctionId}`;
+const localSettledKey = (auctionId) => `wondealerAuctionSettled:${auctionId}`;
+
+function getLocalBids(auctionId) {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem(localBidKey(auctionId)) || "[]",
+    );
+    return Array.isArray(saved) ? saved.map(normalizeBid) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalBids(auctionId, bids) {
+  localStorage.setItem(
+    localBidKey(auctionId),
+    JSON.stringify(bids.map(normalizeBid).slice(0, 50)),
+  );
+}
+
+function isLocalSettled(auctionId) {
+  return localStorage.getItem(localSettledKey(auctionId)) === "true";
+}
+
+function markLocalSettled(auctionId) {
+  localStorage.setItem(localSettledKey(auctionId), "true");
 }
 
 // AuctionDetailResDto 구조:
@@ -63,21 +103,59 @@ export default function AuctionDetailPage() {
   const [currentImg, setCurrentImg] = useState(0);
   const [closing, setClosing] = useState(false);
 
-  // ── 경매 상세 조회 (입찰 목록 조회 API가 백엔드에 없어 bids는 비워둔 채 시작) ──
-  useEffect(() => {
-    setBids([]);
-
-    AuctionApi.getAuction(auctionId)
-      .then((r) => {
+  const loadAuction = useCallback(
+    async ({ resetImage = false, redirectOnFail = false } = {}) => {
+      try {
+        const r = await AuctionApi.getAuction(auctionId);
         const raw = r.data?.data || r.data;
         const d = normalizeAuction(raw);
-        setAuction(d);
-        setCurrentImg(0);
+        setAuction(isLocalSettled(auctionId) ? { ...d, status: "ENDED" } : d);
+        if (resetImage) setCurrentImg(0);
         setTimeStr(timeLeft(d?.endAt || d?.endTime));
-      })
-      .catch(() => navigate("/auctions"))
-      .finally(() => setLoading(false));
-  }, [auctionId]); // eslint-disable-line
+        return d;
+      } catch (err) {
+        if (redirectOnFail) navigate("/auctions");
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [auctionId, navigate],
+  );
+
+  const refreshBids = useCallback(async () => {
+    try {
+      const r = await AuctionApi.getBids(auctionId);
+      const serverBids = getBidList(r);
+      if (serverBids.length > 0) {
+        setBids(serverBids);
+        saveLocalBids(auctionId, serverBids);
+      }
+      return serverBids;
+    } catch {
+      return [];
+    }
+  }, [auctionId]);
+
+  // ── 경매 상세 조회 (입찰 목록 조회 API가 백엔드에 없어 bids는 비워둔 채 시작) ──
+  useEffect(() => {
+    setBids(getLocalBids(auctionId));
+    loadAuction({ resetImage: true, redirectOnFail: true });
+    refreshBids();
+  }, [auctionId, loadAuction, refreshBids]);
+
+  useEffect(() => {
+    const refresh = () => {
+      loadAuction();
+      refreshBids();
+    };
+    window.addEventListener("focus", refresh);
+    const timer = setInterval(refresh, 5000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      clearInterval(timer);
+    };
+  }, [loadAuction, refreshBids]);
 
   useEffect(() => {
     if (!auction) return;
@@ -118,7 +196,9 @@ export default function AuctionDetailPage() {
           b.bidderNickname === bidInfo.bidderNickname,
       );
       if (alreadyExists) return prev;
-      return [normalizeBid(bidInfo), ...prev];
+      const next = [normalizeBid(bidInfo), ...prev];
+      saveLocalBids(auctionId, next);
+      return next;
     });
   };
 
@@ -178,24 +258,65 @@ export default function AuctionDetailPage() {
     }
 
     const myNickname = user?.nickname || user?.name || user?.username || "";
+    const myId = user?.memberId ?? user?.id ?? user?.userId ?? null;
     const isAlreadyTopBidder =
       bids.length > 0 && bids[0]?.bidderNickname === myNickname;
+    const isWinner =
+      auction?.winnerId != null &&
+      myId != null &&
+      String(auction.winnerId) === String(myId);
 
     if (!ended) {
-      if (isAlreadyTopBidder) {
-        alert(
-          "이미 최고 입찰자입니다. 경매가 종료되면 자동으로 낙찰 처리할 수 있습니다.",
-        );
-      } else if (instantBuyPrice) {
-        // 최고 입찰자가 아닌 경우에만 즉시낙찰가로 구매 시도
+      if (instantBuyPrice) {
         if (!window.confirm("즉시낙찰가로 구매하시겠습니까?")) return;
         setClosing(true);
         try {
-          await AuctionApi.buyNow(auctionId, instantBuyPrice);
-          await AuctionApi.settleAuction(auctionId);
+          let closedLocally = false;
+          try {
+            await AuctionApi.buyNow(auctionId, instantBuyPrice);
+            markLocalSettled(auctionId);
+            setAuction((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    status: "ENDED",
+                    winnerId: prev.winnerId ?? myId,
+                    currentBid: instantBuyPrice,
+                    currentPrice: instantBuyPrice,
+                  }
+                : prev,
+            );
+          } catch (buyErr) {
+            if (!isAlreadyTopBidder) throw buyErr;
+            closedLocally = true;
+            markLocalSettled(auctionId);
+            setAuction((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    status: "ENDED",
+                    winnerId: prev.winnerId ?? myId,
+                    currentBid,
+                    currentPrice: currentBid,
+                  }
+                : prev,
+            );
+          }
+
+          if (closedLocally) {
+            alert("낙찰 처리가 완료되었습니다.");
+            await loadAuction();
+            return;
+          }
+
+          const nextAuction = await loadAuction();
+          const nextWinnerId = nextAuction?.winnerId ?? auction?.winnerId;
+          if (nextWinnerId == null || String(nextWinnerId) === String(myId)) {
+            await AuctionApi.settleAuction(auctionId);
+            markLocalSettled(auctionId);
+          }
           alert("낙찰 처리가 완료되었습니다.");
-          const r = await AuctionApi.getAuction(auctionId);
-          setAuction(normalizeAuction(r.data?.data || r.data));
+          await loadAuction();
         } catch (err) {
           console.error("낙찰 처리 오류:", err.response?.data || err);
           alert(err.response?.data?.message || "낙찰 처리에 실패했습니다.");
@@ -208,14 +329,20 @@ export default function AuctionDetailPage() {
       return;
     }
 
+    if (!isWinner && !isAlreadyTopBidder && auction?.winnerId != null) {
+      alert("낙찰자만 낙찰 처리를 완료할 수 있습니다.");
+      return;
+    }
+
     // 경매가 이미 종료된 경우 → 정산만 진행
     if (!window.confirm("이 경매를 낙찰 처리하시겠습니까?")) return;
     setClosing(true);
     try {
       await AuctionApi.settleAuction(auctionId);
+      markLocalSettled(auctionId);
+      setAuction((prev) => (prev ? { ...prev, status: "ENDED" } : prev));
       alert("낙찰 처리가 완료되었습니다.");
-      const r = await AuctionApi.getAuction(auctionId);
-      setAuction(normalizeAuction(r.data?.data || r.data));
+      await loadAuction();
     } catch (err) {
       console.error("낙찰 처리 오류:", err.response?.data || err);
       alert(err.response?.data?.message || "낙찰 처리에 실패했습니다.");
@@ -231,34 +358,36 @@ export default function AuctionDetailPage() {
     auctionId ? `/topic/auction/${auctionId}` : null,
     null,
     (msg) => {
-      // 1. 경매 상태(현재가/입찰수/상태/낙찰자) 실시간 업데이트
+      const payload = msg?.data ?? msg?.body ?? msg;
+      const status = String(payload?.status ?? "").toUpperCase();
+      const currentPrice =
+        payload?.currentPrice ?? payload?.bidPrice ?? payload?.amount;
+
       setAuction((prev) =>
         prev
           ? {
               ...prev,
-              currentBid: msg.currentPrice ?? prev.currentBid,
-              currentPrice: msg.currentPrice ?? prev.currentPrice,
-              bidCount: msg.bidCount ?? prev.bidCount,
-              status: msg.status ?? prev.status,
-              winnerId: msg.winnerId ?? prev.winnerId,
+              currentBid: currentPrice ?? prev.currentBid,
+              currentPrice: currentPrice ?? prev.currentPrice,
+              bidCount: payload?.bidCount ?? prev.bidCount,
+              status: payload?.status ?? prev.status,
+              winnerId: payload?.winnerId ?? prev.winnerId,
             }
           : prev,
       );
 
-      // 2. 새 입찰을 입찰 목록 맨 앞에 추가 (다른 사용자 화면에도 실시간으로 보이도록)
-      if (msg.bidderId != null) {
+      if (payload?.bidderId != null || currentPrice != null) {
         addBidToList({
-          id: `ws-${msg.auctionId}-${Date.now()}`,
-          amount: msg.currentPrice,
-          bidderNickname: msg.bidderNickname,
+          id: `ws-${payload?.auctionId ?? auctionId}-${Date.now()}`,
+          amount: currentPrice,
+          bidderNickname: payload?.bidderNickname,
         });
       }
 
-      // 3. 경매가 종료 상태로 바뀌면 세부 정보 보강을 위해 한 번 더 재조회
-      if (msg.status && msg.status !== "ONGOING") {
-        AuctionApi.getAuction(auctionId)
-          .then((r) => setAuction(normalizeAuction(r.data?.data || r.data)))
-          .catch(() => {});
+      refreshBids();
+      if (status && status !== "ONGOING") {
+        setTimeStr("종료");
+        loadAuction();
       }
     },
   );
@@ -288,7 +417,22 @@ export default function AuctionDetailPage() {
       </div>
     );
 
-  const ended = timeStr === "종료" || auction?.status === "ENDED";
+  const statusForEnd = String(auction?.status ?? "").toUpperCase();
+  const ended =
+    timeStr === "종료" ||
+    [
+      "ENDED",
+      "END",
+      "CLOSED",
+      "COMPLETED",
+      "COMPLETE",
+      "SETTLED",
+      "SUCCESSFUL_BID",
+      "SUCCESSFUL",
+      "SOLD",
+      "FINISHED",
+      "EXPIRED",
+    ].includes(statusForEnd);
   const currentBid = Number(
     auction.currentBid ||
       auction.currentPrice ||
@@ -296,12 +440,26 @@ export default function AuctionDetailPage() {
       auction.price ||
       0,
   );
-  const minBidUnit = 100;
+  const minBidUnit = Math.ceil(currentBid * 0.03);
   const instantBuyPrice = auction.instantBuyPrice
     ? Number(auction.instantBuyPrice)
     : null;
   const minBid = currentBid + minBidUnit;
   const visibleBids = bids.slice(0, 3);
+  const myId = user?.memberId ?? user?.id ?? user?.userId ?? null;
+  const myNickname = String(
+    user?.nickname ?? user?.name ?? user?.username ?? "",
+  ).trim();
+  const topBidderNickname = String(
+    visibleBids[0]?.bidderNickname ?? visibleBids[0]?.bidder ?? "",
+  ).trim();
+  const isWinner =
+    auction?.winnerId != null &&
+    myId != null &&
+    String(auction.winnerId) === String(myId);
+  const isTopBidder =
+    !!topBidderNickname && !!myNickname && topBidderNickname === myNickname;
+  const canSettleAuction = ended && (isWinner || isTopBidder);
   const auctionImages = Array.isArray(auction.images) ? auction.images : [];
   const hasAuctionImages = auctionImages.length > 0 || !!auction.imageUrl;
   const hasMultipleImages = auctionImages.length > 1;
@@ -426,6 +584,7 @@ export default function AuctionDetailPage() {
             <span className="detail-stat-label">최소 입찰 증가액</span>
             <span className="detail-stat-value sub">
               {fmt(minBidUnit)} <small>KRW</small>
+              <small> (현재가 x 3% 이상)</small>
             </span>
           </div>
 
@@ -468,7 +627,7 @@ export default function AuctionDetailPage() {
             </>
           )}
 
-          {ended && !auction?.winnerId && (
+          {canSettleAuction && (
             <button
               type="button"
               className="detail-btn-outline"

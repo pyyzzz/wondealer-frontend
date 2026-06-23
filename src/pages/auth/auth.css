@@ -96,6 +96,20 @@
   background-color: var(--color-primary);
 }
 
+.auth-submit,
+.auth-submit-btn,
+.btn-send-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.auth-submit,
+.auth-submit-btn {
+  width: 100%;
+}
+
 .auth-google,
 .btn-send-code {
   background-color: var(--bg-container-low);
